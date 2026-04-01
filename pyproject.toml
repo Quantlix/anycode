@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "anycode"
+version = "0.1.0"
+description = "Orchestrate autonomous AI agent teams with dependency-aware task scheduling, inter-agent messaging, and provider-agnostic LLM integration."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "Quantlix" }]
+keywords = [
+    "agent",
+    "orchestration",
+    "multi-agent",
+    "llm",
+    "ai",
+    "tool-use",
+    "team-collaboration",
+    "task-scheduling",
+    "anthropic",
+    "openai",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "anthropic>=0.40",
+    "openai>=1.50",
+]
+
+[project.urls]
+Homepage = "https://github.com/Quantlix/anycode"
+Repository = "https://github.com/Quantlix/anycode"
+Issues = "https://github.com/Quantlix/anycode/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/anycode"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 150
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
