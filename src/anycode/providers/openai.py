@@ -40,7 +40,7 @@ def _map_messages(messages: list[LLMMessage], system_prompt: str | None) -> list
             if not has_tool_results:
                 result.append(_map_user(msg))
             else:
-                non_tool = [b for b in msg.content if b.type != "tool_result"]
+                non_tool: list[ContentBlock] = [b for b in msg.content if b.type != "tool_result"]
                 if non_tool:
                     result.append(_map_user(LLMMessage(role="user", content=non_tool)))
                 for b in msg.content:

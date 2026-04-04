@@ -137,11 +137,11 @@ class OTLPExporter(SpanExporter):
         if self._tracer is not None:
             return
         try:
-            from opentelemetry import trace
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-            from opentelemetry.sdk.resources import Resource
-            from opentelemetry.sdk.trace import TracerProvider
-            from opentelemetry.sdk.trace.export import BatchSpanProcessor
+            from opentelemetry import trace  # type: ignore[import-not-found]
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter  # type: ignore[import-not-found]
+            from opentelemetry.sdk.resources import Resource  # type: ignore[import-not-found]
+            from opentelemetry.sdk.trace import TracerProvider  # type: ignore[import-not-found]
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore[import-not-found]
 
             resource = Resource.create({"service.name": self._service_name})
             provider = TracerProvider(resource=resource)
@@ -156,7 +156,7 @@ class OTLPExporter(SpanExporter):
         self._init_tracer()
         if self._tracer is None:
             return
-        from opentelemetry import trace
+        from opentelemetry import trace  # type: ignore[import-not-found]
 
         with self._tracer.start_as_current_span(span.name) as otel_span:
             for key, value in span.attributes.items():

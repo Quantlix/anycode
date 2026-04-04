@@ -22,7 +22,10 @@ class _EventBus:
         sub_id = self._next_id
         self._next_id += 1
         subs[sub_id] = handler
-        return lambda: subs.pop(sub_id, None)
+        def _unsub() -> None:
+            subs.pop(sub_id, None)
+
+        return _unsub
 
     def emit(self, event: str, data: Any) -> None:
         for handler in self._listeners.get(event, {}).values():

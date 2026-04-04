@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from anycode import (
     Agent,
     AgentConfig,
+    AgentInfo,
     AgentPool,
     ToolExecutor,
     ToolRegistry,
@@ -207,13 +208,13 @@ async def main() -> None:
             text="The quick brown fox jumps over the lazy dog repeatedly in the sunny meadow while birds sing overhead",
             max_words=8,
         ),
-        ToolUseContext(agent={"name": "demo", "role": "demo", "model": "demo"}),
+        ToolUseContext(agent=AgentInfo(name="demo", role="demo", model="demo")),
     )
     print(f'summarize_text(8 words) = "{summary_result.data}"')
 
     weather_result = await lookup_weather_fn(
         WeatherInput(city="Berlin", units="metric"),
-        ToolUseContext(agent={"name": "demo", "role": "demo", "model": "demo"}),
+        ToolUseContext(agent=AgentInfo(name="demo", role="demo", model="demo")),
     )
     print(f"lookup_weather(Berlin) = {weather_result.data}")
 

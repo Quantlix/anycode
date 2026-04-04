@@ -252,15 +252,15 @@ async def demo_guardrails(provider: str, model: str) -> None:
 
     # Custom hook that adds a system instruction
     class SafetyHook:
-        async def before_turn(self, msgs: list[LLMMessage], ctx: AgentInfo) -> list[LLMMessage]:
+        async def before_turn(self, messages: list[LLMMessage], context: AgentInfo) -> list[LLMMessage]:
             safety_msg = LLMMessage(
                 role="user",
                 content=[TextBlock(text="[SYSTEM] Always respond helpfully and safely.")],
             )
-            return [safety_msg] + list(msgs)
+            return [safety_msg] + list(messages)
 
-        async def after_turn(self, resp: LLMResponse, ctx: AgentInfo) -> LLMResponse:
-            return resp
+        async def after_turn(self, response: LLMResponse, context: AgentInfo) -> LLMResponse:
+            return response
 
     safety_runner = HookRunner([SafetyHook()])
     original = [LLMMessage(role="user", content=[TextBlock(text="Hello")])]

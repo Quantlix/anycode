@@ -47,7 +47,10 @@ class MessageBus:
         sub_id = self._next_id
         self._next_id += 1
         subs[sub_id] = callback
-        return lambda: subs.pop(sub_id, None)
+        def _unsub() -> None:
+            subs.pop(sub_id, None)
+
+        return _unsub
 
     def _dispatch(self, message: Message) -> None:
         self._messages.append(message)

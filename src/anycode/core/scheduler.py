@@ -95,6 +95,8 @@ class Scheduler:
                 return self._capability_match(pending, agents)
             case "dependency-first":
                 return self._dependency_first(pending, agents, tasks)
+            case _:
+                return {}
 
     def auto_assign(self, queue: TaskQueue, agents: list[AgentConfig]) -> None:
         snapshot = queue.list()

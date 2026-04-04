@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
+
+T = TypeVar("T", bound=BaseModel)
 
 from anycode.types import LLMToolDef
 
@@ -43,7 +45,7 @@ def schema_to_openai_response_format(schema_class: type[BaseModel]) -> dict[str,
     }
 
 
-def parse_structured_output(raw: str, schema_class: type[BaseModel]) -> BaseModel | None:
+def parse_structured_output(raw: str, schema_class: type[T]) -> T | None:
     """Attempt to parse raw LLM output as a validated Pydantic model instance.
 
     Tries direct JSON parse first, then extracts JSON from markdown code blocks.
@@ -84,7 +86,7 @@ def _try_parse_json(raw: str) -> dict[str, Any] | None:
     return None
 
 
-def _try_validate(data: dict[str, Any], schema_class: type[BaseModel]) -> BaseModel | None:
+def _try_validate(data: dict[str, Any], schema_class: type[T]) -> T | None:
     try:
         return schema_class.model_validate(data)
     except Exception:
