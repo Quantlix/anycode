@@ -29,10 +29,7 @@ class ToolRegistry:
 
     def register(self, tool: ToolDefinition) -> None:
         if tool.name in self._tools:
-            raise ValueError(
-                f'ToolRegistry: "{tool.name}" is already registered. '
-                "Choose a unique name or remove the existing entry first."
-            )
+            raise ValueError(f'ToolRegistry: "{tool.name}" is already registered. Choose a unique name or remove the existing entry first.')
         self._tools[tool.name] = tool
 
     def get(self, name: str) -> ToolDefinition | None:
@@ -62,15 +59,17 @@ class ToolRegistry:
         result = []
         for tool in self._tools.values():
             schema = _model_to_json_schema(tool.input_model)
-            result.append({
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": {
-                    "type": "object",
-                    "properties": schema.get("properties", {}),
-                    **({"required": schema["required"]} if "required" in schema else {}),
-                },
-            })
+            result.append(
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "input_schema": {
+                        "type": "object",
+                        "properties": schema.get("properties", {}),
+                        **({"required": schema["required"]} if "required" in schema else {}),
+                    },
+                }
+            )
         return result
 
 

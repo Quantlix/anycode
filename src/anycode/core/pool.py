@@ -52,9 +52,7 @@ class AgentPool:
             try:
                 results[agent_name] = await self.run(agent_name, prompt)
             except Exception as e:
-                results[agent_name] = AgentRunResult(
-                    success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[]
-                )
+                results[agent_name] = AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
 
         await asyncio.gather(*[_job(j["agent"], j["prompt"]) for j in jobs])
         return results

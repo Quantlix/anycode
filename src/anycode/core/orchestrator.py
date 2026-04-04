@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
+from pydantic import BaseModel
+
 from anycode.collaboration.team import Team
 from anycode.core.agent import Agent
 from anycode.core.pool import AgentPool
@@ -11,18 +13,23 @@ from anycode.core.scheduler import Scheduler
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task, get_task_dependency_order, validate_task_dependencies
+from anycode.telemetry.tracer import Tracer
 from anycode.tools.built_in import register_built_in_tools
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
     AgentConfig,
     AgentRunResult,
+    GuardrailConfig,
     OrchestratorConfig,
     OrchestratorEvent,
+    OutputValidator,
     Task,
     TeamConfig,
     TeamRunResult,
     TokenUsage,
+    TraceConfig,
+    TurnHook,
 )
 
 
@@ -34,22 +41,65 @@ class TaskSpec:
         self.depends_on = depends_on or []
 
 
+DEFAULT_MAX_CONCURRENCY = 5
+_COORDINATOR_ROLE_PREVIEW_LENGTH = 80
+_DEPENDENCY_CONTEXT_MAX_LENGTH = 500
+
+
 class AnyCode:
     """Top-level orchestration engine for agents, teams, and task pipelines."""
 
     def __init__(self, config: OrchestratorConfig | dict[str, object] | None = None) -> None:
         self._config = OrchestratorConfig.model_validate(config) if isinstance(config, dict) else (config or OrchestratorConfig())
-        self._pool = AgentPool(self._config.max_concurrency or 5)
+        self._pool = AgentPool(self._config.max_concurrency or DEFAULT_MAX_CONCURRENCY)
         self._scheduler = Scheduler("dependency-first")
         self._teams: dict[str, Team] = {}
+        self._trace_config: TraceConfig | None = None
+        self._guardrail_config: GuardrailConfig | None = None
+        self._hooks: list[TurnHook] | None = None
+        self._output_validators: list[OutputValidator] | None = None
+        self._tracer: Tracer | None = None
 
-    def build_agent(self, config: AgentConfig | dict[str, object]) -> Agent:
+    def configure(
+        self,
+        *,
+        trace: TraceConfig | None = None,
+        guardrails: GuardrailConfig | None = None,
+        hooks: list[TurnHook] | None = None,
+        output_validators: list[OutputValidator] | None = None,
+    ) -> None:
+        """Set telemetry, guardrails, hooks, and output validators for all agents."""
+        if trace is not None:
+            self._trace_config = trace
+            self._tracer = Tracer(trace)
+        if guardrails is not None:
+            self._guardrail_config = guardrails
+        if hooks is not None:
+            self._hooks = hooks
+        if output_validators is not None:
+            self._output_validators = output_validators
+
+    def build_agent(
+        self,
+        config: AgentConfig | dict[str, object],
+        *,
+        output_schema: type[BaseModel] | None = None,
+    ) -> Agent:
         """Construct a fully wired Agent instance with all default tools."""
         typed_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
         registry = ToolRegistry()
         register_built_in_tools(registry)
         executor = ToolExecutor(registry)
-        return Agent(typed_config, registry, executor)
+        return Agent(
+            typed_config,
+            registry,
+            executor,
+            tracer=self._tracer,
+            guardrail_config=self._guardrail_config,
+            hooks=self._hooks,
+            output_validators=self._output_validators,
+            output_schema=output_schema,
+        )
 
     def create_team(self, name: str, config: TeamConfig) -> Team:
         """Instantiate a team and enrol its agents into the shared pool."""
@@ -60,10 +110,21 @@ class AnyCode:
                 self._pool.add(self.build_agent(agent_cfg))
         return team
 
-    async def run_agent(self, config: AgentConfig | dict[str, object], prompt: str) -> AgentRunResult:
+    async def run_agent(
+        self,
+        config: AgentConfig | dict[str, object],
+        prompt: str,
+        *,
+        output_schema: type[BaseModel] | None = None,
+    ) -> AgentRunResult:
         """Create and run a single agent on one prompt."""
         typed_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
-        agent = self.build_agent(typed_config)
+
+        root_span = None
+        if self._tracer and self._tracer.enabled:
+            root_span = self._tracer.start_span(f"anycode.run_agent.{typed_config.name}")
+
+        agent = self.build_agent(typed_config, output_schema=output_schema)
         self._emit(OrchestratorEvent(type="agent_start", agent=typed_config.name))
         try:
             result = await agent.run(prompt)
@@ -72,43 +133,54 @@ class AnyCode:
         except Exception as e:
             self._emit(OrchestratorEvent(type="error", agent=typed_config.name, data=e))
             return AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
+        finally:
+            if root_span and self._tracer:
+                self._tracer.end_span(root_span)
 
     async def run_team(self, team: Team, goal: str) -> TeamRunResult:
         """Decompose a high-level goal into tasks using a coordinator agent, then execute."""
-        agents = team.get_agents()
-        if not agents:
-            return TeamRunResult(success=False, agent_results={}, total_token_usage=EMPTY_USAGE)
+        root_span = None
+        if self._tracer and self._tracer.enabled:
+            root_span = self._tracer.start_span(f"anycode.run_team.{team.name}")
 
-        coordinator_cfg = agents[0]
-        coordinator = self.build_agent(coordinator_cfg)
-        coordinator_prompt = self._build_coordinator_prompt(agents, goal)
+        try:
+            agents = team.get_agents()
+            if not agents:
+                return TeamRunResult(success=False, agent_results={}, total_token_usage=EMPTY_USAGE)
 
-        self._emit(OrchestratorEvent(type="agent_start", agent=coordinator_cfg.name))
-        plan_result = await coordinator.run(coordinator_prompt)
-        self._emit(OrchestratorEvent(type="agent_complete", agent=coordinator_cfg.name, data=plan_result))
+            coordinator_cfg = agents[0]
+            coordinator = self.build_agent(coordinator_cfg)
+            coordinator_prompt = self._build_coordinator_prompt(agents, goal)
 
-        if not plan_result.success:
-            return TeamRunResult(
-                success=False,
-                agent_results={coordinator_cfg.name: plan_result},
-                total_token_usage=plan_result.token_usage,
-            )
+            self._emit(OrchestratorEvent(type="agent_start", agent=coordinator_cfg.name))
+            plan_result = await coordinator.run(coordinator_prompt)
+            self._emit(OrchestratorEvent(type="agent_complete", agent=coordinator_cfg.name, data=plan_result))
 
-        task_specs = self._parse_task_specs(plan_result.output, agents)
-        if not task_specs:
-            return TeamRunResult(
-                success=True,
-                agent_results={coordinator_cfg.name: plan_result},
-                total_token_usage=plan_result.token_usage,
-            )
+            if not plan_result.success:
+                return TeamRunResult(
+                    success=False,
+                    agent_results={coordinator_cfg.name: plan_result},
+                    total_token_usage=plan_result.token_usage,
+                )
 
-        task_results = await self._execute_tasks(team, task_specs)
-        combined = {coordinator_cfg.name: plan_result, **task_results.agent_results}
-        total = plan_result.token_usage
-        for r in task_results.agent_results.values():
-            total = merge_usage(total, r.token_usage)
+            task_specs = self._parse_task_specs(plan_result.output, agents)
+            if not task_specs:
+                return TeamRunResult(
+                    success=True,
+                    agent_results={coordinator_cfg.name: plan_result},
+                    total_token_usage=plan_result.token_usage,
+                )
 
-        return TeamRunResult(success=task_results.success, agent_results=combined, total_token_usage=total)
+            task_results = await self._execute_tasks(team, task_specs)
+            combined = {coordinator_cfg.name: plan_result, **task_results.agent_results}
+            total = plan_result.token_usage
+            for r in task_results.agent_results.values():
+                total = merge_usage(total, r.token_usage)
+
+            return TeamRunResult(success=task_results.success, agent_results=combined, total_token_usage=total)
+        finally:
+            if root_span and self._tracer:
+                self._tracer.end_span(root_span)
 
     async def run_tasks(self, team: Team, task_specs: list[TaskSpec]) -> TeamRunResult:
         """Run an explicit set of task specs with full dependency resolution."""
@@ -129,6 +201,7 @@ class AnyCode:
         waves = self._build_waves(ordered, queue)
 
         for wave in waves:
+
             async def _run_task(task: Task) -> None:
                 nonlocal all_succeeded, total_usage
                 assignee = task.assignee
@@ -157,9 +230,7 @@ class AnyCode:
                 except Exception as e:
                     queue.fail(task.id, str(e))
                     all_succeeded = False
-                    agent_results[assignee] = AgentRunResult(
-                        success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[]
-                    )
+                    agent_results[assignee] = AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
 
             await asyncio.gather(*[_run_task(t) for t in wave])
 
@@ -217,7 +288,7 @@ class AnyCode:
         return waves
 
     def _build_coordinator_prompt(self, agents: list[AgentConfig], goal: str) -> str:
-        roster = "\n".join(f"- {a.name}: {(a.system_prompt or 'general-purpose assistant')[:80]}" for a in agents)
+        roster = "\n".join(f"- {a.name}: {(a.system_prompt or 'general-purpose assistant')[:_COORDINATOR_ROLE_PREVIEW_LENGTH]}" for a in agents)
         return (
             f"You are the lead coordinator of a team. Here are your team members:\n{roster}\n\n"
             f"Objective: {goal}\n\n"
@@ -233,7 +304,7 @@ class AnyCode:
         for dep_id in task.depends_on or []:
             dep_task = next((t for t in queue.list() if t.id == dep_id), None)
             if dep_task and dep_task.result:
-                dep_context_parts.append(f"[{dep_task.title}]: {dep_task.result[:500]}")
+                dep_context_parts.append(f"[{dep_task.title}]: {dep_task.result[:_DEPENDENCY_CONTEXT_MAX_LENGTH]}")
 
         context = "\n\nRelevant output from prerequisite tasks:\n" + "\n\n".join(dep_context_parts) if dep_context_parts else ""
         return f"Task: {task.title}\n\n{task.description}{context}"

@@ -2,20 +2,36 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import AsyncGenerator, Callable
 
+from pydantic import BaseModel
+
+from anycode.guardrails.budget import BudgetTracker
+from anycode.guardrails.hooks import HookRunner
+from anycode.guardrails.validators import MAX_VALIDATION_RETRIES, run_validators
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
+from anycode.structured.output import (
+    STRUCTURED_OUTPUT_TOOL_NAME,
+    build_retry_prompt,
+    parse_structured_output,
+    schema_to_tool_def,
+)
+from anycode.telemetry.tracer import Tracer
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
     AgentInfo,
     ContentBlock,
+    GuardrailConfig,
     LLMAdapter,
     LLMChatOptions,
     LLMMessage,
+    OutputValidator,
     RunnerOptions,
     RunResult,
+    SpanAttributes,
     StreamEvent,
     TextBlock,
     TokenUsage,
@@ -24,7 +40,11 @@ from anycode.types import (
     ToolResultBlock,
     ToolUseBlock,
     ToolUseContext,
+    TurnHook,
 )
+
+DEFAULT_TURN_LIMIT = 10
+_MS_PER_SECOND = 1000
 
 
 def _pull_text(blocks: list[ContentBlock]) -> str:
@@ -44,12 +64,27 @@ class AgentRunner:
         tool_registry: ToolRegistry,
         tool_executor: ToolExecutor,
         options: RunnerOptions,
+        *,
+        tracer: Tracer | None = None,
+        guardrail_config: GuardrailConfig | None = None,
+        hooks: list[TurnHook] | None = None,
+        output_validators: list[OutputValidator] | None = None,
+        output_schema: type[BaseModel] | None = None,
     ) -> None:
         self._adapter = adapter
         self._registry = tool_registry
         self._executor = tool_executor
         self._options = options
-        self._turn_limit = options.max_turns or 10
+        self._turn_limit = options.max_turns or DEFAULT_TURN_LIMIT
+        self._tracer = tracer or Tracer()
+        self._budget = BudgetTracker(guardrail_config, model=options.model)
+        self._hook_runner = HookRunner(hooks)
+        self._validators = list(output_validators) if output_validators else []
+        self._output_schema = output_schema
+
+    @property
+    def budget_tracker(self) -> BudgetTracker:
+        return self._budget
 
     async def run(
         self,
@@ -72,14 +107,16 @@ class AgentRunner:
         tool_calls: list[ToolCallRecord] = []
         last_output = ""
         turn_count = 0
+        validation_retries = 0
+        structured_retries = 0
+        agent_name = self._options.agent_name or "runner"
 
-        # Prepare tool defs
         all_defs = self._registry.to_tool_defs()
-        active_defs = (
-            [d for d in all_defs if d.name in self._options.allowed_tools]
-            if self._options.allowed_tools
-            else all_defs
-        )
+        active_defs = [d for d in all_defs if d.name in self._options.allowed_tools] if self._options.allowed_tools else all_defs
+
+        if self._output_schema:
+            structured_tool = schema_to_tool_def(self._output_schema)
+            active_defs = list(active_defs) + [structured_tool] if active_defs else [structured_tool]
 
         chat_params = LLMChatOptions(
             model=self._options.model,
@@ -91,59 +128,158 @@ class AgentRunner:
 
         try:
             while turn_count < self._turn_limit:
-                turn_count += 1
-                response = await self._adapter.chat(conversation, chat_params)
-                cumulative_usage = merge_usage(cumulative_usage, response.usage)
-
-                assistant_msg = LLMMessage(role="assistant", content=response.content)
-                conversation.append(assistant_msg)
-                if on_message:
-                    on_message(assistant_msg)
-
-                turn_text = _pull_text(response.content)
-                if turn_text:
-                    yield StreamEvent(type="text", data=turn_text)
-
-                tool_blocks = _filter_tool_calls(response.content)
-                for block in tool_blocks:
-                    yield StreamEvent(type="tool_use", data=block)
-
-                if not tool_blocks:
-                    last_output = turn_text
+                if self._budget.is_exhausted():
+                    reason = self._budget.get_exhaustion_reason() or "Budget exhausted."
+                    last_output = reason
+                    yield StreamEvent(type="text", data=reason)
                     break
 
-                ctx = self._build_context()
-                results: list[tuple[ToolResultBlock, ToolCallRecord]] = []
+                turn_count += 1
+                self._budget.record_turn()
 
-                for block in tool_blocks:
-                    began = time.monotonic()
-                    try:
-                        result = await self._executor.execute(block.name, block.input, ctx)
-                    except Exception as e:
-                        result = ToolResult(data=str(e), is_error=True)
+                ctx_info = self._build_agent_info()
+                conversation = await self._hook_runner.run_before_turn(conversation, ctx_info)
 
-                    result_block = ToolResultBlock(
-                        tool_use_id=block.id,
-                        content=result.data,
-                        is_error=result.is_error,
+                async with self._tracer.async_span(f"anycode.agent.{agent_name}.turn.{turn_count}") as turn_span:
+                    turn_span.set_attributes(
+                        SpanAttributes(
+                            agent_name=agent_name,
+                            model=self._options.model,
+                            turn_number=turn_count,
+                        )
                     )
-                    record = ToolCallRecord(
-                        tool_name=block.name,
-                        input=block.input,
-                        output=result.data,
-                        duration=time.monotonic() - began,
-                    )
-                    results.append((result_block, record))
 
-                result_blocks: list[ContentBlock] = [r[0] for r in results]
-                for _, record in results:
-                    tool_calls.append(record)
-                    yield StreamEvent(type="tool_result", data=record)
+                    llm_start = time.monotonic()
+                    async with self._tracer.async_span("anycode.llm.chat", parent=turn_span) as llm_span:
+                        response = await self._adapter.chat(conversation, chat_params)
+                        llm_span.set_attributes(
+                            SpanAttributes(
+                                model=self._options.model,
+                                provider=self._adapter.name,
+                                token_input=response.usage.input_tokens,
+                                token_output=response.usage.output_tokens,
+                            )
+                        )
 
-                tool_msg = LLMMessage(role="user", content=result_blocks)
-                conversation.append(tool_msg)
-                if on_message:
-                    on_message(tool_msg)
+                    turn_span.set_attribute("llm_duration_ms", (time.monotonic() - llm_start) * _MS_PER_SECOND)
+                    cumulative_usage = merge_usage(cumulative_usage, response.usage)
+                    self._budget.record_usage(response.usage)
+
+                    response = await self._hook_runner.run_after_turn(response, ctx_info)
+
+                    assistant_msg = LLMMessage(role="assistant", content=response.content)
+                    conversation.append(assistant_msg)
+                    if on_message:
+                        on_message(assistant_msg)
+
+                    turn_text = _pull_text(response.content)
+                    if turn_text:
+                        yield StreamEvent(type="text", data=turn_text)
+
+                    tool_blocks = _filter_tool_calls(response.content)
+
+                    if self._output_schema:
+                        structured_block = next((b for b in tool_blocks if b.name == STRUCTURED_OUTPUT_TOOL_NAME), None)
+                        if structured_block:
+                            raw_json = json.dumps(structured_block.input)
+                            parsed = parse_structured_output(raw_json, self._output_schema)
+                            if parsed is not None:
+                                last_output = raw_json
+                                turn_span.set_attribute("structured_output.valid", True)
+                                tool_blocks = [b for b in tool_blocks if b.name != STRUCTURED_OUTPUT_TOOL_NAME]
+                                if not tool_blocks:
+                                    break
+                            else:
+                                turn_span.set_attribute("structured_output.valid", False)
+                                tool_blocks = [b for b in tool_blocks if b.name != STRUCTURED_OUTPUT_TOOL_NAME]
+                                structured_retries += 1
+                                if structured_retries <= MAX_VALIDATION_RETRIES and turn_count < self._turn_limit:
+                                    retry_msg = LLMMessage(
+                                        role="user",
+                                        content=[
+                                            TextBlock(
+                                                text=build_retry_prompt(
+                                                    "",
+                                                    "Response did not match the required schema. Return valid JSON matching the schema exactly.",
+                                                )
+                                            )
+                                        ],
+                                    )
+                                    conversation.append(retry_msg)
+                                    if on_message:
+                                        on_message(retry_msg)
+                                    if not tool_blocks:
+                                        continue
+
+                    for block in tool_blocks:
+                        yield StreamEvent(type="tool_use", data=block)
+
+                    if not tool_blocks:
+                        last_output = turn_text or last_output
+
+                        if self._validators and last_output:
+                            validation = await run_validators(last_output, self._validators, ctx_info)
+                            if not validation.valid and validation.retry:
+                                validation_retries += 1
+                                if validation_retries <= MAX_VALIDATION_RETRIES and turn_count < self._turn_limit:
+                                    retry_msg = LLMMessage(
+                                        role="user",
+                                        content=[TextBlock(text=build_retry_prompt("", validation.reason or "Output validation failed."))],
+                                    )
+                                    conversation.append(retry_msg)
+                                    if on_message:
+                                        on_message(retry_msg)
+                                    continue
+                        break
+
+                    ctx = self._build_context()
+                    results: list[tuple[ToolResultBlock, ToolCallRecord]] = []
+
+                    for block in tool_blocks:
+                        if self._budget.is_tool_blocked(block.name):
+                            result = ToolResult(data=f'Tool "{block.name}" is blocked by guardrail policy.', is_error=True)
+                            result_block = ToolResultBlock(tool_use_id=block.id, content=result.data, is_error=True)
+                            record = ToolCallRecord(tool_name=block.name, input=block.input, output=result.data, duration=0.0)
+                            results.append((result_block, record))
+                            continue
+
+                        began = time.monotonic()
+                        async with self._tracer.async_span(f"anycode.tool.{block.name}", parent=turn_span) as tool_span:
+                            try:
+                                result = await self._executor.execute(block.name, block.input, ctx)
+                            except Exception as e:
+                                result = ToolResult(data=str(e), is_error=True)
+                                tool_span.set_error(str(e))
+
+                            duration = time.monotonic() - began
+                            tool_span.set_attributes(SpanAttributes(tool_name=block.name))
+                            tool_span.set_attribute("duration_ms", duration * _MS_PER_SECOND)
+                            tool_span.set_attribute("is_error", bool(result.is_error))
+
+                        result_block = ToolResultBlock(
+                            tool_use_id=block.id,
+                            content=result.data,
+                            is_error=result.is_error,
+                        )
+                        record = ToolCallRecord(
+                            tool_name=block.name,
+                            input=block.input,
+                            output=result.data,
+                            duration=duration,
+                        )
+                        results.append((result_block, record))
+
+                    self._budget.record_tool_call(len(results))
+
+                    result_blocks: list[ContentBlock] = [r[0] for r in results]
+                    for _, record in results:
+                        tool_calls.append(record)
+                        yield StreamEvent(type="tool_result", data=record)
+
+                    tool_msg = LLMMessage(role="user", content=result_blocks)
+                    conversation.append(tool_msg)
+                    if on_message:
+                        on_message(tool_msg)
 
         except Exception as e:
             yield StreamEvent(type="error", data=e)
@@ -158,7 +294,7 @@ class AgentRunner:
         yield StreamEvent(
             type="done",
             data=RunResult(
-                messages=conversation[len(seed_messages):],
+                messages=conversation[len(seed_messages) :],
                 output=last_output,
                 tool_calls=tool_calls,
                 token_usage=cumulative_usage,
@@ -167,10 +303,11 @@ class AgentRunner:
         )
 
     def _build_context(self) -> ToolUseContext:
-        return ToolUseContext(
-            agent=AgentInfo(
-                name=self._options.agent_name or "runner",
-                role=self._options.agent_role or "assistant",
-                model=self._options.model,
-            )
+        return ToolUseContext(agent=self._build_agent_info())
+
+    def _build_agent_info(self) -> AgentInfo:
+        return AgentInfo(
+            name=self._options.agent_name or "runner",
+            role=self._options.agent_role or "assistant",
+            model=self._options.model,
         )

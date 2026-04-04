@@ -100,7 +100,13 @@ class OpenAIAdapter:
     def name(self) -> str:
         return "openai"
 
-    async def chat(self, messages: list[LLMMessage], options: LLMChatOptions) -> LLMResponse:
+    async def chat(
+        self,
+        messages: list[LLMMessage],
+        options: LLMChatOptions,
+        *,
+        response_format: dict[str, Any] | None = None,
+    ) -> LLMResponse:
         oai_msgs = _map_messages(messages, options.system_prompt)
         kwargs: dict[str, Any] = {"model": options.model, "messages": oai_msgs}
         if options.max_tokens:
@@ -109,6 +115,10 @@ class OpenAIAdapter:
             kwargs["temperature"] = options.temperature
         if options.tools:
             kwargs["tools"] = [_map_tool_def(t) for t in options.tools]
+
+        # Structured output via response_format
+        if response_format:
+            kwargs["response_format"] = response_format
 
         completion = await self._client.chat.completions.create(**kwargs)
         choice = completion.choices[0]

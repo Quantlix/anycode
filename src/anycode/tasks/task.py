@@ -8,9 +8,7 @@ from uuid import uuid4
 from anycode.types import Task
 
 
-def create_task(
-    *, title: str, description: str, assignee: str | None = None, depends_on: list[str] | None = None
-) -> Task:
+def create_task(*, title: str, description: str, assignee: str | None = None, depends_on: list[str] | None = None) -> Task:
     now = datetime.now(UTC)
     return Task(
         id=str(uuid4()),

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+from pydantic import BaseModel
+
 from anycode.core.runner import AgentRunner
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.providers.adapter import create_adapter
+from anycode.telemetry.tracer import Tracer
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
@@ -14,20 +17,38 @@ from anycode.types import (
     AgentInfo,
     AgentRunResult,
     AgentState,
+    GuardrailConfig,
     LLMMessage,
+    OutputValidator,
     RunnerOptions,
     RunResult,
     StreamEvent,
+    StructuredAgentResult,
     TextBlock,
     ToolDefinition,
     ToolUseContext,
+    TurnHook,
 )
+
+_AGENT_ROLE_MAX_LENGTH = 50
+_TOOL_CONTEXT_ROLE_MAX_LENGTH = 60
 
 
 class Agent:
     """High-level agent with state management, conversation history, and streaming support."""
 
-    def __init__(self, config: AgentConfig | dict[str, object], tool_registry: ToolRegistry, tool_executor: ToolExecutor) -> None:
+    def __init__(
+        self,
+        config: AgentConfig | dict[str, object],
+        tool_registry: ToolRegistry,
+        tool_executor: ToolExecutor,
+        *,
+        tracer: Tracer | None = None,
+        guardrail_config: GuardrailConfig | None = None,
+        hooks: list[TurnHook] | None = None,
+        output_validators: list[OutputValidator] | None = None,
+        output_schema: type[BaseModel] | None = None,
+    ) -> None:
         typed_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
         self.name = typed_config.name
         self.config = typed_config
@@ -36,6 +57,11 @@ class Agent:
         self._runner: AgentRunner | None = None
         self._state = AgentState()
         self._history: list[LLMMessage] = []
+        self._tracer = tracer
+        self._guardrail_config = guardrail_config
+        self._hooks = hooks
+        self._output_validators = output_validators
+        self._output_schema = output_schema
 
     async def _get_runner(self) -> AgentRunner:
         if self._runner is not None:
@@ -52,15 +78,50 @@ class Agent:
             temperature=self.config.temperature,
             allowed_tools=self.config.tools,
             agent_name=self.name,
-            agent_role=(self.config.system_prompt or "assistant")[:50],
+            agent_role=(self.config.system_prompt or "assistant")[:_AGENT_ROLE_MAX_LENGTH],
         )
-        self._runner = AgentRunner(adapter, self._registry, self._executor, opts)
+        self._runner = AgentRunner(
+            adapter,
+            self._registry,
+            self._executor,
+            opts,
+            tracer=self._tracer,
+            guardrail_config=self._guardrail_config,
+            hooks=self._hooks,
+            output_validators=self._output_validators,
+            output_schema=self._output_schema,
+        )
         return self._runner
 
     async def run(self, prompt: str) -> AgentRunResult:
         """Execute prompt as a standalone conversation (history is ignored)."""
         messages = [LLMMessage(role="user", content=[TextBlock(text=prompt)])]
         return await self._execute_run(messages)
+
+    async def run_structured(self, prompt: str, schema: type[BaseModel]) -> StructuredAgentResult:  # type: ignore[type-arg]
+        """Execute prompt and return a validated Pydantic model instance."""
+        from anycode.structured.output import parse_structured_output
+
+        prev_schema = self._output_schema
+        self._output_schema = schema
+        self._runner = None
+
+        messages = [LLMMessage(role="user", content=[TextBlock(text=prompt)])]
+        result = await self._execute_run(messages)
+
+        self._output_schema = prev_schema
+        self._runner = None
+
+        parsed = parse_structured_output(result.output, schema) if result.success else None
+
+        return StructuredAgentResult(
+            success=result.success,
+            parsed=parsed,
+            output=result.output,
+            messages=result.messages,
+            token_usage=result.token_usage,
+            tool_calls=result.tool_calls,
+        )
 
     async def prompt(self, message: str) -> AgentRunResult:
         """Continue the ongoing conversation with a new user message."""
@@ -85,6 +146,7 @@ class Agent:
     def reset(self) -> None:
         self._history.clear()
         self._state = AgentState()
+        self._runner = None
 
     def add_tool(self, tool: ToolDefinition) -> None:
         self._registry.register(tool)
@@ -135,7 +197,7 @@ class Agent:
         return ToolUseContext(
             agent=AgentInfo(
                 name=self.name,
-                role=(self.config.system_prompt or "assistant")[:60],
+                role=(self.config.system_prompt or "assistant")[:_TOOL_CONTEXT_ROLE_MAX_LENGTH],
                 model=self.config.model,
             )
         )

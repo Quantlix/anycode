@@ -60,8 +60,13 @@ def _compose_result(stdout: str, stderr: str, exit_code: int) -> str:
     return "\n".join(parts)
 
 
-bash_tool = define_tool(name="bash", description=(
-    "Run a shell command and capture its stdout and stderr. "
-    "Useful for file-system tasks, script execution, package management, "
-    "or anything requiring a shell session."
-), input_model=BashInput, execute=_execute)
+bash_tool = define_tool(
+    name="bash",
+    description=(
+        "Run a shell command and capture its stdout and stderr. "
+        "Useful for file-system tasks, script execution, package management, "
+        "or anything requiring a shell session."
+    ),
+    input_model=BashInput,
+    execute=_execute,
+)

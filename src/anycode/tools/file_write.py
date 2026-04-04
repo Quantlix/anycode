@@ -41,8 +41,7 @@ async def _execute(input: FileWriteInput, context: ToolUseContext) -> ToolResult
 file_write_tool = define_tool(
     name="file_write",
     description=(
-        "Write content to a file. Creates the file and any missing parent directories if it does not exist,"
-        " or overwrites the file if it does."
+        "Write content to a file. Creates the file and any missing parent directories if it does not exist, or overwrites the file if it does."
     ),
     input_model=FileWriteInput,
     execute=_execute,

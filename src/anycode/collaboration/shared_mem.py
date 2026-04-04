@@ -38,7 +38,7 @@ class SharedMemory:
         for entry in all_entries:
             slash_idx = entry.key.find("/")
             agent = entry.key[:slash_idx] if slash_idx != -1 else "_unknown"
-            local_key = entry.key[slash_idx + 1:] if slash_idx != -1 else entry.key
+            local_key = entry.key[slash_idx + 1 :] if slash_idx != -1 else entry.key
             by_agent.setdefault(agent, []).append((local_key, entry.value))
 
         lines = ["## Collective Agent Knowledge", ""]

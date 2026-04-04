@@ -40,10 +40,7 @@ class MessageBus:
         read.update(message_ids)
 
     def get_conversation(self, agent1: str, agent2: str) -> list[Message]:
-        return [
-            m for m in self._messages
-            if (m.from_agent == agent1 and m.to_agent == agent2) or (m.from_agent == agent2 and m.to_agent == agent1)
-        ]
+        return [m for m in self._messages if (m.from_agent == agent1 and m.to_agent == agent2) or (m.from_agent == agent2 and m.to_agent == agent1)]
 
     def subscribe(self, agent_name: str, callback: Callable[[Message], None]) -> Callable[[], None]:
         subs = self._subscribers.setdefault(agent_name, {})

@@ -54,6 +54,9 @@ def _parse_block(block: Any) -> ContentBlock:
     return TextBlock(text=f"[unrecognized block: {block.type}]")
 
 
+DEFAULT_MAX_TOKENS = 4096
+
+
 class AnthropicAdapter:
     """Wraps the Anthropic Python SDK."""
 
@@ -64,19 +67,34 @@ class AnthropicAdapter:
     def name(self) -> str:
         return "anthropic"
 
-    async def chat(self, messages: list[LLMMessage], options: LLMChatOptions) -> LLMResponse:
+    async def chat(
+        self,
+        messages: list[LLMMessage],
+        options: LLMChatOptions,
+        *,
+        structured_tool: LLMToolDef | None = None,
+    ) -> LLMResponse:
         mapped = _map_messages(messages)
         kwargs: dict[str, Any] = {
             "model": options.model,
-            "max_tokens": options.max_tokens or 4096,
+            "max_tokens": options.max_tokens or DEFAULT_MAX_TOKENS,
             "messages": mapped,
         }
         if options.system_prompt:
             kwargs["system"] = options.system_prompt
         if options.tools:
-            kwargs["tools"] = _map_tool_defs(options.tools)
+            tool_list = list(options.tools)
+            if structured_tool:
+                tool_list.append(structured_tool)
+            kwargs["tools"] = _map_tool_defs(tool_list)
+        elif structured_tool:
+            kwargs["tools"] = _map_tool_defs([structured_tool])
         if options.temperature is not None:
             kwargs["temperature"] = options.temperature
+
+        # Force structured output tool when provided
+        if structured_tool:
+            kwargs["tool_choice"] = {"type": "tool", "name": structured_tool.name}
 
         response = await self._client.messages.create(**kwargs)
 
@@ -92,7 +110,7 @@ class AnthropicAdapter:
         mapped = _map_messages(messages)
         kwargs: dict[str, Any] = {
             "model": options.model,
-            "max_tokens": options.max_tokens or 4096,
+            "max_tokens": options.max_tokens or DEFAULT_MAX_TOKENS,
             "messages": mapped,
         }
         if options.system_prompt:

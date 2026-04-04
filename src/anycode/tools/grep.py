@@ -38,18 +38,14 @@ async def _execute(input: GrepInput, context: ToolUseContext) -> ToolResult:
     return await _python_search(regex, search_path, glob=input.glob, max_results=cap)
 
 
-async def _ripgrep_search(
-    pattern: str, search_path: str, *, glob: str | None, max_results: int
-) -> ToolResult:
+async def _ripgrep_search(pattern: str, search_path: str, *, glob: str | None, max_results: int) -> ToolResult:
     args = ["rg", "--line-number", "--no-heading", "--color=never", f"--max-count={max_results}"]
     if glob:
         args.extend(["--glob", glob])
     args.extend(["--", pattern, search_path])
 
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+        proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         stdout, stderr = await proc.communicate()
         output = stdout.decode("utf-8", errors="replace").strip()
         if proc.returncode not in (0, 1):
@@ -59,9 +55,7 @@ async def _ripgrep_search(
         return ToolResult(data=f"ripgrep error: {e}", is_error=True)
 
 
-async def _python_search(
-    regex: re.Pattern[str], search_path: str, *, glob: str | None, max_results: int
-) -> ToolResult:
+async def _python_search(regex: re.Pattern[str], search_path: str, *, glob: str | None, max_results: int) -> ToolResult:
     target = Path(search_path)
     try:
         files = [target] if target.is_file() else list(_gather_files(target, glob))

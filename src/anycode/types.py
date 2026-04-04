@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 # -- Content blocks --
 
+
 class TextBlock(BaseModel):
     model_config = ConfigDict(frozen=True)
     type: Literal["text"] = "text"
@@ -50,6 +51,7 @@ ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ImageBlock
 
 # -- Conversation messages --
 
+
 class LLMMessage(BaseModel):
     model_config = ConfigDict(frozen=True)
     role: Literal["user", "assistant"]
@@ -78,6 +80,7 @@ class StreamEvent(BaseModel):
 
 
 # -- Tool definitions --
+
 
 class LLMToolDef(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -125,6 +128,7 @@ class ToolDefinition(BaseModel):
 
 # -- Agent configuration --
 
+
 class AgentConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     name: str
@@ -163,6 +167,7 @@ class AgentRunResult(BaseModel):
 
 # -- Team --
 
+
 class TeamConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     name: str
@@ -197,6 +202,7 @@ class Task(BaseModel):
 
 # -- Orchestrator --
 
+
 class OrchestratorEvent(BaseModel):
     model_config = ConfigDict(frozen=True)
     type: Literal["agent_start", "agent_complete", "task_start", "task_complete", "message", "error"]
@@ -214,6 +220,7 @@ class OrchestratorConfig(BaseModel):
 
 
 # -- Memory --
+
 
 class MemoryEntry(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -235,6 +242,7 @@ class MemoryStore(Protocol):
 
 
 # -- LLM adapter --
+
 
 class LLMChatOptions(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -260,6 +268,7 @@ class LLMAdapter(Protocol):
 
 
 # -- Runner types --
+
 
 class RunnerOptions(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -311,3 +320,103 @@ class BatchToolCall(BaseModel):
     id: str
     name: str
     input: dict[str, Any]
+
+
+# -- Telemetry --
+
+
+class TraceConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    service_name: str = "anycode"
+    exporter: Literal["otlp", "console", "none"] = "console"
+    endpoint: str | None = None
+    sample_rate: float = 1.0
+
+
+class SpanAttributes(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    agent_name: str | None = None
+    tool_name: str | None = None
+    task_id: str | None = None
+    model: str | None = None
+    provider: str | None = None
+    token_input: int = 0
+    token_output: int = 0
+    cost_usd: float = 0.0
+    turn_number: int = 0
+
+
+# -- Guardrails --
+
+
+class GuardrailConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    max_tokens_per_agent: int | None = None
+    max_tokens_per_team: int | None = None
+    max_cost_usd: float | None = None
+    max_turns: int | None = None
+    max_tool_calls: int | None = None
+    blocked_tools: list[str] | None = None
+    require_approval_tools: list[str] | None = None
+    output_validators: list[str] | None = None
+
+
+class BudgetStatus(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    tokens_used: int = 0
+    tokens_limit: int | None = None
+    cost_used: float = 0.0
+    cost_limit: float | None = None
+    turns_used: int = 0
+    turns_limit: int | None = None
+    tool_calls_used: int = 0
+    tool_calls_limit: int | None = None
+    exhausted: bool = False
+
+
+class ValidationResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    valid: bool
+    reason: str | None = None
+    retry: bool = False
+
+
+@runtime_checkable
+class OutputValidator(Protocol):
+    async def validate(self, output: str, context: AgentInfo) -> ValidationResult: ...
+
+
+@runtime_checkable
+class TurnHook(Protocol):
+    async def before_turn(self, messages: list[LLMMessage], context: AgentInfo) -> list[LLMMessage]: ...
+    async def after_turn(self, response: LLMResponse, context: AgentInfo) -> LLMResponse: ...
+
+
+# -- Structured output --
+
+
+class StructuredOutputConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    schema_class: type[BaseModel]
+    max_retries: int = 2
+
+
+class StructuredRunResult[T](BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    parsed: Any  # T — validated Pydantic instance
+    raw_output: str
+    messages: list[LLMMessage]
+    token_usage: TokenUsage
+    tool_calls: list[ToolCallRecord]
+    turns: int
+
+
+class StructuredAgentResult[T](BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    success: bool
+    parsed: Any  # T | None — validated Pydantic instance or None
+    output: str
+    messages: list[LLMMessage]
+    token_usage: TokenUsage
+    tool_calls: list[ToolCallRecord]

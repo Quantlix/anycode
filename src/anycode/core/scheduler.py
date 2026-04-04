@@ -11,10 +11,35 @@ if TYPE_CHECKING:
     from anycode.tasks.queue import TaskQueue
 
 NOISE_WORDS = {
-    "the", "and", "for", "that", "this", "with", "are", "from", "have",
-    "will", "your", "you", "can", "all", "each", "when", "then", "they",
-    "them", "about", "into", "more", "also", "should", "must", "been",
-    "some", "what", "than",
+    "the",
+    "and",
+    "for",
+    "that",
+    "this",
+    "with",
+    "are",
+    "from",
+    "have",
+    "will",
+    "your",
+    "you",
+    "can",
+    "all",
+    "each",
+    "when",
+    "then",
+    "they",
+    "them",
+    "about",
+    "into",
+    "more",
+    "also",
+    "should",
+    "must",
+    "been",
+    "some",
+    "what",
+    "than",
 }
 
 
@@ -108,8 +133,9 @@ class Scheduler:
             task_terms = _tokenize(task_text)
             best = max(
                 agents,
-                key=lambda a: _relevance_score(f"{a.name} {a.system_prompt or ''}", task_terms)
-                + _relevance_score(task_text, agent_terms.get(a.name, [])),
+                key=lambda a: (
+                    _relevance_score(f"{a.name} {a.system_prompt or ''}", task_terms) + _relevance_score(task_text, agent_terms.get(a.name, []))
+                ),
             )
             result[task.id] = best.name
         return result

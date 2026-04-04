@@ -64,8 +64,16 @@ class Team:
         msg = self._bus.broadcast(from_agent, content)
         self._events.emit("broadcast", OrchestratorEvent(type="message", agent=from_agent, data=msg))
 
-    def add_task(self, *, title: str, description: str, status: TaskStatus = "pending",
-                 assignee: str | None = None, depends_on: list[str] | None = None, result: str | None = None) -> Task:
+    def add_task(
+        self,
+        *,
+        title: str,
+        description: str,
+        status: TaskStatus = "pending",
+        assignee: str | None = None,
+        depends_on: list[str] | None = None,
+        result: str | None = None,
+    ) -> Task:
         created = create_task(title=title, description=description, assignee=assignee, depends_on=depends_on)
         final = created.model_copy(update={"status": status, "result": result}) if status != "pending" else created
         self._queue.add(final)
