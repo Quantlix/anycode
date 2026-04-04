@@ -15,3 +15,8 @@ venv/
 *.so
 .coverage
 htmlcov/
+
+# Claude Code local settings (contains personal preferences, never commit)
+settings.local.json
+.claude/
+.mcp.json
