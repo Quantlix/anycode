@@ -19,11 +19,13 @@ class InMemoryStore:
 
     async def set(self, key: str, value: str, metadata: dict[str, Any] | None = None) -> None:
         existing = self._data.get(key)
+        now = datetime.now(UTC)
         self._data[key] = MemoryEntry(
             key=key,
             value=value,
             metadata=dict(metadata) if metadata else None,
-            created_at=existing.created_at if existing else datetime.now(UTC),
+            created_at=existing.created_at if existing else now,
+            updated_at=now,
         )
 
     async def list(self) -> list[MemoryEntry]:

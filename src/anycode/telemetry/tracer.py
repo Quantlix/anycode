@@ -8,9 +8,8 @@ from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any
 
+from anycode.constants import MS_PER_SECOND
 from anycode.types import SpanAttributes, TraceConfig
-
-_MS_PER_SECOND = 1000
 
 
 def _resolve_config(config: TraceConfig | None) -> TraceConfig:
@@ -62,7 +61,7 @@ class Span:
     @property
     def duration_ms(self) -> float:
         end = self._end_time or time.monotonic()
-        return (end - self._start_time) * _MS_PER_SECOND
+        return (end - self._start_time) * MS_PER_SECOND
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+from anycode.constants import MAX_VALIDATION_RETRIES  # noqa: F401
 from anycode.types import AgentInfo, OutputValidator, ValidationResult
-
-MAX_VALIDATION_RETRIES = 3
 
 
 async def run_validators(

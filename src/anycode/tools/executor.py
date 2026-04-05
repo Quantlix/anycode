@@ -5,26 +5,49 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from anycode.constants import DEFAULT_TOOL_CONCURRENCY
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.telemetry.tracer import Tracer
 from anycode.tools.registry import ToolRegistry
 from anycode.types import BatchToolCall, SpanAttributes, ToolDefinition, ToolResult, ToolUseContext
 
-DEFAULT_TOOL_CONCURRENCY = 4
-
 
 class ToolExecutor:
     """Validates inputs via Pydantic then invokes tools, with semaphore-bounded batch execution."""
 
-    def __init__(self, registry: ToolRegistry, max_concurrency: int = DEFAULT_TOOL_CONCURRENCY, tracer: Tracer | None = None) -> None:
+    def __init__(
+        self,
+        registry: ToolRegistry,
+        max_concurrency: int = DEFAULT_TOOL_CONCURRENCY,
+        tracer: Tracer | None = None,
+        approval_manager: object | None = None,
+    ) -> None:
         self._registry = registry
         self._semaphore = Semaphore(max_concurrency)
         self._tracer = tracer or Tracer()
+        self._approval_manager = approval_manager
 
     async def execute(self, tool_name: str, raw_input: dict[str, Any], context: ToolUseContext) -> ToolResult:
         tool = self._registry.get(tool_name)
         if tool is None:
             return _failure(f'Tool "{tool_name}" is not registered in the current registry.')
+
+        # HITL: tool-level approval
+        if self._approval_manager is not None:
+            from anycode.hitl.approval import ApprovalManager
+
+            if isinstance(self._approval_manager, ApprovalManager):
+                response = await self._approval_manager.check_and_request(
+                    request_type="tool_call",
+                    agent=context.agent.name,
+                    description=f"Execute tool: {tool_name}",
+                    context={"tool_name": tool_name, "input": raw_input},
+                )
+                if response and not response.approved:
+                    return _failure(f'Approval denied for tool "{tool_name}": {response.reason or "rejected"}')
+                if response and response.modified_input:
+                    raw_input = response.modified_input
+
         return await self._invoke(tool, raw_input, context)
 
     async def execute_batch(self, calls: list[BatchToolCall], context: ToolUseContext) -> dict[str, ToolResult]:

@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator
 
 from pydantic import BaseModel
 
+from anycode.constants import AGENT_ROLE_MAX_LENGTH, TOOL_CONTEXT_ROLE_MAX_LENGTH
 from anycode.core.runner import AgentRunner
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.providers.adapter import create_adapter
@@ -29,9 +30,6 @@ from anycode.types import (
     ToolUseContext,
     TurnHook,
 )
-
-_AGENT_ROLE_MAX_LENGTH = 50
-_TOOL_CONTEXT_ROLE_MAX_LENGTH = 60
 
 
 class Agent:
@@ -78,7 +76,7 @@ class Agent:
             temperature=self.config.temperature,
             allowed_tools=self.config.tools,
             agent_name=self.name,
-            agent_role=(self.config.system_prompt or "assistant")[:_AGENT_ROLE_MAX_LENGTH],
+            agent_role=(self.config.system_prompt or "assistant")[:AGENT_ROLE_MAX_LENGTH],
         )
         self._runner = AgentRunner(
             adapter,
@@ -197,7 +195,7 @@ class Agent:
         return ToolUseContext(
             agent=AgentInfo(
                 name=self.name,
-                role=(self.config.system_prompt or "assistant")[:_TOOL_CONTEXT_ROLE_MAX_LENGTH],
+                role=(self.config.system_prompt or "assistant")[:TOOL_CONTEXT_ROLE_MAX_LENGTH],
                 model=self.config.model,
             )
         )

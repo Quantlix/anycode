@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from anycode.constants import DEFAULT_ENCODING
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -18,7 +19,7 @@ class FileReadInput(BaseModel):
 
 async def _execute(input: FileReadInput, context: ToolUseContext) -> ToolResult:
     try:
-        raw = Path(input.path).read_text(encoding="utf-8")
+        raw = Path(input.path).read_text(encoding=DEFAULT_ENCODING)
     except Exception as e:
         return ToolResult(data=f'Unable to read "{input.path}": {e}', is_error=True)
 

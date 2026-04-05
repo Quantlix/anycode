@@ -9,6 +9,15 @@ from typing import Any
 
 import anthropic
 
+from anycode.constants import (
+    BLOCK_TYPE_BASE64,
+    BLOCK_TYPE_IMAGE,
+    BLOCK_TYPE_TEXT,
+    BLOCK_TYPE_TOOL_RESULT,
+    BLOCK_TYPE_TOOL_USE,
+    DEFAULT_MAX_TOKENS,
+    STOP_REASON_END_TURN,
+)
 from anycode.types import (
     ContentBlock,
     LLMChatOptions,
@@ -24,17 +33,17 @@ from anycode.types import (
 
 
 def _map_content_block(block: ContentBlock) -> dict[str, Any]:
-    if block.type == "text":
-        return {"type": "text", "text": block.text}
-    elif block.type == "tool_use":
-        return {"type": "tool_use", "id": block.id, "name": block.name, "input": block.input}
-    elif block.type == "tool_result":
-        result: dict[str, Any] = {"type": "tool_result", "tool_use_id": block.tool_use_id, "content": block.content}
+    if block.type == BLOCK_TYPE_TEXT:
+        return {"type": BLOCK_TYPE_TEXT, "text": block.text}
+    elif block.type == BLOCK_TYPE_TOOL_USE:
+        return {"type": BLOCK_TYPE_TOOL_USE, "id": block.id, "name": block.name, "input": block.input}
+    elif block.type == BLOCK_TYPE_TOOL_RESULT:
+        result: dict[str, Any] = {"type": BLOCK_TYPE_TOOL_RESULT, "tool_use_id": block.tool_use_id, "content": block.content}
         if block.is_error is not None:
             result["is_error"] = block.is_error
         return result
-    elif block.type == "image":
-        return {"type": "image", "source": {"type": "base64", "media_type": block.source.media_type, "data": block.source.data}}
+    elif block.type == BLOCK_TYPE_IMAGE:
+        return {"type": BLOCK_TYPE_IMAGE, "source": {"type": BLOCK_TYPE_BASE64, "media_type": block.source.media_type, "data": block.source.data}}
     raise ValueError(f"Unexpected block type: {block.type}")
 
 
@@ -47,14 +56,11 @@ def _map_tool_defs(tools: list[LLMToolDef]) -> list[dict[str, Any]]:
 
 
 def _parse_block(block: Any) -> ContentBlock:
-    if block.type == "text":
+    if block.type == BLOCK_TYPE_TEXT:
         return TextBlock(text=block.text)
-    elif block.type == "tool_use":
+    elif block.type == BLOCK_TYPE_TOOL_USE:
         return ToolUseBlock(id=block.id, name=block.name, input=block.input if isinstance(block.input, dict) else {})
     return TextBlock(text=f"[unrecognized block: {block.type}]")
-
-
-DEFAULT_MAX_TOKENS = 4096
 
 
 class AnthropicAdapter:
@@ -102,7 +108,7 @@ class AnthropicAdapter:
             id=response.id,
             content=[_parse_block(b) for b in response.content],
             model=response.model,
-            stop_reason=response.stop_reason or "end_turn",
+            stop_reason=response.stop_reason or STOP_REASON_END_TURN,
             usage=TokenUsage(input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens),
         )
 

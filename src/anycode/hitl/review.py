@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+from anycode.constants import (
+    APPROVAL_BOX_WIDTH,
+    APPROVAL_CONTEXT_MAX_DISPLAY,
+    APPROVAL_CONTEXT_TRUNCATE_AT,
+    BOX_BOTTOM_LEFT,
+    BOX_BOTTOM_RIGHT,
+    BOX_HORIZONTAL,
+    BOX_TOP_LEFT,
+    BOX_TOP_RIGHT,
+    BOX_VERTICAL,
+)
 from anycode.types import ApprovalRequest
-
-_BOX_WIDTH = 55
 
 
 def format_approval_request(request: ApprovalRequest) -> str:
@@ -17,13 +26,13 @@ def format_approval_request(request: ApprovalRequest) -> str:
     if request.context:
         for k, v in request.context.items():
             display_v = str(v)
-            if len(display_v) > 80:
-                display_v = display_v[:77] + "..."
+            if len(display_v) > APPROVAL_CONTEXT_MAX_DISPLAY:
+                display_v = display_v[:APPROVAL_CONTEXT_TRUNCATE_AT] + "..."
             lines.append(f"{k}: {display_v}")
     lines.append("")
     lines.append("[a]pprove  [r]eject  [m]odify")
 
-    top = "\u250c" + "\u2500" * _BOX_WIDTH + "\u2510"
-    bottom = "\u2514" + "\u2500" * _BOX_WIDTH + "\u2518"
-    body = "\n".join(f"\u2502 {line:<{_BOX_WIDTH - 1}}\u2502" for line in lines)
+    top = BOX_TOP_LEFT + BOX_HORIZONTAL * APPROVAL_BOX_WIDTH + BOX_TOP_RIGHT
+    bottom = BOX_BOTTOM_LEFT + BOX_HORIZONTAL * APPROVAL_BOX_WIDTH + BOX_BOTTOM_RIGHT
+    body = "\n".join(f"{BOX_VERTICAL} {line:<{APPROVAL_BOX_WIDTH - 1}}{BOX_VERTICAL}" for line in lines)
     return f"{top}\n{body}\n{bottom}"

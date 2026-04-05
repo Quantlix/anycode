@@ -3,14 +3,27 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 
 from pydantic import BaseModel
 
+from anycode.checkpoint.manager import CheckpointManager
 from anycode.collaboration.team import Team
+from anycode.constants import (
+    COORDINATOR_ROLE_PREVIEW_LENGTH,
+    DEFAULT_MAX_CONCURRENCY,
+    DEPENDENCY_CONTEXT_MAX_LENGTH,
+    ORCH_EVENT_AGENT_COMPLETE,
+    ORCH_EVENT_AGENT_START,
+    ORCH_EVENT_ERROR,
+    ORCH_EVENT_TASK_COMPLETE,
+    ORCH_EVENT_TASK_START,
+)
 from anycode.core.agent import Agent
 from anycode.core.pool import AgentPool
 from anycode.core.scheduler import Scheduler
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
+from anycode.hitl.approval import ApprovalManager
 from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task, get_task_dependency_order, validate_task_dependencies
 from anycode.telemetry.tracer import Tracer
@@ -41,11 +54,6 @@ class TaskSpec:
         self.depends_on = depends_on or []
 
 
-DEFAULT_MAX_CONCURRENCY = 5
-_COORDINATOR_ROLE_PREVIEW_LENGTH = 80
-_DEPENDENCY_CONTEXT_MAX_LENGTH = 500
-
-
 class AnyCode:
     """Top-level orchestration engine for agents, teams, and task pipelines."""
 
@@ -59,6 +67,13 @@ class AnyCode:
         self._hooks: list[TurnHook] | None = None
         self._output_validators: list[OutputValidator] | None = None
         self._tracer: Tracer | None = None
+        self._checkpoint_manager: CheckpointManager | None = None
+        self._approval_manager: ApprovalManager | None = None
+
+        if self._config.checkpoint and self._config.checkpoint.enabled:
+            self._checkpoint_manager = CheckpointManager(self._config.checkpoint)
+        if self._config.approval and self._config.approval.enabled and self._config.approval_handler:
+            self._approval_manager = ApprovalManager(self._config.approval, self._config.approval_handler)
 
     def configure(
         self,
@@ -125,13 +140,13 @@ class AnyCode:
             root_span = self._tracer.start_span(f"anycode.run_agent.{typed_config.name}")
 
         agent = self.build_agent(typed_config, output_schema=output_schema)
-        self._emit(OrchestratorEvent(type="agent_start", agent=typed_config.name))
+        self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=typed_config.name))
         try:
             result = await agent.run(prompt)
-            self._emit(OrchestratorEvent(type="agent_complete", agent=typed_config.name, data=result))
+            self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=typed_config.name, data=result))
             return result
         except Exception as e:
-            self._emit(OrchestratorEvent(type="error", agent=typed_config.name, data=e))
+            self._emit(OrchestratorEvent(type=ORCH_EVENT_ERROR, agent=typed_config.name, data=e))
             return AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
         finally:
             if root_span and self._tracer:
@@ -152,9 +167,9 @@ class AnyCode:
             coordinator = self.build_agent(coordinator_cfg)
             coordinator_prompt = self._build_coordinator_prompt(agents, goal)
 
-            self._emit(OrchestratorEvent(type="agent_start", agent=coordinator_cfg.name))
+            self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=coordinator_cfg.name))
             plan_result = await coordinator.run(coordinator_prompt)
-            self._emit(OrchestratorEvent(type="agent_complete", agent=coordinator_cfg.name, data=plan_result))
+            self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=coordinator_cfg.name, data=plan_result))
 
             if not plan_result.success:
                 return TeamRunResult(
@@ -182,16 +197,36 @@ class AnyCode:
             if root_span and self._tracer:
                 self._tracer.end_span(root_span)
 
-    async def run_tasks(self, team: Team, task_specs: list[TaskSpec]) -> TeamRunResult:
+    async def run_tasks(self, team: Team, task_specs: list[TaskSpec], *, resume_from: str | None = None) -> TeamRunResult:
         """Run an explicit set of task specs with full dependency resolution."""
-        return await self._execute_tasks(team, task_specs)
+        return await self._execute_tasks(team, task_specs, resume_from=resume_from)
 
-    async def _execute_tasks(self, team: Team, specs: list[TaskSpec]) -> TeamRunResult:
+    async def _execute_tasks(self, team: Team, specs: list[TaskSpec], *, resume_from: str | None = None) -> TeamRunResult:
         resolved = self._resolve_specs(specs)
         queue = TaskQueue()
         agent_results: dict[str, AgentRunResult] = {}
         total_usage: TokenUsage = EMPTY_USAGE
         all_succeeded = True
+        start_wave = 0
+
+        workflow_id = self._compute_workflow_id(resolved)
+
+        # Resume from checkpoint if requested
+        if resume_from and self._checkpoint_manager:
+            checkpoint = None
+            if resume_from == "latest":
+                checkpoint = await self._checkpoint_manager.load_latest(workflow_id)
+            else:
+                checkpoint = await self._checkpoint_manager.store.load(resume_from)
+
+            if checkpoint:
+                if self._checkpoint_manager.detect_spec_change(resolved, checkpoint):
+                    raise ValueError("AnyCode: task specs changed since checkpoint was created — cannot resume.")
+                resolved = checkpoint.tasks
+                agent_results = dict(checkpoint.agent_results)
+                total_usage = checkpoint.total_token_usage
+                start_wave = checkpoint.wave_index + 1
+                self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_START, data={"checkpoint_resume": checkpoint.id, "wave": start_wave}))
 
         for task in resolved:
             queue.add(task)
@@ -200,7 +235,9 @@ class AnyCode:
         ordered = get_task_dependency_order(queue.list())
         waves = self._build_waves(ordered, queue)
 
-        for wave in waves:
+        for wave_idx, wave in enumerate(waves):
+            if wave_idx < start_wave:
+                continue
 
             async def _run_task(task: Task) -> None:
                 nonlocal all_succeeded, total_usage
@@ -209,19 +246,32 @@ class AnyCode:
                     queue.fail(task.id, "Unassigned task — no agent available.")
                     return
 
-                self._emit(OrchestratorEvent(type="task_start", task=task.id, agent=assignee, data=task))
+                # HITL: task-level approval
+                if self._approval_manager:
+                    response = await self._approval_manager.check_and_request(
+                        request_type="task",
+                        agent=assignee,
+                        description=f"Execute task: {task.title}",
+                        context={"task_id": task.id, "title": task.title, "description": task.description},
+                    )
+                    if response and not response.approved:
+                        queue.fail(task.id, f"Approval denied: {response.reason or 'rejected'}")
+                        all_succeeded = False
+                        return
+
+                self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_START, task=task.id, agent=assignee, data=task))
                 queue.update(task.id, status="in_progress")
 
                 prompt = self._build_task_prompt(task, queue)
                 agent = self._pool.get(assignee) or self._build_agent_for_team(assignee, team)
 
-                self._emit(OrchestratorEvent(type="agent_start", agent=assignee))
+                self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=assignee))
                 try:
                     result = await agent.run(prompt)
-                    self._emit(OrchestratorEvent(type="agent_complete", agent=assignee, data=result))
+                    self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=assignee, data=result))
                     if result.success:
                         queue.complete(task.id, result.output)
-                        self._emit(OrchestratorEvent(type="task_complete", task=task.id, agent=assignee))
+                        self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_COMPLETE, task=task.id, agent=assignee))
                     else:
                         queue.fail(task.id, result.output)
                         all_succeeded = False
@@ -233,6 +283,16 @@ class AnyCode:
                     agent_results[assignee] = AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
 
             await asyncio.gather(*[_run_task(t) for t in wave])
+
+            # Save checkpoint after each wave
+            if self._checkpoint_manager:
+                await self._checkpoint_manager.auto_save(
+                    workflow_id=workflow_id,
+                    tasks=queue.list(),
+                    agent_results=agent_results,
+                    wave_index=wave_idx,
+                    total_usage=total_usage,
+                )
 
         return TeamRunResult(success=all_succeeded, agent_results=agent_results, total_token_usage=total_usage)
 
@@ -288,7 +348,7 @@ class AnyCode:
         return waves
 
     def _build_coordinator_prompt(self, agents: list[AgentConfig], goal: str) -> str:
-        roster = "\n".join(f"- {a.name}: {(a.system_prompt or 'general-purpose assistant')[:_COORDINATOR_ROLE_PREVIEW_LENGTH]}" for a in agents)
+        roster = "\n".join(f"- {a.name}: {(a.system_prompt or 'general-purpose assistant')[:COORDINATOR_ROLE_PREVIEW_LENGTH]}" for a in agents)
         return (
             f"You are the lead coordinator of a team. Here are your team members:\n{roster}\n\n"
             f"Objective: {goal}\n\n"
@@ -304,7 +364,7 @@ class AnyCode:
         for dep_id in task.depends_on or []:
             dep_task = next((t for t in queue.list() if t.id == dep_id), None)
             if dep_task and dep_task.result:
-                dep_context_parts.append(f"[{dep_task.title}]: {dep_task.result[:_DEPENDENCY_CONTEXT_MAX_LENGTH]}")
+                dep_context_parts.append(f"[{dep_task.title}]: {dep_task.result[:DEPENDENCY_CONTEXT_MAX_LENGTH]}")
 
         context = "\n\nRelevant output from prerequisite tasks:\n" + "\n\n".join(dep_context_parts) if dep_context_parts else ""
         return f"Task: {task.title}\n\n{task.description}{context}"
@@ -336,3 +396,8 @@ class AnyCode:
     def _emit(self, event: OrchestratorEvent) -> None:
         if self._config.on_progress:
             self._config.on_progress(event)
+
+    @staticmethod
+    def _compute_workflow_id(tasks: list[Task]) -> str:
+        content = "|".join(f"{t.title}:{t.description}" for t in sorted(tasks, key=lambda t: t.title))
+        return hashlib.sha256(content.encode()).hexdigest()[:16]

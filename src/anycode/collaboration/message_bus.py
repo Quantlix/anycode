@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
-from uuid import uuid4
 
+from anycode.helpers.uuid7 import uuid7
 from anycode.types import Message
 
 
@@ -19,7 +19,7 @@ class MessageBus:
         self._next_id = 0
 
     def send(self, from_agent: str, to_agent: str, content: str) -> Message:
-        msg = Message(id=str(uuid4()), from_agent=from_agent, to_agent=to_agent, content=content, timestamp=datetime.now(UTC))
+        msg = Message(id=str(uuid7()), from_agent=from_agent, to_agent=to_agent, content=content, timestamp=datetime.now(UTC))
         self._dispatch(msg)
         return msg
 
@@ -47,6 +47,7 @@ class MessageBus:
         sub_id = self._next_id
         self._next_id += 1
         subs[sub_id] = callback
+
         def _unsub() -> None:
             subs.pop(sub_id, None)
 

@@ -169,11 +169,12 @@ class AgentRunResult(BaseModel):
 
 
 class TeamConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
     name: str
     agents: list[AgentConfig]
     shared_memory: bool | None = None
     max_concurrency: int | None = None
+    memory_store: MemoryStore | None = None
 
 
 class TeamRunResult(BaseModel):
@@ -217,6 +218,10 @@ class OrchestratorConfig(BaseModel):
     default_model: str | None = None
     default_provider: Literal["anthropic", "openai"] | None = None
     on_progress: Callable[[OrchestratorEvent], None] | None = None
+    memory: MemoryConfig | None = None
+    checkpoint: CheckpointConfig | None = None
+    approval: ApprovalConfig | None = None
+    approval_handler: ApprovalGate | None = None
 
 
 # -- Memory --
@@ -228,6 +233,7 @@ class MemoryEntry(BaseModel):
     value: str
     metadata: dict[str, Any] | None = None
     created_at: datetime
+    updated_at: datetime | None = None
 
 
 @runtime_checkable
@@ -420,3 +426,107 @@ class StructuredAgentResult[T](BaseModel):
     messages: list[LLMMessage]
     token_usage: TokenUsage
     tool_calls: list[ToolCallRecord]
+
+
+# -- Vector store --
+
+
+class VectorSearchResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    text: str
+    score: float
+    metadata: dict[str, Any] | None = None
+
+
+@runtime_checkable
+class VectorStore(Protocol):
+    """Async semantic similarity search interface."""
+
+    async def add(self, texts: list[str], metadata: list[dict[str, Any]] | None = None) -> list[str]: ...
+    async def search(self, query: str, top_k: int = 5) -> list[VectorSearchResult]: ...
+    async def delete(self, ids: list[str]) -> None: ...
+    async def clear(self) -> None: ...
+
+
+class MemoryConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    backend: Literal["memory", "sqlite", "redis"] = "memory"
+    path: str | None = None
+    url: str | None = None
+    vector_backend: Literal["none", "memory", "chromadb"] = "none"
+    vector_path: str | None = None
+
+
+# -- Checkpoint --
+
+
+class CheckpointConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    backend: Literal["filesystem", "sqlite"] = "filesystem"
+    path: str = ".anycode/checkpoints"
+    keep_last: int = 5
+
+
+class CheckpointData(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    workflow_id: str
+    version: int = 1
+    tasks: list[Task]
+    agent_results: dict[str, AgentRunResult]
+    wave_index: int
+    total_token_usage: TokenUsage
+    created_at: datetime
+    metadata: dict[str, Any] | None = None
+
+
+@runtime_checkable
+class CheckpointStore(Protocol):
+    """Async checkpoint persistence interface."""
+
+    async def save(self, checkpoint: CheckpointData) -> None: ...
+    async def load(self, checkpoint_id: str) -> CheckpointData | None: ...
+    async def latest(self, workflow_id: str) -> CheckpointData | None: ...
+    async def list_checkpoints(self, workflow_id: str) -> list[str]: ...
+    async def delete(self, checkpoint_id: str) -> None: ...
+    async def prune(self, workflow_id: str, keep_last: int) -> None: ...
+
+
+# -- Human-in-the-loop --
+
+
+class ApprovalRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    type: Literal["task", "tool_call", "output"]
+    agent: str
+    description: str
+    context: dict[str, Any] | None = None
+    created_at: datetime
+
+
+class ApprovalResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    request_id: str
+    approved: bool
+    reason: str | None = None
+    modified_input: dict[str, Any] | None = None
+    responded_at: datetime
+
+
+@runtime_checkable
+class ApprovalGate(Protocol):
+    """Async approval gate interface."""
+
+    async def request_approval(self, request: ApprovalRequest) -> ApprovalResponse: ...
+
+
+class ApprovalConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    timeout_seconds: float = 300.0
+    default_on_timeout: Literal["approve", "reject"] = "reject"
+    require_approval_tools: list[str] | None = None
+    require_approval_tasks: bool = False

@@ -5,6 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from anycode.constants import (
+    QUEUE_EVENT_ALL_COMPLETE,
+    QUEUE_EVENT_TASK_COMPLETE,
+    QUEUE_EVENT_TASK_FAILED,
+    QUEUE_EVENT_TASK_READY,
+)
 from anycode.tasks.task import is_task_ready
 from anycode.types import Task, TaskStatus
 
@@ -21,7 +27,7 @@ class TaskQueue:
         resolved = self._determine_initial_status(task)
         self._tasks[resolved.id] = resolved
         if resolved.status == "pending":
-            self._emit("task:ready", resolved)
+            self._emit(QUEUE_EVENT_TASK_READY, resolved)
 
     def add_batch(self, tasks: list[Task]) -> None:
         for task in tasks:
@@ -35,7 +41,7 @@ class TaskQueue:
 
     def complete(self, task_id: str, result: str | None = None) -> Task:
         completed = self.update(task_id, status="completed", result=result)
-        self._emit("task:complete", completed)
+        self._emit(QUEUE_EVENT_TASK_COMPLETE, completed)
         self._promote_blocked(task_id)
         if self.is_done():
             self._emit_all_complete()
@@ -43,7 +49,7 @@ class TaskQueue:
 
     def fail(self, task_id: str, error: str) -> Task:
         failed = self.update(task_id, status="failed", result=error)
-        self._emit("task:failed", failed)
+        self._emit(QUEUE_EVENT_TASK_FAILED, failed)
         self._propagate_failure(task_id)
         if self.is_done():
             self._emit_all_complete()
@@ -84,11 +90,21 @@ class TaskQueue:
             counts[key] = counts.get(key, 0) + 1
         return counts
 
+    def serialize(self) -> list[dict[str, object]]:
+        return [t.model_dump(mode="json") for t in self._tasks.values()]
+
+    def restore(self, data: list[dict[str, object]]) -> None:
+        self._tasks.clear()
+        for entry in data:
+            task = Task(**entry)  # type: ignore[arg-type]
+            self._tasks[task.id] = task
+
     def on(self, event: str, handler: Callable[..., None]) -> Callable[[], None]:
         subs = self._listeners.setdefault(event, {})
         sub_id = self._next_id
         self._next_id += 1
         subs[sub_id] = handler
+
         def _unsub() -> None:
             subs.pop(sub_id, None)
 
@@ -115,7 +131,7 @@ class TaskQueue:
                 unblocked = task.model_copy(update={"status": "pending", "updated_at": datetime.now(UTC)})
                 self._tasks[task.id] = unblocked
                 task_by_id[task.id] = unblocked
-                self._emit("task:ready", unblocked)
+                self._emit(QUEUE_EVENT_TASK_READY, unblocked)
 
     def _propagate_failure(self, failed_id: str) -> None:
         for task in list(self._tasks.values()):
@@ -124,7 +140,7 @@ class TaskQueue:
             if not task.depends_on or failed_id not in task.depends_on:
                 continue
             cascaded = self.update(task.id, status="failed", result=f'Cancelled: prerequisite "{failed_id}" failed.')
-            self._emit("task:failed", cascaded)
+            self._emit(QUEUE_EVENT_TASK_FAILED, cascaded)
             self._propagate_failure(task.id)
 
     def _emit(self, event: str, task: Task) -> None:
@@ -132,7 +148,7 @@ class TaskQueue:
             handler(task)
 
     def _emit_all_complete(self) -> None:
-        for handler in self._listeners.get("all:complete", {}).values():
+        for handler in self._listeners.get(QUEUE_EVENT_ALL_COMPLETE, {}).values():
             handler()
 
     def _lookup(self, task_id: str) -> Task:

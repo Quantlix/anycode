@@ -5,14 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 from anycode.collaboration.kv_store import InMemoryStore
+from anycode.constants import MEMORY_DISPLAY_MAX_LENGTH, MEMORY_DISPLAY_TRUNCATE_AT
 from anycode.types import MemoryEntry, MemoryStore
 
 
 class SharedMemory:
     """Keys are scoped as <agent_name>/<key> to avoid collisions."""
 
-    def __init__(self) -> None:
-        self._store = InMemoryStore()
+    def __init__(self, store: MemoryStore | None = None) -> None:
+        self._store: MemoryStore = store or InMemoryStore()
 
     async def write(self, agent_name: str, key: str, value: str, metadata: dict[str, Any] | None = None) -> None:
         namespaced = f"{agent_name}/{key}"
@@ -45,11 +46,11 @@ class SharedMemory:
         for agent, entries in by_agent.items():
             lines.append(f"### {agent}")
             for local_key, value in entries:
-                display = f"{value[:177]}\u2026" if len(value) > 180 else value
+                display = f"{value[:MEMORY_DISPLAY_TRUNCATE_AT]}\u2026" if len(value) > MEMORY_DISPLAY_MAX_LENGTH else value
                 lines.append(f"- {local_key}: {display}")
             lines.append("")
 
         return "\n".join(lines).rstrip()
 
     def get_store(self) -> MemoryStore:
-        return self._store  # type: ignore[return-value]
+        return self._store

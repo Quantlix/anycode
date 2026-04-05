@@ -5,9 +5,13 @@ from __future__ import annotations
 import asyncio
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import aiosqlite
 
 from anycode.checkpoint.serializer import deserialize_checkpoint, serialize_checkpoint
+from anycode.constants import DEFAULT_ENCODING
 from anycode.types import CheckpointData
 
 
@@ -27,7 +31,7 @@ class FilesystemCheckpointStore:
 
     async def load(self, checkpoint_id: str) -> CheckpointData | None:
         for path in await asyncio.to_thread(lambda: list(self._root.rglob(f"{checkpoint_id}.json"))):
-            raw = await asyncio.to_thread(path.read_text, "utf-8")
+            raw = await asyncio.to_thread(path.read_text, DEFAULT_ENCODING)
             return deserialize_checkpoint(raw)
         return None
 
@@ -39,7 +43,7 @@ class FilesystemCheckpointStore:
         files = await asyncio.to_thread(lambda: sorted(directory.glob("*.json")))
         if not files:
             return None
-        raw = await asyncio.to_thread(files[-1].read_text, "utf-8")
+        raw = await asyncio.to_thread(files[-1].read_text, DEFAULT_ENCODING)
         return deserialize_checkpoint(raw)
 
     async def list_checkpoints(self, workflow_id: str) -> list[str]:
@@ -70,7 +74,7 @@ class SQLiteCheckpointStore:
 
     def __init__(self, path: str = ".anycode/checkpoints.db") -> None:
         self._path = path
-        self._db: Any = None
+        self._db: aiosqlite.Connection | None = None
 
     async def setup(self) -> None:
         try:
@@ -96,7 +100,7 @@ class SQLiteCheckpointStore:
             await self._db.close()
             self._db = None
 
-    def _conn(self) -> Any:
+    def _conn(self) -> aiosqlite.Connection:
         if self._db is None:
             raise RuntimeError("SQLiteCheckpointStore not initialized. Call setup() first.")
         return self._db
@@ -134,7 +138,7 @@ class SQLiteCheckpointStore:
 
     async def prune(self, workflow_id: str, keep_last: int) -> None:
         cursor = await self._conn().execute("SELECT id FROM checkpoints WHERE workflow_id = ? ORDER BY created_at DESC", (workflow_id,))
-        rows = await cursor.fetchall()
+        rows = list(await cursor.fetchall())
         to_delete = [r[0] for r in rows[keep_last:]]
         if to_delete:
             placeholders = ",".join("?" for _ in to_delete)
@@ -143,5 +147,5 @@ class SQLiteCheckpointStore:
 
 
 def _atomic_write(tmp: Path, target: Path, content: str) -> None:
-    tmp.write_text(content, encoding="utf-8")
+    tmp.write_text(content, encoding=DEFAULT_ENCODING)
     os.replace(str(tmp), str(target))

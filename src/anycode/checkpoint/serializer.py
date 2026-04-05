@@ -5,6 +5,13 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from anycode.constants import (
+    BLOCK_TYPE_IMAGE,
+    BLOCK_TYPE_TEXT,
+    BLOCK_TYPE_TOOL_RESULT,
+    BLOCK_TYPE_TOOL_USE,
+    CHECKPOINT_FORMAT_VERSION,
+)
 from anycode.types import (
     AgentRunResult,
     CheckpointData,
@@ -19,8 +26,6 @@ from anycode.types import (
     ToolResultBlock,
     ToolUseBlock,
 )
-
-CHECKPOINT_FORMAT_VERSION = 1
 
 
 def serialize_checkpoint(data: CheckpointData) -> str:
@@ -43,7 +48,7 @@ def deserialize_checkpoint(raw: str) -> CheckpointData:
     return CheckpointData(
         id=data["id"],
         workflow_id=data["workflow_id"],
-        version=data.get("version", 1),
+        version=data.get("version", CHECKPOINT_FORMAT_VERSION),
         wave_index=data["wave_index"],
         total_token_usage=TokenUsage(**data["total_token_usage"]),
         created_at=data["created_at"],
@@ -101,12 +106,12 @@ def _serialize_content_block(block: ContentBlock) -> dict[str, Any]:
 
 def _deserialize_content_block(data: dict[str, Any]) -> ContentBlock:
     block_type = data.get("type")
-    if block_type == "text":
+    if block_type == BLOCK_TYPE_TEXT:
         return TextBlock(**data)
-    if block_type == "tool_use":
+    if block_type == BLOCK_TYPE_TOOL_USE:
         return ToolUseBlock(**data)
-    if block_type == "tool_result":
+    if block_type == BLOCK_TYPE_TOOL_RESULT:
         return ToolResultBlock(**data)
-    if block_type == "image":
-        return ImageBlock(type="image", source=ImageSource(**data["source"]))
+    if block_type == BLOCK_TYPE_IMAGE:
+        return ImageBlock(type=BLOCK_TYPE_IMAGE, source=ImageSource(**data["source"]))
     raise ValueError(f"Unknown content block type: {block_type!r}")

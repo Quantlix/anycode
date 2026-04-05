@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from anycode.constants import DEFAULT_ENCODING
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -19,7 +20,7 @@ class FileEditInput(BaseModel):
 
 async def _execute(input: FileEditInput, context: ToolUseContext) -> ToolResult:
     try:
-        original = Path(input.path).read_text(encoding="utf-8")
+        original = Path(input.path).read_text(encoding=DEFAULT_ENCODING)
     except Exception as e:
         return ToolResult(data=f'Unable to read "{input.path}": {e}', is_error=True)
 
@@ -40,7 +41,7 @@ async def _execute(input: FileEditInput, context: ToolUseContext) -> ToolResult:
     updated = original.replace(input.old_string, input.new_string) if input.replace_all else original.replace(input.old_string, input.new_string, 1)
 
     try:
-        Path(input.path).write_text(updated, encoding="utf-8")
+        Path(input.path).write_text(updated, encoding=DEFAULT_ENCODING)
     except Exception as e:
         return ToolResult(data=f'Unable to write "{input.path}": {e}', is_error=True)
 

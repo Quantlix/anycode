@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from anycode.constants import DEFAULT_ENCODING
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -25,12 +26,12 @@ async def _execute(input: FileWriteInput, context: ToolUseContext) -> ToolResult
         return ToolResult(data=f'Could not create parent directory "{target.parent}": {e}', is_error=True)
 
     try:
-        target.write_text(input.content, encoding="utf-8")
+        target.write_text(input.content, encoding=DEFAULT_ENCODING)
     except Exception as e:
         return ToolResult(data=f'Could not write file "{input.path}": {e}', is_error=True)
 
     line_count = input.content.count("\n") + (1 if input.content and not input.content.endswith("\n") else 0)
-    byte_count = len(input.content.encode("utf-8"))
+    byte_count = len(input.content.encode(DEFAULT_ENCODING))
     action = "Overwrote" if existed else "Created"
     return ToolResult(
         data=f'{action} "{input.path}" ({line_count} line{"s" if line_count != 1 else ""}, {byte_count} bytes).',

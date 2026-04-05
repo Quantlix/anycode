@@ -7,6 +7,17 @@ from typing import Any
 
 from anycode.collaboration.message_bus import MessageBus
 from anycode.collaboration.shared_mem import SharedMemory
+from anycode.constants import (
+    ORCH_EVENT_BROADCAST,
+    ORCH_EVENT_ERROR,
+    ORCH_EVENT_MESSAGE,
+    ORCH_EVENT_TASK_COMPLETE,
+    ORCH_EVENT_TASK_START,
+    QUEUE_EVENT_ALL_COMPLETE,
+    QUEUE_EVENT_TASK_COMPLETE,
+    QUEUE_EVENT_TASK_FAILED,
+    QUEUE_EVENT_TASK_READY,
+)
 from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task
 from anycode.types import AgentConfig, MemoryStore, Message, OrchestratorEvent, Task, TaskStatus, TeamConfig
@@ -22,6 +33,7 @@ class _EventBus:
         sub_id = self._next_id
         self._next_id += 1
         subs[sub_id] = handler
+
         def _unsub() -> None:
             subs.pop(sub_id, None)
 
@@ -41,14 +53,23 @@ class Team:
         self._agent_map: dict[str, AgentConfig] = {a.name: a for a in config.agents}
         self._bus = MessageBus()
         self._queue = TaskQueue()
-        self._memory = SharedMemory() if config.shared_memory else None
+        self._memory = SharedMemory(store=config.memory_store) if config.shared_memory else None
         self._events = _EventBus()
 
         # Relay queue events
-        self._queue.on("task:ready", lambda t: self._events.emit("task:ready", OrchestratorEvent(type="task_start", task=t.id, data=t)))
-        self._queue.on("task:complete", lambda t: self._events.emit("task:complete", OrchestratorEvent(type="task_complete", task=t.id, data=t)))
-        self._queue.on("task:failed", lambda t: self._events.emit("task:failed", OrchestratorEvent(type="error", task=t.id, data=t)))
-        self._queue.on("all:complete", lambda: self._events.emit("all:complete", None))
+        self._queue.on(
+            QUEUE_EVENT_TASK_READY,
+            lambda t: self._events.emit(QUEUE_EVENT_TASK_READY, OrchestratorEvent(type=ORCH_EVENT_TASK_START, task=t.id, data=t)),
+        )
+        self._queue.on(
+            QUEUE_EVENT_TASK_COMPLETE,
+            lambda t: self._events.emit(QUEUE_EVENT_TASK_COMPLETE, OrchestratorEvent(type=ORCH_EVENT_TASK_COMPLETE, task=t.id, data=t)),
+        )
+        self._queue.on(
+            QUEUE_EVENT_TASK_FAILED,
+            lambda t: self._events.emit(QUEUE_EVENT_TASK_FAILED, OrchestratorEvent(type=ORCH_EVENT_ERROR, task=t.id, data=t)),
+        )
+        self._queue.on(QUEUE_EVENT_ALL_COMPLETE, lambda: self._events.emit(QUEUE_EVENT_ALL_COMPLETE, None))
 
     def get_agents(self) -> list[AgentConfig]:
         return list(self._agent_map.values())
@@ -58,14 +79,14 @@ class Team:
 
     def send_message(self, from_agent: str, to_agent: str, content: str) -> None:
         msg = self._bus.send(from_agent, to_agent, content)
-        self._events.emit("message", OrchestratorEvent(type="message", agent=from_agent, data=msg))
+        self._events.emit(ORCH_EVENT_MESSAGE, OrchestratorEvent(type=ORCH_EVENT_MESSAGE, agent=from_agent, data=msg))
 
     def get_messages(self, agent_name: str) -> list[Message]:
         return self._bus.get_all(agent_name)
 
     def broadcast(self, from_agent: str, content: str) -> None:
         msg = self._bus.broadcast(from_agent, content)
-        self._events.emit("broadcast", OrchestratorEvent(type="message", agent=from_agent, data=msg))
+        self._events.emit(ORCH_EVENT_BROADCAST, OrchestratorEvent(type=ORCH_EVENT_MESSAGE, agent=from_agent, data=msg))
 
     def add_task(
         self,

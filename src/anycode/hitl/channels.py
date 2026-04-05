@@ -10,6 +10,7 @@ import urllib.request
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from anycode.constants import POLL_INTERVAL_S, WEBHOOK_TIMEOUT_S
 from anycode.hitl.review import format_approval_request
 from anycode.types import ApprovalRequest, ApprovalResponse
 
@@ -58,7 +59,7 @@ class WebhookApprovalGate:
         self,
         request_url: str,
         poll_url: str,
-        poll_interval: float = 5.0,
+        poll_interval: float = POLL_INTERVAL_S,
         headers: dict[str, str] | None = None,
     ) -> None:
         self._request_url = request_url
@@ -87,14 +88,14 @@ class WebhookApprovalGate:
         body = json.dumps(payload, default=str).encode()
         req = urllib.request.Request(url, data=body, headers={**self._headers, "Content-Type": "application/json"}, method="POST")
         try:
-            urllib.request.urlopen(req, timeout=30)  # noqa: S310
+            urllib.request.urlopen(req, timeout=WEBHOOK_TIMEOUT_S)  # noqa: S310
         except urllib.error.URLError as exc:
             raise ConnectionError(f"WebhookApprovalGate: POST to {url} failed: {exc}") from exc
 
     def _get(self, url: str) -> dict[str, object] | None:
         req = urllib.request.Request(url, headers=self._headers, method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=WEBHOOK_TIMEOUT_S) as resp:  # noqa: S310
                 return json.loads(resp.read().decode())  # type: ignore[no-any-return]
         except urllib.error.URLError:
             return None

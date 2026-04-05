@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from anycode.checkpoint.store import FilesystemCheckpointStore
+from anycode.constants import CHECKPOINT_FORMAT_VERSION
 from anycode.helpers.uuid7 import uuid7
 from anycode.types import AgentRunResult, CheckpointConfig, CheckpointData, CheckpointStore, Task, TokenUsage
 
@@ -34,7 +35,7 @@ class CheckpointManager:
         checkpoint = CheckpointData(
             id=str(uuid7()),
             workflow_id=workflow_id,
-            version=1,
+            version=CHECKPOINT_FORMAT_VERSION,
             tasks=tasks,
             agent_results=agent_results,
             wave_index=wave_index,

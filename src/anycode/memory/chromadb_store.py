@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from anycode.constants import CHROMADB_DEFAULT_COLLECTION, CHROMADB_DEFAULT_PORT
 from anycode.helpers.uuid7 import uuid7
 
 try:
@@ -14,13 +15,11 @@ except ImportError as exc:
 
 from anycode.types import VectorSearchResult
 
-_DEFAULT_COLLECTION = "anycode_memory"
-
 
 class ChromaDBVectorStore:
     """ChromaDB VectorStore implementation — runs blocking calls in asyncio.to_thread()."""
 
-    def __init__(self, path: str | None = None, collection_name: str = _DEFAULT_COLLECTION, url: str | None = None) -> None:
+    def __init__(self, path: str | None = None, collection_name: str = CHROMADB_DEFAULT_COLLECTION, url: str | None = None) -> None:
         self._path = path
         self._url = url
         self._collection_name = collection_name
@@ -32,7 +31,7 @@ class ChromaDBVectorStore:
             if self._url:
                 host = self._url.split("://")[-1].split(":")[0]
                 raw_port = self._url.rsplit(":", 1)[-1].split("/")[0]
-                port = int(raw_port) if ":" in self._url.rsplit("//", 1)[-1] else 8000
+                port = int(raw_port) if ":" in self._url.rsplit("//", 1)[-1] else CHROMADB_DEFAULT_PORT
                 client = chromadb.HttpClient(host=host, port=port)
             elif self._path:
                 client = chromadb.PersistentClient(path=self._path)

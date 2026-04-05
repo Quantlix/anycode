@@ -6,20 +6,19 @@ import asyncio
 
 from pydantic import BaseModel, Field
 
+from anycode.constants import BASH_TIMEOUT_LIMIT_S, DEFAULT_ENCODING, EXIT_CODE_NOT_FOUND, EXIT_CODE_TIMEOUT
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
-
-TIMEOUT_LIMIT_S = 30
 
 
 class BashInput(BaseModel):
     command: str = Field(description="The shell command to run.")
-    timeout: float | None = Field(default=None, description=f"Time limit in seconds. Defaults to {TIMEOUT_LIMIT_S}s.")
+    timeout: float | None = Field(default=None, description=f"Time limit in seconds. Defaults to {BASH_TIMEOUT_LIMIT_S}s.")
     cwd: str | None = Field(default=None, description="Directory to execute the command in.")
 
 
 async def _execute(input: BashInput, context: ToolUseContext) -> ToolResult:
-    limit = input.timeout or TIMEOUT_LIMIT_S
+    limit = input.timeout or BASH_TIMEOUT_LIMIT_S
     stdout, stderr, exit_code = await _exec_command(input.command, cwd=input.cwd, timeout=limit)
     return ToolResult(data=_compose_result(stdout, stderr, exit_code), is_error=exit_code != 0)
 
@@ -37,14 +36,14 @@ async def _exec_command(command: str, cwd: str | None, timeout: float) -> tuple[
         except TimeoutError:
             proc.kill()
             await proc.wait()
-            return "", "Process timed out", 124
+            return "", "Process timed out", EXIT_CODE_TIMEOUT
         return (
-            stdout_bytes.decode("utf-8", errors="replace"),
-            stderr_bytes.decode("utf-8", errors="replace"),
+            stdout_bytes.decode(DEFAULT_ENCODING, errors="replace"),
+            stderr_bytes.decode(DEFAULT_ENCODING, errors="replace"),
             proc.returncode or 0,
         )
     except Exception as e:
-        return "", str(e), 127
+        return "", str(e), EXIT_CODE_NOT_FOUND
 
 
 def _compose_result(stdout: str, stderr: str, exit_code: int) -> str:

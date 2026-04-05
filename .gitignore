@@ -20,3 +20,8 @@ htmlcov/
 settings.local.json
 .claude/
 .mcp.json
+
+# Phase 2 — persistence artifacts
+.env.test.local
+*.db
+.anycode/

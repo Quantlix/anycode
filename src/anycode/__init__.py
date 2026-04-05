@@ -1,9 +1,24 @@
 """AnyCode — scalable multi-agent AI orchestration framework for Python."""
 
+from anycode.checkpoint.manager import CheckpointManager
+from anycode.checkpoint.store import FilesystemCheckpointStore
 from anycode.collaboration.kv_store import InMemoryStore
 from anycode.collaboration.message_bus import MessageBus
 from anycode.collaboration.shared_mem import SharedMemory
 from anycode.collaboration.team import Team
+from anycode.constants import (
+    ORCH_EVENT_AGENT_COMPLETE,
+    ORCH_EVENT_AGENT_START,
+    ORCH_EVENT_BROADCAST,
+    ORCH_EVENT_ERROR,
+    ORCH_EVENT_MESSAGE,
+    ORCH_EVENT_TASK_COMPLETE,
+    ORCH_EVENT_TASK_START,
+    QUEUE_EVENT_ALL_COMPLETE,
+    QUEUE_EVENT_TASK_COMPLETE,
+    QUEUE_EVENT_TASK_FAILED,
+    QUEUE_EVENT_TASK_READY,
+)
 from anycode.core.agent import Agent
 from anycode.core.orchestrator import AnyCode, TaskSpec
 from anycode.core.pool import AgentPool
@@ -19,6 +34,12 @@ from anycode.guardrails.validators import (
 )
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
+from anycode.helpers.uuid7 import uuid7
+from anycode.hitl.approval import ApprovalManager
+from anycode.hitl.channels import CallbackApprovalGate, StdinApprovalGate, WebhookApprovalGate
+from anycode.memory.composite import CompositeMemory
+from anycode.memory.factory import create_memory_store
+from anycode.memory.vector_store import InMemoryVectorStore
 from anycode.providers.adapter import create_adapter
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
@@ -40,7 +61,14 @@ from anycode.types import (
     AgentInfo,
     AgentRunResult,
     AgentState,
+    ApprovalConfig,
+    ApprovalGate,
+    ApprovalRequest,
+    ApprovalResponse,
     BudgetStatus,
+    CheckpointConfig,
+    CheckpointData,
+    CheckpointStore,
     ContentBlock,
     GuardrailConfig,
     ImageBlock,
@@ -50,6 +78,7 @@ from anycode.types import (
     LLMResponse,
     LLMStreamOptions,
     LLMToolDef,
+    MemoryConfig,
     MemoryEntry,
     MemoryStore,
     OrchestratorConfig,
@@ -79,9 +108,23 @@ from anycode.types import (
     TraceConfig,
     TurnHook,
     ValidationResult,
+    VectorSearchResult,
+    VectorStore,
 )
 
 __all__ = [
+    # Constants — event names
+    "QUEUE_EVENT_TASK_READY",
+    "QUEUE_EVENT_TASK_COMPLETE",
+    "QUEUE_EVENT_TASK_FAILED",
+    "QUEUE_EVENT_ALL_COMPLETE",
+    "ORCH_EVENT_AGENT_START",
+    "ORCH_EVENT_AGENT_COMPLETE",
+    "ORCH_EVENT_TASK_START",
+    "ORCH_EVENT_TASK_COMPLETE",
+    "ORCH_EVENT_MESSAGE",
+    "ORCH_EVENT_ERROR",
+    "ORCH_EVENT_BROADCAST",
     # Core
     "AnyCode",
     "Agent",
@@ -96,6 +139,18 @@ __all__ = [
     "MessageBus",
     "SharedMemory",
     "InMemoryStore",
+    # Memory
+    "CompositeMemory",
+    "InMemoryVectorStore",
+    "create_memory_store",
+    # Checkpoint
+    "CheckpointManager",
+    "FilesystemCheckpointStore",
+    # HITL
+    "ApprovalManager",
+    "CallbackApprovalGate",
+    "StdinApprovalGate",
+    "WebhookApprovalGate",
     # Tasks
     "TaskQueue",
     "create_task",
@@ -112,6 +167,7 @@ __all__ = [
     "Semaphore",
     "EMPTY_USAGE",
     "merge_usage",
+    "uuid7",
     # Telemetry
     "Tracer",
     "Span",
@@ -162,6 +218,16 @@ __all__ = [
     "OrchestratorConfig",
     "MemoryEntry",
     "MemoryStore",
+    "MemoryConfig",
+    "VectorStore",
+    "VectorSearchResult",
+    "CheckpointConfig",
+    "CheckpointData",
+    "CheckpointStore",
+    "ApprovalRequest",
+    "ApprovalResponse",
+    "ApprovalGate",
+    "ApprovalConfig",
     "LLMChatOptions",
     "LLMStreamOptions",
     "LLMAdapter",

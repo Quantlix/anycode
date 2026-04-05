@@ -8,9 +8,9 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
-T = TypeVar("T", bound=BaseModel)
-
 from anycode.types import LLMToolDef
+
+T = TypeVar("T", bound=BaseModel)
 
 STRUCTURED_OUTPUT_TOOL_NAME = "_structured_output"
 
@@ -45,7 +45,7 @@ def schema_to_openai_response_format(schema_class: type[BaseModel]) -> dict[str,
     }
 
 
-def parse_structured_output(raw: str, schema_class: type[T]) -> T | None:
+def parse_structured_output[T](raw: str, schema_class: type[T]) -> T | None:
     """Attempt to parse raw LLM output as a validated Pydantic model instance.
 
     Tries direct JSON parse first, then extracts JSON from markdown code blocks.
@@ -86,8 +86,8 @@ def _try_parse_json(raw: str) -> dict[str, Any] | None:
     return None
 
 
-def _try_validate(data: dict[str, Any], schema_class: type[T]) -> T | None:
+def _try_validate[T](data: dict[str, Any], schema_class: type[T]) -> T | None:
     try:
-        return schema_class.model_validate(data)
+        return schema_class.model_validate(data)  # type: ignore[reportAttributeAccessIssue]
     except Exception:
         return None

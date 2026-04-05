@@ -12,11 +12,8 @@ try:
 except ImportError as exc:
     raise ImportError("RedisStore requires the 'redis' package. Install it with: pip install anycode-py[redis]") from exc
 
+from anycode.constants import REDIS_KEY_PREFIX, REDIS_MAX_RETRIES, REDIS_RETRY_BASE_SECONDS
 from anycode.types import MemoryEntry
-
-MAX_RETRIES = 3
-RETRY_BASE_SECONDS = 0.5
-_KEY_PREFIX = "anycode:mem:"
 
 
 class RedisStore:
@@ -41,7 +38,7 @@ class RedisStore:
         return self._client
 
     async def get(self, key: str) -> MemoryEntry | None:
-        raw = await self._conn().get(_KEY_PREFIX + key)
+        raw = await self._conn().get(REDIS_KEY_PREFIX + key)
         if raw is None:
             return None
         return _deserialize(raw)
@@ -51,11 +48,11 @@ class RedisStore:
         existing = await self.get(key)
         created = existing.created_at.isoformat() if existing else now
         payload = json.dumps({"key": key, "value": value, "metadata": metadata, "created_at": created, "updated_at": now})
-        await self._conn().set(_KEY_PREFIX + key, payload)
+        await self._conn().set(REDIS_KEY_PREFIX + key, payload)
 
     async def list(self) -> list[MemoryEntry]:
         keys: list[str] = []
-        async for k in self._conn().scan_iter(match=f"{_KEY_PREFIX}*"):
+        async for k in self._conn().scan_iter(match=f"{REDIS_KEY_PREFIX}*"):
             keys.append(k)
         if not keys:
             return []
@@ -63,24 +60,24 @@ class RedisStore:
         return [_deserialize(v) for v in values if v is not None]
 
     async def delete(self, key: str) -> None:
-        await self._conn().delete(_KEY_PREFIX + key)
+        await self._conn().delete(REDIS_KEY_PREFIX + key)
 
     async def clear(self) -> None:
         keys: list[str] = []
-        async for k in self._conn().scan_iter(match=f"{_KEY_PREFIX}*"):
+        async for k in self._conn().scan_iter(match=f"{REDIS_KEY_PREFIX}*"):
             keys.append(k)
         if keys:
             await self._conn().delete(*keys)
 
     async def _retry(self, fn: Any) -> Any:
         last_exc: Exception | None = None
-        for attempt in range(MAX_RETRIES):
+        for attempt in range(REDIS_MAX_RETRIES):
             try:
                 return await fn()
             except (ConnectionError, OSError) as exc:
                 last_exc = exc
-                await asyncio.sleep(RETRY_BASE_SECONDS * (2**attempt))
-        raise ConnectionError(f"RedisStore: failed after {MAX_RETRIES} retries") from last_exc
+                await asyncio.sleep(REDIS_RETRY_BASE_SECONDS * (2**attempt))
+        raise ConnectionError(f"RedisStore: failed after {REDIS_MAX_RETRIES} retries") from last_exc
 
 
 def _deserialize(raw: str) -> MemoryEntry:

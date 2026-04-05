@@ -9,6 +9,16 @@ from typing import Any
 
 import openai
 
+from anycode.constants import (
+    BLOCK_TYPE_IMAGE,
+    BLOCK_TYPE_TEXT,
+    BLOCK_TYPE_TOOL_RESULT,
+    BLOCK_TYPE_TOOL_USE,
+    STOP_REASON_CONTENT_FILTER,
+    STOP_REASON_END_TURN,
+    STOP_REASON_MAX_TOKENS,
+    STOP_REASON_TOOL_USE,
+)
 from anycode.types import (
     ContentBlock,
     LLMChatOptions,
@@ -36,27 +46,27 @@ def _map_messages(messages: list[LLMMessage], system_prompt: str | None) -> list
         if msg.role == "assistant":
             result.append(_map_assistant(msg))
         else:
-            has_tool_results = any(b.type == "tool_result" for b in msg.content)
+            has_tool_results = any(b.type == BLOCK_TYPE_TOOL_RESULT for b in msg.content)
             if not has_tool_results:
                 result.append(_map_user(msg))
             else:
-                non_tool: list[ContentBlock] = [b for b in msg.content if b.type != "tool_result"]
+                non_tool: list[ContentBlock] = [b for b in msg.content if b.type != BLOCK_TYPE_TOOL_RESULT]
                 if non_tool:
                     result.append(_map_user(LLMMessage(role="user", content=non_tool)))
                 for b in msg.content:
-                    if b.type == "tool_result":
+                    if b.type == BLOCK_TYPE_TOOL_RESULT:
                         result.append({"role": "tool", "tool_call_id": b.tool_use_id, "content": b.content})
     return result
 
 
 def _map_user(msg: LLMMessage) -> dict[str, Any]:
-    if len(msg.content) == 1 and msg.content[0].type == "text":
+    if len(msg.content) == 1 and msg.content[0].type == BLOCK_TYPE_TEXT:
         return {"role": "user", "content": msg.content[0].text}
     parts: list[dict[str, Any]] = []
     for b in msg.content:
-        if b.type == "text":
-            parts.append({"type": "text", "text": b.text})
-        elif b.type == "image":
+        if b.type == BLOCK_TYPE_TEXT:
+            parts.append({"type": BLOCK_TYPE_TEXT, "text": b.text})
+        elif b.type == BLOCK_TYPE_IMAGE:
             parts.append({"type": "image_url", "image_url": {"url": f"data:{b.source.media_type};base64,{b.source.data}"}})
     return {"role": "user", "content": parts}
 
@@ -65,9 +75,9 @@ def _map_assistant(msg: LLMMessage) -> dict[str, Any]:
     tool_calls = []
     text_parts: list[str] = []
     for b in msg.content:
-        if b.type == "tool_use":
+        if b.type == BLOCK_TYPE_TOOL_USE:
             tool_calls.append({"id": b.id, "type": "function", "function": {"name": b.name, "arguments": json.dumps(b.input)}})
-        elif b.type == "text":
+        elif b.type == BLOCK_TYPE_TEXT:
             text_parts.append(b.text)
     result: dict[str, Any] = {"role": "assistant", "content": "".join(text_parts) if text_parts else None}
     if tool_calls:
@@ -76,8 +86,13 @@ def _map_assistant(msg: LLMMessage) -> dict[str, Any]:
 
 
 def _map_stop_reason(reason: str | None) -> str:
-    mapping = {"stop": "end_turn", "tool_calls": "tool_use", "length": "max_tokens", "content_filter": "content_filter"}
-    return mapping.get(reason or "stop", reason or "end_turn")
+    mapping = {
+        "stop": STOP_REASON_END_TURN,
+        "tool_calls": STOP_REASON_TOOL_USE,
+        "length": STOP_REASON_MAX_TOKENS,
+        "content_filter": STOP_REASON_CONTENT_FILTER,
+    }
+    return mapping.get(reason or "stop", reason or STOP_REASON_END_TURN)
 
 
 def _parse_json_safe(s: str) -> dict[str, Any]:

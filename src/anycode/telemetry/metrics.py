@@ -5,14 +5,14 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from anycode.constants import MS_PER_SECOND
+
 METRIC_TOKENS_INPUT = "anycode.tokens.input"
 METRIC_TOKENS_OUTPUT = "anycode.tokens.output"
 METRIC_TOKENS_TOTAL = "anycode.tokens.total"
 METRIC_COST_USD = "anycode.cost.usd"
 METRIC_LATENCY_MS = "anycode.latency.ms"
 METRIC_ERRORS = "anycode.errors"
-
-_MS_PER_SECOND = 1000
 
 
 class MetricsCollector:
@@ -104,5 +104,5 @@ class Timer:
         return self
 
     def __exit__(self, *args: object) -> None:
-        duration_ms = (time.monotonic() - self._start) * _MS_PER_SECOND
+        duration_ms = (time.monotonic() - self._start) * MS_PER_SECOND
         self._collector.record_latency(self._name, duration_ms, self._labels)

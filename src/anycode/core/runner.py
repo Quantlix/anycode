@@ -8,9 +8,10 @@ from collections.abc import AsyncGenerator, Callable
 
 from pydantic import BaseModel
 
+from anycode.constants import DEFAULT_TURN_LIMIT, MAX_VALIDATION_RETRIES, MS_PER_SECOND
 from anycode.guardrails.budget import BudgetTracker
 from anycode.guardrails.hooks import HookRunner
-from anycode.guardrails.validators import MAX_VALIDATION_RETRIES, run_validators
+from anycode.guardrails.validators import run_validators
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
@@ -42,9 +43,6 @@ from anycode.types import (
     ToolUseContext,
     TurnHook,
 )
-
-DEFAULT_TURN_LIMIT = 10
-_MS_PER_SECOND = 1000
 
 
 def _pull_text(blocks: list[ContentBlock]) -> str:
@@ -161,7 +159,7 @@ class AgentRunner:
                             )
                         )
 
-                    turn_span.set_attribute("llm_duration_ms", (time.monotonic() - llm_start) * _MS_PER_SECOND)
+                    turn_span.set_attribute("llm_duration_ms", (time.monotonic() - llm_start) * MS_PER_SECOND)
                     cumulative_usage = merge_usage(cumulative_usage, response.usage)
                     self._budget.record_usage(response.usage)
 
@@ -253,7 +251,7 @@ class AgentRunner:
 
                             duration = time.monotonic() - began
                             tool_span.set_attributes(SpanAttributes(tool_name=block.name))
-                            tool_span.set_attribute("duration_ms", duration * _MS_PER_SECOND)
+                            tool_span.set_attribute("duration_ms", duration * MS_PER_SECOND)
                             tool_span.set_attribute("is_error", bool(result.is_error))
 
                         result_block = ToolResultBlock(

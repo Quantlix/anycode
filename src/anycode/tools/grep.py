@@ -10,18 +10,16 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from anycode.constants import DEFAULT_ENCODING, GREP_IGNORED_DIRS, GREP_MATCH_CEILING
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
-
-MATCH_CEILING = 100
-IGNORED_DIRS = {".git", ".svn", ".hg", "node_modules", ".next", "dist", "build", "__pycache__", ".venv"}
 
 
 class GrepInput(BaseModel):
     pattern: str = Field(description="Regex pattern to search for.")
     path: str | None = Field(default=None, description="Directory or file to search. Defaults to cwd.")
     glob: str | None = Field(default=None, description='Glob filter for filenames (e.g. "*.py").')
-    max_results: int = Field(default=MATCH_CEILING, description="Upper bound on matching lines.")
+    max_results: int = Field(default=GREP_MATCH_CEILING, description="Upper bound on matching lines.")
 
 
 async def _execute(input: GrepInput, context: ToolUseContext) -> ToolResult:
@@ -47,7 +45,7 @@ async def _ripgrep_search(pattern: str, search_path: str, *, glob: str | None, m
     try:
         proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         stdout, stderr = await proc.communicate()
-        output = stdout.decode("utf-8", errors="replace").strip()
+        output = stdout.decode(DEFAULT_ENCODING, errors="replace").strip()
         if proc.returncode not in (0, 1):
             return ToolResult(data=f"ripgrep exited with code {proc.returncode}: {stderr.decode().strip()}", is_error=True)
         return ToolResult(data=output or "No matches.", is_error=False)
@@ -67,7 +65,7 @@ async def _python_search(regex: re.Pattern[str], search_path: str, *, glob: str 
         if len(hits) >= max_results:
             break
         try:
-            content = file.read_text(encoding="utf-8", errors="replace")
+            content = file.read_text(encoding=DEFAULT_ENCODING, errors="replace")
         except Exception:
             continue
         for i, line in enumerate(content.split("\n")):
@@ -96,7 +94,7 @@ def _traverse(directory: Path, glob_pattern: str | None, results: list[Path]) ->
         return
     for entry in entries:
         if entry.is_dir():
-            if entry.name not in IGNORED_DIRS:
+            if entry.name not in GREP_IGNORED_DIRS:
                 _traverse(entry, glob_pattern, results)
         elif entry.is_file():
             if glob_pattern is None or _glob_match(entry.name, glob_pattern):

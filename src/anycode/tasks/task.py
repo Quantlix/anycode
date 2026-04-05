@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import uuid4
 
+from anycode.helpers.uuid7 import uuid7
 from anycode.types import Task
 
 
 def create_task(*, title: str, description: str, assignee: str | None = None, depends_on: list[str] | None = None) -> Task:
     now = datetime.now(UTC)
     return Task(
-        id=str(uuid4()),
+        id=str(uuid7()),
         title=title,
         description=description,
         status="pending",
