@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anycode-py"
-version = "0.2.0"
+version = "0.3.0"
 description = "Orchestrate autonomous AI agent teams with dependency-aware task scheduling, inter-agent messaging, and provider-agnostic LLM integration."
 readme = "README.md"
 license = "MIT"
@@ -50,6 +50,15 @@ telemetry = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.20",
     "opentelemetry-sdk>=1.20",
 ]
+persistence = [
+    "aiosqlite>=0.20",
+]
+redis = [
+    "redis[hiredis]>=5.0",
+]
+vector = [
+    "chromadb>=0.5",
+]
 
 [dependency-groups]
 dev = [
@@ -57,6 +66,9 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "ruff>=0.8",
+    "aiosqlite>=0.20",
+    "redis[hiredis]>=5.0",
+    "chromadb>=0.5",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -72,7 +84,15 @@ select = ["E", "F", "I", "UP"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+addopts = "-m 'not integration'"
+markers = [
+    "integration: requires Docker test infrastructure",
+    "redis: requires Redis container",
+    "postgres: requires PostgreSQL container",
+    "chromadb: requires ChromaDB container",
+]
 
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
+exclude = ["docs/"]

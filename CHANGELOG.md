@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-05
+
+### Added
+
+- **Pluggable Memory module** (`src/anycode/memory/`) — layered memory system with persistent KV stores and semantic vector search.
+  - `SQLiteStore` — async SQLite-backed `MemoryStore` with WAL mode, metadata tracking, and `created_at`/`updated_at` timestamps.
+  - `RedisStore` — Redis-backed `MemoryStore` for distributed deployments (optional `[redis]` extra).
+  - `InMemoryVectorStore` — TF-IDF + cosine similarity vector search with zero external dependencies.
+  - `ChromaDBVectorStore` — embedding-backed vector search via ChromaDB (optional `[vector]` extra).
+  - `CompositeMemory` — unified interface querying both KV and vector stores with auto-indexing support.
+  - `create_memory_store()` factory for config-driven backend creation from `MemoryConfig`.
+- **Workflow Checkpointing module** (`src/anycode/checkpoint/`) — crash recovery for long-running DAG-based agent workflows.
+  - `CheckpointManager` — automatic checkpoint creation after each execution wave, spec-change detection via SHA-256 hash, and configurable auto-pruning.
+  - `FilesystemCheckpointStore` — human-readable JSON checkpoint files with atomic writes (tmp → rename).
+  - `SQLiteCheckpointStore` — WAL-mode SQLite backend for high-concurrency checkpoint storage.
+  - `serialize_checkpoint()` / `deserialize_checkpoint()` — deterministic round-trip serialization supporting all LLM message content types (`TextBlock`, `ToolUseBlock`, `ToolResultBlock`, `ImageBlock`).
+- **Human-in-the-Loop module** (`src/anycode/hitl/`) — approval gates for enterprise-grade agent workflows.
+  - `ApprovalManager` — config-driven approval enforcement with tool/task filtering and audit history tracking.
+  - `CallbackApprovalGate` — programmatic approval via user-provided async callable.
+  - `StdinApprovalGate` — interactive console approval with box-formatted prompts for CLI workflows.
+  - `WebhookApprovalGate` — HTTP webhook + polling approval for async and remote approval flows.
+  - `format_approval_request()` — box-formatted console output for approval prompts.
+- New Pydantic types (all `frozen=True`): `VectorSearchResult`, `VectorStore` Protocol, `MemoryConfig`, `CheckpointConfig`, `CheckpointData`, `CheckpointStore` Protocol, `ApprovalConfig`, `ApprovalRequest`, `ApprovalResponse`, `ApprovalGate` Protocol.
+- Optional dependency groups in `pyproject.toml`: `persistence` (`aiosqlite>=0.20`), `redis` (`redis[hiredis]>=5.0`), `vector` (`chromadb>=0.5`).
+- **Examples**: `examples/06_pluggable_memory.py` (SQLite, Redis, vector search, composite memory, SharedMemory DI), `examples/07_checkpointing.py` (filesystem/SQLite stores, serialization, spec-change detection, crash/resume), `examples/08_hitl_approval.py` (callback/stdin/webhook gates, config enforcement, timeouts, audit trail).
+- **Test suites** for all Phase 2 modules — unit tests (`test_memory.py`, `test_checkpoint.py`, `test_hitl.py`) and integration tests (`test_checkpoint_stores.py`, `test_composite_memory.py`, `test_full_pipeline.py`).
+
+### Changed
+
+- **Orchestrator** — `AnyCode` now saves checkpoints automatically after each execution wave via `CheckpointManager`, supports `resume_from` parameter (accepts `"latest"` or a specific checkpoint ID) for crash recovery, and enforces task-level approval gates via `ApprovalManager` before execution.
+- **SharedMemory** — accepts any `MemoryStore` backend via constructor injection; defaults to `InMemoryStore` for full backward compatibility.
+- **TeamConfig** — new optional `memory_store` parameter for pluggable team memory backends.
+- **Types** — expanded `types.py` with 11 new Pydantic models for memory, checkpoint, and approval subsystems. All models remain frozen (immutable).
+
 ## [0.2.0] - 2025-04-05
 
 ### Added
@@ -53,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four examples: solo worker, crew workflow, staged pipeline, hybrid tooling.
 - Pydantic-based immutable type system (`frozen=True` on all models).
 
-[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Quantlix/anycode/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Quantlix/anycode/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Quantlix/anycode/releases/tag/v0.1.0
