@@ -1,0 +1,49 @@
+# Test infrastructure for Phase 2: Persistence & Resilience
+# Usage: docker compose up -d
+# Ports are offset from defaults to avoid host collisions.
+
+services:
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: anycode_test
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: anycode_test
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "anycode_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:1.5.5
+    ports:
+      - "8100:8000"
+    environment:
+      CHROMA_HOST_ADDR: "0.0.0.0"
+      CHROMA_HOST_PORT: "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  default:
+    name: anycode-test-net

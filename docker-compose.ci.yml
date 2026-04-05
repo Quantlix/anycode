@@ -1,0 +1,12 @@
+# CI override — strips port bindings for container-to-container networking.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+
+services:
+  redis:
+    ports: !reset []
+
+  postgres:
+    ports: !reset []
+
+  chromadb:
+    ports: !reset []
