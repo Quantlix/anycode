@@ -1,15 +1,17 @@
-"""Unit tests for Phase 2A: Pluggable Memory — SQLite, vector, composite, factory, SharedMemory DI."""
+"""Unit tests for pluggable memory — SQLite, vector, composite, factory, SharedMemory DI."""
 
 from __future__ import annotations
 
 import asyncio
 
 import pytest
+from pydantic import ValidationError
 
 from anycode.collaboration.kv_store import InMemoryStore
 from anycode.collaboration.shared_mem import SharedMemory
 from anycode.memory.composite import CompositeMemory
 from anycode.memory.factory import create_memory_store
+from anycode.memory.sqlite_store import SQLiteStore
 from anycode.memory.vector_store import InMemoryVectorStore
 from anycode.types import MemoryConfig
 
@@ -41,7 +43,6 @@ class TestInMemoryStoreUpdatedAt:
 class TestSQLiteStore:
     @pytest.mark.asyncio
     async def test_crud_round_trip(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = SQLiteStore(":memory:")
         await store.setup()
@@ -59,7 +60,6 @@ class TestSQLiteStore:
 
     @pytest.mark.asyncio
     async def test_list_and_delete(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = SQLiteStore(":memory:")
         await store.setup()
@@ -77,7 +77,6 @@ class TestSQLiteStore:
 
     @pytest.mark.asyncio
     async def test_clear(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = SQLiteStore(":memory:")
         await store.setup()
@@ -91,7 +90,6 @@ class TestSQLiteStore:
 
     @pytest.mark.asyncio
     async def test_update_preserves_created_at(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = SQLiteStore(":memory:")
         await store.setup()
@@ -109,7 +107,6 @@ class TestSQLiteStore:
 
     @pytest.mark.asyncio
     async def test_concurrent_writes(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = SQLiteStore(":memory:")
         await store.setup()
@@ -126,7 +123,6 @@ class TestSQLiteStore:
 
     @pytest.mark.asyncio
     async def test_get_nonexistent_returns_none(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = SQLiteStore(":memory:")
         await store.setup()
@@ -236,7 +232,6 @@ class TestMemoryFactory:
         assert isinstance(store, InMemoryStore)
 
     def test_sqlite_backend(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = create_memory_store(MemoryConfig(backend="sqlite", path=":memory:"))
         assert isinstance(store, SQLiteStore)
@@ -246,8 +241,6 @@ class TestMemoryFactory:
         assert isinstance(store, InMemoryStore)
 
     def test_invalid_backend_raises(self) -> None:
-        from pydantic import ValidationError
-
         with pytest.raises(ValidationError):
             create_memory_store(MemoryConfig(backend="postgres"))  # type: ignore[arg-type]
 
@@ -263,7 +256,6 @@ class TestSharedMemoryDI:
 
     @pytest.mark.asyncio
     async def test_injected_sqlite_store(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = SQLiteStore(":memory:")
         await store.setup()
@@ -281,7 +273,6 @@ class TestSharedMemoryDI:
 
     @pytest.mark.asyncio
     async def test_get_store_returns_injected(self) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         store = SQLiteStore(":memory:")
         mem = SharedMemory(store=store)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from collections.abc import AsyncGenerator, Generator
@@ -10,6 +11,8 @@ from typing import Any
 
 from anycode.constants import MS_PER_SECOND
 from anycode.types import SpanAttributes, TraceConfig
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_config(config: TraceConfig | None) -> TraceConfig:
@@ -114,14 +117,14 @@ class ConsoleExporter(SpanExporter):
         data = span.to_dict()
         indent = "  " if span.parent else ""
         status_icon = "x" if data["status"] == "error" else "v"
-        print(f"{indent}[{status_icon}] {data['name']} ({data['duration_ms']:.1f}ms)")
+        print(f"{indent}[{status_icon}] {data['name']} ({data['duration_ms']:.1f}ms)")  # noqa: T201
         for key, value in data["attributes"].items():
             if value:
-                print(f"{indent}    {key}: {value}")
+                print(f"{indent}    {key}: {value}")  # noqa: T201
         if data["error"]:
-            print(f"{indent}    ERROR: {data['error']}")
+            print(f"{indent}    ERROR: {data['error']}")  # noqa: T201
         for event in data["events"]:
-            print(f"{indent}    event: {event['name']}")
+            print(f"{indent}    event: {event['name']}")  # noqa: T201
 
 
 class OTLPExporter(SpanExporter):

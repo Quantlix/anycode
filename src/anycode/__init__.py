@@ -32,15 +32,25 @@ from anycode.guardrails.validators import (
     MaxLengthValidator,
     run_validators,
 )
+from anycode.handoff.executor import HandoffExecutor
+from anycode.handoff.protocol import build_handoff_system_prompt, build_handoff_user_message, trim_context
+from anycode.handoff.tool import HANDOFF_TOOL_DEF
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
 from anycode.hitl.approval import ApprovalManager
 from anycode.hitl.channels import CallbackApprovalGate, StdinApprovalGate, WebhookApprovalGate
+from anycode.mcp.bridge import discover_and_register as mcp_discover_and_register
+from anycode.mcp.bridge import mcp_tool_to_definition, schema_to_pydantic_model
+from anycode.mcp.client import MCPClient
+from anycode.mcp.config import validate_server_config as mcp_validate_server_config
 from anycode.memory.composite import CompositeMemory
 from anycode.memory.factory import create_memory_store
 from anycode.memory.vector_store import InMemoryVectorStore
 from anycode.providers.adapter import create_adapter
+from anycode.routing.classifier import classify_task
+from anycode.routing.router import DefaultRouter
+from anycode.routing.rules import evaluate_rules, match_rule
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
     build_retry_prompt,
@@ -69,8 +79,12 @@ from anycode.types import (
     CheckpointConfig,
     CheckpointData,
     CheckpointStore,
+    ComplexityLevel,
     ContentBlock,
     GuardrailConfig,
+    Handoff,
+    HandoffPolicy,
+    HandoffRequest,
     ImageBlock,
     LLMAdapter,
     LLMChatOptions,
@@ -78,6 +92,8 @@ from anycode.types import (
     LLMResponse,
     LLMStreamOptions,
     LLMToolDef,
+    MCPServerConfig,
+    MCPToolInfo,
     MemoryConfig,
     MemoryEntry,
     MemoryStore,
@@ -85,6 +101,10 @@ from anycode.types import (
     OrchestratorEvent,
     OutputValidator,
     PoolStatus,
+    RouteDecision,
+    Router,
+    RoutingConfig,
+    RoutingRule,
     RunnerOptions,
     RunResult,
     SchedulingStrategy,
@@ -134,6 +154,23 @@ __all__ = [
     "TaskSpec",
     # Providers
     "create_adapter",
+    # MCP
+    "MCPClient",
+    "mcp_discover_and_register",
+    "mcp_tool_to_definition",
+    "schema_to_pydantic_model",
+    "mcp_validate_server_config",
+    # Handoff
+    "HandoffExecutor",
+    "HANDOFF_TOOL_DEF",
+    "build_handoff_system_prompt",
+    "build_handoff_user_message",
+    "trim_context",
+    # Routing
+    "DefaultRouter",
+    "classify_task",
+    "evaluate_rules",
+    "match_rule",
     # Collaboration
     "Team",
     "MessageBus",
@@ -231,6 +268,16 @@ __all__ = [
     "LLMChatOptions",
     "LLMStreamOptions",
     "LLMAdapter",
+    "MCPServerConfig",
+    "MCPToolInfo",
+    "HandoffRequest",
+    "Handoff",
+    "HandoffPolicy",
+    "ComplexityLevel",
+    "RoutingRule",
+    "RoutingConfig",
+    "RouteDecision",
+    "Router",
     "RunnerOptions",
     "RunResult",
     "PoolStatus",

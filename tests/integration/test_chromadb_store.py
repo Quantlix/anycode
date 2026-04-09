@@ -6,13 +6,14 @@ import uuid
 
 import pytest
 
+from anycode.memory.chromadb_store import ChromaDBVectorStore
+
 
 @pytest.mark.integration
 @pytest.mark.chromadb
 class TestChromaDBVectorStoreIntegration:
     @pytest.mark.asyncio
     async def test_add_and_search(self, require_chromadb: None, chromadb_url: str) -> None:
-        from anycode.memory.chromadb_store import ChromaDBVectorStore
 
         collection = f"test_{uuid.uuid4().hex[:8]}"
         store = ChromaDBVectorStore(url=chromadb_url, collection_name=collection)
@@ -32,7 +33,6 @@ class TestChromaDBVectorStoreIntegration:
 
     @pytest.mark.asyncio
     async def test_delete(self, require_chromadb: None, chromadb_url: str) -> None:
-        from anycode.memory.chromadb_store import ChromaDBVectorStore
 
         collection = f"test_{uuid.uuid4().hex[:8]}"
         store = ChromaDBVectorStore(url=chromadb_url, collection_name=collection)

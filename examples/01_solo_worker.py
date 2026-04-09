@@ -2,16 +2,33 @@
 # Execute: uv run python examples/01_solo_worker.py
 
 import asyncio
+import os
 import sys
+
+from dotenv import load_dotenv
 
 from anycode import (
     Agent,
     AnyCode,
-    OrchestratorEvent,
     ToolExecutor,
     ToolRegistry,
     register_built_in_tools,
 )
+
+load_dotenv()
+
+
+def _resolve_provider() -> tuple[str, str]:
+    """Return (provider, model) based on available API keys."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    print("ERROR: Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env")
+    sys.exit(1)
+
+
+PROVIDER, MODEL = _resolve_provider()
 
 # --- Section A: Quick one-shot execution via the orchestrator facade ---
 
@@ -19,11 +36,11 @@ from anycode import (
 async def main() -> None:
     engine = AnyCode(
         config={
-            "default_model": "gpt-4o-mini",
+            "default_model": MODEL,
             "on_progress": lambda ev: print(
-                f'>> worker "{ev.agent}" activated' if ev.type == "agent_start" else (
-                    f'<< worker "{ev.agent}" finished' if ev.type == "agent_complete" else ""
-                ),
+                f'>> worker "{ev.agent}" activated'
+                if ev.type == "agent_start"
+                else (f'<< worker "{ev.agent}" finished' if ev.type == "agent_complete" else ""),
             ),
         }
     )
@@ -33,8 +50,8 @@ async def main() -> None:
     outcome = await engine.run_agent(
         config={
             "name": "scripter",
-            "model": "gpt-4o-mini",
-            "provider": "openai",
+            "model": MODEL,
+            "provider": PROVIDER,
             "system_prompt": (
                 "You are an efficient Python script writer. "
                 "Produce concise, working code without unnecessary explanation. "
@@ -60,9 +77,11 @@ async def main() -> None:
     print("=" * 50)
     print(outcome.output)
     print("=" * 50)
-    print(f"\nMetrics — input tokens: {outcome.token_usage.input_tokens}, "
-          f"output tokens: {outcome.token_usage.output_tokens}, "
-          f"tool invocations: {len(outcome.tool_calls)}")
+    print(
+        f"\nMetrics — input tokens: {outcome.token_usage.input_tokens}, "
+        f"output tokens: {outcome.token_usage.output_tokens}, "
+        f"tool invocations: {len(outcome.tool_calls)}"
+    )
 
     # --- Section B: Incremental streaming through the Agent class directly ---
 
@@ -75,8 +94,8 @@ async def main() -> None:
     narrator = Agent(
         config={
             "name": "narrator",
-            "model": "gpt-4o-mini",
-            "provider": "openai",
+            "model": MODEL,
+            "provider": PROVIDER,
             "system_prompt": "You are a concise technical explainer. Respond in two sentences max.",
             "max_turns": 2,
         },
@@ -101,8 +120,8 @@ async def main() -> None:
     mentor = Agent(
         config={
             "name": "mentor",
-            "model": "gpt-4o-mini",
-            "provider": "openai",
+            "model": MODEL,
+            "provider": PROVIDER,
             "system_prompt": "You are a Python tutor. Give brief, practical answers.",
             "max_turns": 2,
         },

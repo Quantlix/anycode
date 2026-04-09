@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 
 from anycode.memory.composite import CompositeMemory
+from anycode.memory.redis_store import RedisStore
+from anycode.memory.sqlite_store import SQLiteStore
 from anycode.memory.vector_store import InMemoryVectorStore
 
 
@@ -12,8 +14,6 @@ from anycode.memory.vector_store import InMemoryVectorStore
 class TestCompositeMemoryFileBackedIntegration:
     @pytest.mark.asyncio
     async def test_sqlite_kv_with_vector(self, tmp_path: object) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
-
         kv = SQLiteStore(f"{tmp_path}/composite.db")
         await kv.setup()
         vector = InMemoryVectorStore()
@@ -37,8 +37,6 @@ class TestCompositeMemoryFileBackedIntegration:
 class TestCompositeMemoryRedisIntegration:
     @pytest.mark.asyncio
     async def test_redis_kv_with_vector(self, require_redis: None, redis_url: str) -> None:
-        from anycode.memory.redis_store import RedisStore
-
         kv = RedisStore(redis_url)
         await kv.setup()
         vector = InMemoryVectorStore()

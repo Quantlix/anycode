@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -13,6 +15,7 @@ from anycode.constants import (
     COORDINATOR_ROLE_PREVIEW_LENGTH,
     DEFAULT_MAX_CONCURRENCY,
     DEPENDENCY_CONTEXT_MAX_LENGTH,
+    MCP_TOOL_PREFIX,
     ORCH_EVENT_AGENT_COMPLETE,
     ORCH_EVENT_AGENT_START,
     ORCH_EVENT_ERROR,
@@ -22,8 +25,13 @@ from anycode.constants import (
 from anycode.core.agent import Agent
 from anycode.core.pool import AgentPool
 from anycode.core.scheduler import Scheduler
+from anycode.handoff.executor import HandoffExecutor
+from anycode.handoff.tool import HANDOFF_TOOL_DEF
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.hitl.approval import ApprovalManager
+from anycode.mcp.bridge import discover_and_register
+from anycode.mcp.client import MCPClient
+from anycode.routing.router import DefaultRouter
 from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task, get_task_dependency_order, validate_task_dependencies
 from anycode.telemetry.tracer import Tracer
@@ -44,6 +52,8 @@ from anycode.types import (
     TraceConfig,
     TurnHook,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TaskSpec:
@@ -70,6 +80,18 @@ class AnyCode:
         self._checkpoint_manager: CheckpointManager | None = None
         self._approval_manager: ApprovalManager | None = None
 
+        # MCP clients for external tool servers
+        self._mcp_clients: dict[str, Any] = {}
+        self._mcp_tool_registry: ToolRegistry = ToolRegistry()
+
+        # Agent-to-agent handoff orchestration
+        self._handoff_executor = HandoffExecutor(max_depth=self._config.max_handoff_depth)
+
+        # Intelligent task routing
+        self._router: DefaultRouter | None = None
+        if self._config.routing and self._config.routing.enabled:
+            self._router = DefaultRouter(self._config.routing)
+
         if self._config.checkpoint and self._config.checkpoint.enabled:
             self._checkpoint_manager = CheckpointManager(self._config.checkpoint)
         if self._config.approval and self._config.approval.enabled and self._config.approval_handler:
@@ -94,6 +116,41 @@ class AnyCode:
         if output_validators is not None:
             self._output_validators = output_validators
 
+    # -- MCP lifecycle --
+
+    async def connect_mcp_servers(self) -> None:
+        """Connect to all configured MCP servers and register their tools."""
+        if not self._config.mcp_servers:
+            return
+
+        for server_config in self._config.mcp_servers:
+            try:
+                client = MCPClient(server_config)
+                await client.connect()
+                tools = await discover_and_register(client, server_config.name, self._mcp_tool_registry)
+                self._mcp_clients[server_config.name] = client
+                logger.info("MCP server '%s': registered %d tools", server_config.name, len(tools))
+            except Exception as e:
+                logger.error("Failed to connect MCP server '%s': %s", server_config.name, e)
+
+    async def disconnect_mcp_servers(self) -> None:
+        """Disconnect from all MCP servers and clean up tools."""
+        for name, client in self._mcp_clients.items():
+            try:
+                if hasattr(client, "disconnect"):
+                    await client.disconnect()
+            except Exception as e:
+                logger.warning("Error disconnecting MCP server '%s': %s", name, e)
+        self._mcp_clients.clear()
+        self._mcp_tool_registry = ToolRegistry()
+
+    async def __aenter__(self) -> AnyCode:
+        await self.connect_mcp_servers()
+        return self
+
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        await self.disconnect_mcp_servers()
+
     def build_agent(
         self,
         config: AgentConfig | dict[str, object],
@@ -104,6 +161,24 @@ class AnyCode:
         typed_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
         registry = ToolRegistry()
         register_built_in_tools(registry)
+
+        # Register handoff tool if agent opts in
+        if typed_config.tools and "handoff" in typed_config.tools:
+            if not registry.has(HANDOFF_TOOL_DEF.name):
+                registry.register(HANDOFF_TOOL_DEF)
+
+        # Register MCP tools for this agent
+        if self._mcp_clients:
+            mcp_filter = set(typed_config.mcp_servers) if typed_config.mcp_servers else None
+            for tool in self._mcp_tool_registry.list():
+                if mcp_filter is not None:
+                    # Only include tools from servers the agent has access to
+                    server_prefix = f"{MCP_TOOL_PREFIX}_"
+                    if not any(tool.name.startswith(f"{server_prefix}{s.replace('-', '_').replace('.', '_')}_") for s in mcp_filter):
+                        continue
+                if not registry.has(tool.name):
+                    registry.register(tool)
+
         executor = ToolExecutor(registry)
         return Agent(
             typed_config,
@@ -211,22 +286,8 @@ class AnyCode:
 
         workflow_id = self._compute_workflow_id(resolved)
 
-        # Resume from checkpoint if requested
         if resume_from and self._checkpoint_manager:
-            checkpoint = None
-            if resume_from == "latest":
-                checkpoint = await self._checkpoint_manager.load_latest(workflow_id)
-            else:
-                checkpoint = await self._checkpoint_manager.store.load(resume_from)
-
-            if checkpoint:
-                if self._checkpoint_manager.detect_spec_change(resolved, checkpoint):
-                    raise ValueError("AnyCode: task specs changed since checkpoint was created — cannot resume.")
-                resolved = checkpoint.tasks
-                agent_results = dict(checkpoint.agent_results)
-                total_usage = checkpoint.total_token_usage
-                start_wave = checkpoint.wave_index + 1
-                self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_START, data={"checkpoint_resume": checkpoint.id, "wave": start_wave}))
+            resolved, agent_results, total_usage, start_wave = await self._resume_from_checkpoint(workflow_id, resume_from, resolved)
 
         for task in resolved:
             queue.add(task)
@@ -235,54 +296,30 @@ class AnyCode:
         ordered = get_task_dependency_order(queue.list())
         waves = self._build_waves(ordered, queue)
 
+        # Intelligent routing — apply after scheduling, before execution
+        route_decisions: dict[str, object] = {}
+        if self._router:
+            agents = team.get_agents()
+            for task in ordered:
+                decision = await self._router.route(task, agents)
+                if decision:
+                    route_decisions[task.id] = decision
+                    self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_START, data={"routing": decision.model_dump()}))
+
         for wave_idx, wave in enumerate(waves):
             if wave_idx < start_wave:
                 continue
 
-            async def _run_task(task: Task) -> None:
-                nonlocal all_succeeded, total_usage
-                assignee = task.assignee
-                if not assignee:
-                    queue.fail(task.id, "Unassigned task — no agent available.")
-                    return
-
-                # HITL: task-level approval
-                if self._approval_manager:
-                    response = await self._approval_manager.check_and_request(
-                        request_type="task",
-                        agent=assignee,
-                        description=f"Execute task: {task.title}",
-                        context={"task_id": task.id, "title": task.title, "description": task.description},
-                    )
-                    if response and not response.approved:
-                        queue.fail(task.id, f"Approval denied: {response.reason or 'rejected'}")
-                        all_succeeded = False
-                        return
-
-                self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_START, task=task.id, agent=assignee, data=task))
-                queue.update(task.id, status="in_progress")
-
-                prompt = self._build_task_prompt(task, queue)
-                agent = self._pool.get(assignee) or self._build_agent_for_team(assignee, team)
-
-                self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=assignee))
-                try:
-                    result = await agent.run(prompt)
-                    self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=assignee, data=result))
-                    if result.success:
-                        queue.complete(task.id, result.output)
-                        self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_COMPLETE, task=task.id, agent=assignee))
-                    else:
-                        queue.fail(task.id, result.output)
-                        all_succeeded = False
-                    agent_results[assignee] = result
-                    total_usage = merge_usage(total_usage, result.token_usage)
-                except Exception as e:
-                    queue.fail(task.id, str(e))
+            outcomes = await asyncio.gather(*[self._run_wave_task(t, queue, team) for t in wave])
+            for outcome in outcomes:
+                if outcome is None:
                     all_succeeded = False
-                    agent_results[assignee] = AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
-
-            await asyncio.gather(*[_run_task(t) for t in wave])
+                    continue
+                assignee, result = outcome
+                agent_results[assignee] = result
+                total_usage = merge_usage(total_usage, result.token_usage)
+                if not result.success:
+                    all_succeeded = False
 
             # Save checkpoint after each wave
             if self._checkpoint_manager:
@@ -295,6 +332,82 @@ class AnyCode:
                 )
 
         return TeamRunResult(success=all_succeeded, agent_results=agent_results, total_token_usage=total_usage)
+
+    async def _resume_from_checkpoint(
+        self,
+        workflow_id: str,
+        resume_from: str,
+        resolved: list[Task],
+    ) -> tuple[list[Task], dict[str, AgentRunResult], TokenUsage, int]:
+        """Resume execution from a checkpoint. Returns (tasks, results, usage, start_wave)."""
+        assert self._checkpoint_manager is not None
+        checkpoint = None
+        if resume_from == "latest":
+            checkpoint = await self._checkpoint_manager.load_latest(workflow_id)
+        else:
+            checkpoint = await self._checkpoint_manager.store.load(resume_from)
+
+        if not checkpoint:
+            return resolved, {}, EMPTY_USAGE, 0
+
+        if self._checkpoint_manager.detect_spec_change(resolved, checkpoint):
+            raise ValueError("AnyCode: task specs changed since checkpoint was created — cannot resume.")
+
+        self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_START, data={"checkpoint_resume": checkpoint.id, "wave": checkpoint.wave_index + 1}))
+        return checkpoint.tasks, dict(checkpoint.agent_results), checkpoint.total_token_usage, checkpoint.wave_index + 1
+
+    async def _run_wave_task(
+        self,
+        task: Task,
+        queue: TaskQueue,
+        team: Team,
+    ) -> tuple[str, AgentRunResult] | None:
+        """Execute a single task within a wave. Returns (assignee, result) or None if unassigned."""
+        assignee = task.assignee
+        if not assignee:
+            queue.fail(task.id, "Unassigned task — no agent available.")
+            return None
+
+        if self._approval_manager:
+            response = await self._approval_manager.check_and_request(
+                request_type="task",
+                agent=assignee,
+                description=f"Execute task: {task.title}",
+                context={"task_id": task.id, "title": task.title, "description": task.description},
+            )
+            if response and not response.approved:
+                reason = f"Approval denied: {response.reason or 'rejected'}"
+                queue.fail(task.id, reason)
+                return (
+                    assignee,
+                    AgentRunResult(
+                        success=False,
+                        output=reason,
+                        messages=[],
+                        token_usage=EMPTY_USAGE,
+                        tool_calls=[],
+                    ),
+                )
+
+        self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_START, task=task.id, agent=assignee, data=task))
+        queue.update(task.id, status="in_progress")
+
+        prompt = self._build_task_prompt(task, queue)
+        agent = self._pool.get(assignee) or self._build_agent_for_team(assignee, team)
+
+        self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=assignee))
+        try:
+            result = await agent.run(prompt)
+            self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=assignee, data=result))
+            if result.success:
+                queue.complete(task.id, result.output)
+                self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_COMPLETE, task=task.id, agent=assignee))
+            else:
+                queue.fail(task.id, result.output)
+            return (assignee, result)
+        except Exception as e:
+            queue.fail(task.id, str(e))
+            return (assignee, AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[]))
 
     def _build_agent_for_team(self, agent_name: str, team: Team) -> Agent:
         config = team.get_agent(agent_name)

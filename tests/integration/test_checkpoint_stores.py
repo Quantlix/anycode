@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from anycode.checkpoint.store import FilesystemCheckpointStore
+from anycode.checkpoint.store import FilesystemCheckpointStore, SQLiteCheckpointStore
 from anycode.tasks.task import create_task
 from anycode.types import CheckpointData, TokenUsage
 
@@ -58,8 +58,6 @@ class TestFilesystemCheckpointStoreIntegration:
 class TestSQLiteCheckpointStoreIntegration:
     @pytest.mark.asyncio
     async def test_full_lifecycle(self, tmp_path: object) -> None:
-        from anycode.checkpoint.store import SQLiteCheckpointStore
-
         store = SQLiteCheckpointStore(f"{tmp_path}/checkpoints.db")
         await store.setup()
         try:

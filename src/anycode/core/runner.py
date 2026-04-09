@@ -8,7 +8,7 @@ from collections.abc import AsyncGenerator, Callable
 
 from pydantic import BaseModel
 
-from anycode.constants import DEFAULT_TURN_LIMIT, MAX_VALIDATION_RETRIES, MS_PER_SECOND
+from anycode.constants import DEFAULT_TURN_LIMIT, HANDOFF_TOOL_NAME, MAX_VALIDATION_RETRIES, MS_PER_SECOND
 from anycode.guardrails.budget import BudgetTracker
 from anycode.guardrails.hooks import HookRunner
 from anycode.guardrails.validators import run_validators
@@ -19,13 +19,14 @@ from anycode.structured.output import (
     parse_structured_output,
     schema_to_tool_def,
 )
-from anycode.telemetry.tracer import Tracer
+from anycode.telemetry.tracer import Span, Tracer
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
     AgentInfo,
     ContentBlock,
     GuardrailConfig,
+    HandoffRequest,
     LLMAdapter,
     LLMChatOptions,
     LLMMessage,
@@ -231,43 +232,26 @@ class AgentRunner:
                         break
 
                     ctx = self._build_context()
-                    results: list[tuple[ToolResultBlock, ToolCallRecord]] = []
-
-                    for block in tool_blocks:
-                        if self._budget.is_tool_blocked(block.name):
-                            result = ToolResult(data=f'Tool "{block.name}" is blocked by guardrail policy.', is_error=True)
-                            result_block = ToolResultBlock(tool_use_id=block.id, content=result.data, is_error=True)
-                            record = ToolCallRecord(tool_name=block.name, input=block.input, output=result.data, duration=0.0)
-                            results.append((result_block, record))
-                            continue
-
-                        began = time.monotonic()
-                        async with self._tracer.async_span(f"anycode.tool.{block.name}", parent=turn_span) as tool_span:
-                            try:
-                                result = await self._executor.execute(block.name, block.input, ctx)
-                            except Exception as e:
-                                result = ToolResult(data=str(e), is_error=True)
-                                tool_span.set_error(str(e))
-
-                            duration = time.monotonic() - began
-                            tool_span.set_attributes(SpanAttributes(tool_name=block.name))
-                            tool_span.set_attribute("duration_ms", duration * MS_PER_SECOND)
-                            tool_span.set_attribute("is_error", bool(result.is_error))
-
-                        result_block = ToolResultBlock(
-                            tool_use_id=block.id,
-                            content=result.data,
-                            is_error=result.is_error,
-                        )
-                        record = ToolCallRecord(
-                            tool_name=block.name,
-                            input=block.input,
-                            output=result.data,
-                            duration=duration,
-                        )
-                        results.append((result_block, record))
+                    results = await self._execute_tool_blocks(tool_blocks, turn_span, ctx)
 
                     self._budget.record_tool_call(len(results))
+
+                    handoff = self._detect_handoff(results)
+                    if handoff is not None:
+                        handoff_req, handoff_record = handoff
+                        tool_calls.append(handoff_record)
+                        yield StreamEvent(type="handoff", data=handoff_req)
+                        yield StreamEvent(
+                            type="done",
+                            data=RunResult(
+                                messages=conversation[len(seed_messages) :],
+                                output=last_output,
+                                tool_calls=tool_calls,
+                                token_usage=cumulative_usage,
+                                turns=turn_count,
+                            ),
+                        )
+                        return
 
                     result_blocks: list[ContentBlock] = [r[0] for r in results]
                     for _, record in results:
@@ -299,6 +283,66 @@ class AgentRunner:
                 turns=turn_count,
             ),
         )
+
+    async def _execute_tool_blocks(
+        self,
+        blocks: list[ToolUseBlock],
+        turn_span: Span,
+        ctx: ToolUseContext,
+    ) -> list[tuple[ToolResultBlock, ToolCallRecord]]:
+        """Execute a batch of tool calls, respecting budget guardrails."""
+        results: list[tuple[ToolResultBlock, ToolCallRecord]] = []
+        for block in blocks:
+            if self._budget.is_tool_blocked(block.name):
+                result = ToolResult(data=f'Tool "{block.name}" is blocked by guardrail policy.', is_error=True)
+                result_block = ToolResultBlock(tool_use_id=block.id, content=result.data, is_error=True)
+                record = ToolCallRecord(tool_name=block.name, input=block.input, output=result.data, duration=0.0)
+                results.append((result_block, record))
+                continue
+
+            began = time.monotonic()
+            async with self._tracer.async_span(f"anycode.tool.{block.name}", parent=turn_span) as tool_span:
+                try:
+                    result = await self._executor.execute(block.name, block.input, ctx)
+                except Exception as e:
+                    result = ToolResult(data=str(e), is_error=True)
+                    tool_span.set_error(str(e))
+
+                duration = time.monotonic() - began
+                tool_span.set_attributes(SpanAttributes(tool_name=block.name))
+                tool_span.set_attribute("duration_ms", duration * MS_PER_SECOND)
+                tool_span.set_attribute("is_error", bool(result.is_error))
+
+            result_block = ToolResultBlock(
+                tool_use_id=block.id,
+                content=result.data,
+                is_error=result.is_error,
+            )
+            record = ToolCallRecord(
+                tool_name=block.name,
+                input=block.input,
+                output=result.data,
+                duration=duration,
+            )
+            results.append((result_block, record))
+        return results
+
+    @staticmethod
+    def _detect_handoff(results: list[tuple[ToolResultBlock, ToolCallRecord]]) -> tuple[HandoffRequest, ToolCallRecord] | None:
+        """Scan tool results for a handoff sentinel. Returns (request, record) or None."""
+        for _, record in results:
+            if record.tool_name == HANDOFF_TOOL_NAME and record.output.startswith("__HANDOFF__:"):
+                parts = record.output.split(":", 3)
+                if len(parts) >= 4:
+                    return (
+                        HandoffRequest(
+                            to_agent=parts[1],
+                            summary=parts[2],
+                            reason=parts[3],
+                        ),
+                        record,
+                    )
+        return None
 
     def _build_context(self) -> ToolUseContext:
         return ToolUseContext(agent=self._build_agent_info())

@@ -1,4 +1,4 @@
-"""Unit tests for Phase 2B: Checkpoint serialization, stores, and manager."""
+"""Unit tests for checkpoint serialization, stores, and manager."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import pytest
 
 from anycode.checkpoint.manager import CheckpointManager
 from anycode.checkpoint.serializer import deserialize_checkpoint, serialize_checkpoint
-from anycode.checkpoint.store import FilesystemCheckpointStore
+from anycode.checkpoint.store import FilesystemCheckpointStore, SQLiteCheckpointStore
 from anycode.tasks.task import create_task
 from anycode.types import (
     AgentRunResult,
@@ -180,7 +180,6 @@ class TestFilesystemCheckpointStore:
 class TestSQLiteCheckpointStore:
     @pytest.mark.asyncio
     async def test_save_and_load(self) -> None:
-        from anycode.checkpoint.store import SQLiteCheckpointStore
 
         store = SQLiteCheckpointStore(":memory:")
         await store.setup()
@@ -195,7 +194,6 @@ class TestSQLiteCheckpointStore:
 
     @pytest.mark.asyncio
     async def test_latest(self) -> None:
-        from anycode.checkpoint.store import SQLiteCheckpointStore
 
         store = SQLiteCheckpointStore(":memory:")
         await store.setup()
@@ -210,7 +208,6 @@ class TestSQLiteCheckpointStore:
 
     @pytest.mark.asyncio
     async def test_prune(self) -> None:
-        from anycode.checkpoint.store import SQLiteCheckpointStore
 
         store = SQLiteCheckpointStore(":memory:")
         await store.setup()

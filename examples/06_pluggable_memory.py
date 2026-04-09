@@ -23,10 +23,12 @@ import uuid
 from io import StringIO
 from pathlib import Path
 
-from anycode.collaboration.kv_store import InMemoryStore
 from anycode.collaboration.shared_mem import SharedMemory
+from anycode.memory.chromadb_store import ChromaDBVectorStore
 from anycode.memory.composite import CompositeMemory
 from anycode.memory.factory import create_memory_store
+from anycode.memory.redis_store import RedisStore
+from anycode.memory.sqlite_store import SQLiteStore
 from anycode.memory.vector_store import InMemoryVectorStore
 from anycode.types import MemoryConfig
 
@@ -51,8 +53,6 @@ async def demo_sqlite_store() -> None:
     print(f"\n{SEPARATOR}")
     print("  1. SQLite Persistent KV Store")
     print(SEPARATOR)
-
-    from anycode.memory.sqlite_store import SQLiteStore
 
     with tempfile.TemporaryDirectory() as tmp:
         db_path = os.path.join(tmp, "memory.db")
@@ -128,8 +128,6 @@ async def demo_redis_store() -> None:
     if not _is_port_open("localhost", 6380):
         print("  SKIPPED — Redis not available at localhost:6380")
         return
-
-    from anycode.memory.redis_store import RedisStore
 
     store = RedisStore(url=REDIS_URL)
     await store.setup()
@@ -244,8 +242,6 @@ async def demo_chromadb_store() -> None:
         print("  SKIPPED — ChromaDB not available at localhost:8100")
         return
 
-    from anycode.memory.chromadb_store import ChromaDBVectorStore
-
     collection = f"demo_{uuid.uuid4().hex[:8]}"
     store = ChromaDBVectorStore(url=CHROMADB_URL, collection_name=collection)
     await store.setup()
@@ -292,8 +288,6 @@ async def demo_composite_memory() -> None:
     print(f"\n{SEPARATOR}")
     print("  5. Composite Memory (KV + Vector)")
     print(SEPARATOR)
-
-    from anycode.memory.sqlite_store import SQLiteStore
 
     with tempfile.TemporaryDirectory() as tmp:
         db_path = os.path.join(tmp, "composite.db")
@@ -351,8 +345,6 @@ async def demo_shared_memory_di() -> None:
     print(f"\n{SEPARATOR}")
     print("  6. SharedMemory with Backend Injection")
     print(SEPARATOR)
-
-    from anycode.memory.sqlite_store import SQLiteStore
 
     # Default (in-memory)
     print("\n--- Default InMemoryStore ---")
@@ -447,9 +439,8 @@ async def main() -> None:
     capture = _OutputCapture()
     sys.stdout = capture  # type: ignore[assignment]
 
-    print("AnyCode — Pluggable Memory Demo (Phase 2.1)")
-    print(f"Redis: {'✓' if _is_port_open('localhost', 6380) else '✗'} | "
-          f"ChromaDB: {'✓' if _is_port_open('localhost', 8100) else '✗'}")
+    print("AnyCode — Pluggable Memory Demo ")
+    print(f"Redis: {'✓' if _is_port_open('localhost', 6380) else '✗'} | ChromaDB: {'✓' if _is_port_open('localhost', 8100) else '✗'}")
 
     await demo_sqlite_store()
     await demo_redis_store()

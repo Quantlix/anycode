@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anycode-py"
-version = "0.3.0"
+version = "0.4.0"
 description = "Orchestrate autonomous AI agent teams with dependency-aware task scheduling, inter-agent messaging, and provider-agnostic LLM integration."
 readme = "README.md"
 license = "MIT"
@@ -59,6 +59,21 @@ redis = [
 vector = [
     "chromadb>=0.5",
 ]
+google = [
+    "google-genai>=1.0",
+]
+ollama = [
+    "httpx>=0.27",
+]
+bedrock = [
+    "boto3>=1.34",
+]
+azure = [
+    "openai>=1.50",
+]
+mcp = [
+    "mcp>=1.0",
+]
 
 [dependency-groups]
 dev = [
@@ -69,6 +84,10 @@ dev = [
     "aiosqlite>=0.20",
     "redis[hiredis]>=5.0",
     "chromadb>=0.5",
+    "google-genai>=1.0",
+    "boto3>=1.34",
+    "mcp>=1.0",
+    "httpx>=0.27",
 ]
 
 [tool.hatch.build.targets.wheel]

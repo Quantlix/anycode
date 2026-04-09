@@ -247,7 +247,12 @@ async def demo_task_approval() -> None:
 
     async def task_reviewer(req: ApprovalRequest) -> ApprovalResponse:
         if "deploy" in req.description.lower():
-            return ApprovalResponse(approved=False, reason="Deployment requires team lead approval", request_id=req.id, responded_at=datetime.now(UTC))
+            return ApprovalResponse(
+                approved=False,
+                reason="Deployment requires team lead approval",
+                request_id=req.id,
+                responded_at=datetime.now(UTC),
+            )
         return ApprovalResponse(approved=True, request_id=req.id, responded_at=datetime.now(UTC))
 
     config_task = ApprovalConfig(enabled=True, require_approval_tasks=True)
@@ -337,7 +342,7 @@ async def demo_modified_input_flow() -> None:
         request_type="tool_call", agent="builder", description="Execute shell", context={"tool_name": "bash", "command": "rm -rf /"}
     )
     assert resp1 is not None
-    print(f"Original command: rm -rf /")
+    print("Original command: rm -rf /")
     print(f"Approved: {resp1.approved}")
     print(f"Modified input: {resp1.modified_input}")
     print(f"Reason: {resp1.reason}")
@@ -347,12 +352,12 @@ async def demo_modified_input_flow() -> None:
         request_type="tool_call", agent="builder", description="Execute shell", context={"tool_name": "bash", "command": "echo hello"}
     )
     assert resp2 is not None
-    print(f"\nOriginal command: echo hello")
+    print("\nOriginal command: echo hello")
     print(f"Approved: {resp2.approved}")
     print(f"Modified input: {resp2.modified_input}")
 
     # Full history
-    print(f"\n--- Approval History ---")
+    print("\n--- Approval History ---")
     for req, resp in mgr.history:
         modified = f" → modified to {resp.modified_input}" if resp.modified_input else ""
         print(f"  {req.description}: approved={resp.approved}{modified}")
@@ -381,7 +386,7 @@ async def main() -> None:
     capture = _OutputCapture()
     sys.stdout = capture  # type: ignore[assignment]
 
-    print("AnyCode — Human-in-the-Loop Approval Gates Demo (Phase 2.3)")
+    print("AnyCode — Human-in-the-Loop Approval Gates Demo")
 
     await demo_callback_gate()
     await demo_approval_manager()

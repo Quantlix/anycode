@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import pytest
 
+from anycode.memory.redis_store import RedisStore
+
 
 @pytest.mark.integration
 @pytest.mark.redis
 class TestRedisStoreIntegration:
     @pytest.mark.asyncio
     async def test_set_and_get(self, require_redis: None, redis_url: str) -> None:
-        from anycode.memory.redis_store import RedisStore
 
         store = RedisStore(redis_url)
         await store.setup()
@@ -25,7 +26,6 @@ class TestRedisStoreIntegration:
 
     @pytest.mark.asyncio
     async def test_list(self, require_redis: None, redis_url: str) -> None:
-        from anycode.memory.redis_store import RedisStore
 
         store = RedisStore(redis_url)
         await store.setup()
@@ -40,7 +40,6 @@ class TestRedisStoreIntegration:
 
     @pytest.mark.asyncio
     async def test_delete(self, require_redis: None, redis_url: str) -> None:
-        from anycode.memory.redis_store import RedisStore
 
         store = RedisStore(redis_url)
         await store.setup()

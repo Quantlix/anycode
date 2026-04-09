@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import aiosqlite
+from typing import Any
 
 from anycode.checkpoint.serializer import deserialize_checkpoint, serialize_checkpoint
 from anycode.constants import DEFAULT_ENCODING
 from anycode.types import CheckpointData
+
+try:
+    import aiosqlite
+except ImportError:
+    aiosqlite: Any = None
 
 
 class FilesystemCheckpointStore:
@@ -74,13 +76,11 @@ class SQLiteCheckpointStore:
 
     def __init__(self, path: str = ".anycode/checkpoints.db") -> None:
         self._path = path
-        self._db: aiosqlite.Connection | None = None
+        self._db: Any = None
 
     async def setup(self) -> None:
-        try:
-            import aiosqlite
-        except ImportError as exc:
-            raise ImportError("SQLiteCheckpointStore requires: pip install anycode-py[persistence]") from exc
+        if aiosqlite is None:
+            raise ImportError('SQLiteCheckpointStore requires: pip install "anycode-py[persistence]"')
         self._db = await aiosqlite.connect(self._path)
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.execute(
@@ -100,7 +100,7 @@ class SQLiteCheckpointStore:
             await self._db.close()
             self._db = None
 
-    def _conn(self) -> aiosqlite.Connection:
+    def _conn(self) -> Any:
         if self._db is None:
             raise RuntimeError("SQLiteCheckpointStore not initialized. Call setup() first.")
         return self._db

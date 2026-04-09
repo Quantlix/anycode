@@ -3,10 +3,12 @@
 
 import asyncio
 import json
+import os
 import random
 import sys
 from urllib.request import Request, urlopen
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from anycode import (
@@ -22,8 +24,23 @@ from anycode import (
     register_built_in_tools,
 )
 
+load_dotenv()
+
+
+def _resolve_provider() -> tuple[str, str]:
+    """Return (provider, model) based on available API keys."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    print("ERROR: Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env")
+    sys.exit(1)
+
+
+PROVIDER, MODEL = _resolve_provider()
 
 # --- Custom tool: weather data fetcher ---
+
 
 class WeatherInput(BaseModel):
     city: str = Field(description='City name, e.g. "Tokyo"')
@@ -42,24 +59,28 @@ async def lookup_weather_fn(params: WeatherInput, ctx: ToolUseContext) -> ToolRe
         temp_unit = "°F" if params.units == "imperial" else "°C"
 
         return ToolResult(
-            data=json.dumps({
-                "city": params.city,
-                "temperature": f"{temp_val or 'N/A'}{temp_unit}",
-                "humidity": f"{current.get('humidity', 'N/A')}%",
-                "condition": (current.get("weatherDesc") or [{}])[0].get("value", "Unknown"),
-            }),
+            data=json.dumps(
+                {
+                    "city": params.city,
+                    "temperature": f"{temp_val or 'N/A'}{temp_unit}",
+                    "humidity": f"{current.get('humidity', 'N/A')}%",
+                    "condition": (current.get("weatherDesc") or [{}])[0].get("value", "Unknown"),
+                }
+            ),
             is_error=False,
         )
     except Exception as err:
         stub_temp = random.randint(5, 35)
         return ToolResult(
-            data=json.dumps({
-                "city": params.city,
-                "temperature": f"{stub_temp}°C",
-                "humidity": f"{random.randint(30, 90)}%",
-                "condition": "Partly cloudy (stub)",
-                "note": f"Live lookup failed: {err}",
-            }),
+            data=json.dumps(
+                {
+                    "city": params.city,
+                    "temperature": f"{stub_temp}°C",
+                    "humidity": f"{random.randint(30, 90)}%",
+                    "condition": "Partly cloudy (stub)",
+                    "note": f"Live lookup failed: {err}",
+                }
+            ),
             is_error=False,
         )
 
@@ -73,6 +94,7 @@ weather_lookup_tool = define_tool(
 
 
 # --- Custom tool: text summarizer ---
+
 
 class SummarizeInput(BaseModel):
     text: str = Field(description="The full text to summarize.")
@@ -96,6 +118,7 @@ summarize_text_tool = define_tool(
 
 # --- Agent assembly helper ---
 
+
 def build_agent(cfg: AgentConfig, custom_tools: list) -> Agent:
     reg = ToolRegistry()
     register_built_in_tools(reg)
@@ -109,8 +132,8 @@ def build_agent(cfg: AgentConfig, custom_tools: list) -> Agent:
 
 collector_cfg = AgentConfig(
     name="collector",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
         "You are a data collection specialist.\n"
         "Use the lookup_weather tool to gather current conditions for every city you are given.\n"
@@ -123,8 +146,8 @@ collector_cfg = AgentConfig(
 
 reporter_cfg = AgentConfig(
     name="reporter",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
         "You are a weather report writer.\n"
         "Receive raw weather data and compose a brief daily weather digest.\n"
@@ -149,8 +172,8 @@ async def main() -> None:
     pool.add(collector)
     pool.add(reporter)
 
-    # Phase 1: collector gathers weather data
-    print("[Phase 1] Collector gathering weather data...")
+    # Step 1: collector gathers weather data
+    print("[Step 1] Collector gathering weather data...")
     collection_result = await pool.run(
         "collector",
         "Use the lookup_weather tool to fetch current conditions for:\n"
@@ -165,8 +188,8 @@ async def main() -> None:
     tool_names = ", ".join(c.tool_name for c in collection_result.tool_calls)
     print("Collection complete. Tools used:", tool_names)
 
-    # Phase 2: reporter composes the digest
-    print("\n[Phase 2] Reporter composing weather digest...")
+    # Step 2: reporter composes the digest
+    print("\n[Step 2] Reporter composing weather digest...")
     digest_result = await pool.run(
         "reporter",
         f"Here is the raw weather data collected by the field team:\n\n"

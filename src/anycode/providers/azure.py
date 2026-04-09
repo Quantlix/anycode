@@ -1,4 +1,4 @@
-"""OpenAI SDK adapter."""
+"""Azure OpenAI adapter — reuses shared OpenAI-compatible mapping logic."""
 
 from __future__ import annotations
 
@@ -6,8 +6,7 @@ import os
 from collections.abc import AsyncIterator
 from typing import Any
 
-import openai
-
+from anycode.constants import AZURE_DEFAULT_API_VERSION
 from anycode.providers._openai_compat import (
     map_messages,
     map_stop_reason,
@@ -27,16 +26,40 @@ from anycode.types import (
     ToolUseBlock,
 )
 
+try:
+    import openai
+except ImportError:
+    openai: Any = None
 
-class OpenAIAdapter:
-    """Wraps the OpenAI Python SDK."""
 
-    def __init__(self, api_key: str | None = None) -> None:
-        self._client = openai.AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
+class AzureOpenAIAdapter:
+    """Wraps the Azure OpenAI Python SDK — shares mapping logic with the OpenAI adapter."""
+
+    def __init__(
+        self,
+        endpoint: str | None = None,
+        api_key: str | None = None,
+        api_version: str | None = None,
+    ) -> None:
+        if openai is None:
+            raise ImportError('openai is required for the Azure OpenAI provider. Install it with: pip install "anycode-py[azure]"')
+
+        resolved_endpoint = endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT")
+        resolved_key = api_key or os.environ.get("AZURE_OPENAI_API_KEY")
+        if not resolved_endpoint:
+            raise ValueError("AZURE_OPENAI_ENDPOINT environment variable is required for the Azure OpenAI provider.")
+        if not resolved_key:
+            raise ValueError("AZURE_OPENAI_API_KEY environment variable is required for the Azure OpenAI provider.")
+
+        self._client = openai.AsyncAzureOpenAI(
+            azure_endpoint=resolved_endpoint,
+            api_key=resolved_key,
+            api_version=api_version or AZURE_DEFAULT_API_VERSION,
+        )
 
     @property
     def name(self) -> str:
-        return "openai"
+        return "azure"
 
     async def chat(
         self,

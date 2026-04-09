@@ -270,22 +270,33 @@ async def demo_checkpoint_manager() -> None:
         task1 = create_task(title="Analyze code", description="Static analysis")
         task2 = create_task(title="Generate tests", description="Unit test generation")
 
+        worker_result = AgentRunResult(
+            success=True,
+            output="analysis done",
+            messages=[],
+            token_usage=TokenUsage(input_tokens=500, output_tokens=200),
+            tool_calls=[],
+        )
         cp1 = await mgr.auto_save(
             "wf-mgr",
             [task1, task2],
-            {"worker": AgentRunResult(success=True, output="analysis done", messages=[], token_usage=TokenUsage(input_tokens=500, output_tokens=200), tool_calls=[])},
+            {"worker": worker_result},
             wave_index=0,
             total_usage=TokenUsage(input_tokens=500, output_tokens=200),
         )
         print(f"Wave 0 saved: {cp1.id}")
 
+        tester_result = AgentRunResult(
+            success=True,
+            output="tests generated",
+            messages=[],
+            token_usage=TokenUsage(input_tokens=800, output_tokens=400),
+            tool_calls=[],
+        )
         cp2 = await mgr.auto_save(
             "wf-mgr",
             [task1.model_copy(update={"status": "completed"}), task2],
-            {
-                "worker": AgentRunResult(success=True, output="analysis done", messages=[], token_usage=TokenUsage(input_tokens=500, output_tokens=200), tool_calls=[]),
-                "tester": AgentRunResult(success=True, output="tests generated", messages=[], token_usage=TokenUsage(input_tokens=800, output_tokens=400), tool_calls=[]),
-            },
+            {"worker": worker_result, "tester": tester_result},
             wave_index=1,
             total_usage=TokenUsage(input_tokens=1300, output_tokens=600),
         )
@@ -300,8 +311,14 @@ async def demo_checkpoint_manager() -> None:
 
         # Spec-change detection
         print("\n--- Spec-Change Detection ---")
-        same_tasks = [create_task(title="Analyze code", description="Static analysis"), create_task(title="Generate tests", description="Unit test generation")]
-        changed_tasks = [create_task(title="Analyze code", description="Static analysis"), create_task(title="Deploy app", description="Production deployment")]
+        same_tasks = [
+            create_task(title="Analyze code", description="Static analysis"),
+            create_task(title="Generate tests", description="Unit test generation"),
+        ]
+        changed_tasks = [
+            create_task(title="Analyze code", description="Static analysis"),
+            create_task(title="Deploy app", description="Production deployment"),
+        ]
 
         changed_same = mgr.detect_spec_change(same_tasks, latest)
         changed_diff = mgr.detect_spec_change(changed_tasks, latest)
@@ -450,7 +467,7 @@ async def main() -> None:
     capture = _OutputCapture()
     sys.stdout = capture  # type: ignore[assignment]
 
-    print("AnyCode — Checkpointing & Resume Demo (Phase 2.2)")
+    print("AnyCode — Checkpointing & Resume Demo")
 
     await demo_filesystem_store()
     await demo_sqlite_store()

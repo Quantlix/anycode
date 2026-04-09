@@ -10,6 +10,7 @@ from anycode.constants import AGENT_ROLE_MAX_LENGTH, TOOL_CONTEXT_ROLE_MAX_LENGT
 from anycode.core.runner import AgentRunner
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.providers.adapter import create_adapter
+from anycode.structured.output import parse_structured_output
 from anycode.telemetry.tracer import Tracer
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
@@ -98,8 +99,6 @@ class Agent:
 
     async def run_structured(self, prompt: str, schema: type[BaseModel]) -> StructuredAgentResult:  # type: ignore[type-arg]
         """Execute prompt and return a validated Pydantic model instance."""
-        from anycode.structured.output import parse_structured_output
-
         prev_schema = self._output_schema
         self._output_schema = schema
         self._runner = None
@@ -156,12 +155,18 @@ class Agent:
         return [t.name for t in self._registry.list()]
 
     async def _execute_run(self, messages: list[LLMMessage]) -> AgentRunResult:
-        self._state.status = "running"
+        self._state = self._state.model_copy(update={"status": "running"})
+        collected_messages: list[LLMMessage] = []
         try:
             runner = await self._get_runner()
-            result = await runner.run(messages, on_message=lambda msg: self._state.messages.append(msg))
-            self._state.token_usage = merge_usage(self._state.token_usage, result.token_usage)
-            self._state.status = "completed"
+            result = await runner.run(messages, on_message=lambda msg: collected_messages.append(msg))
+            self._state = self._state.model_copy(
+                update={
+                    "status": "completed",
+                    "messages": [*self._state.messages, *collected_messages],
+                    "token_usage": merge_usage(self._state.token_usage, result.token_usage),
+                }
+            )
             return AgentRunResult(
                 success=True,
                 output=result.output,
@@ -170,25 +175,26 @@ class Agent:
                 tool_calls=result.tool_calls,
             )
         except Exception as e:
-            self._state.status = "error"
-            self._state.error = str(e)
+            self._state = self._state.model_copy(update={"status": "error", "error": str(e)})
             return AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
 
     async def _execute_stream(self, messages: list[LLMMessage]) -> AsyncGenerator[StreamEvent, None]:
-        self._state.status = "running"
+        self._state = self._state.model_copy(update={"status": "running"})
         try:
             runner = await self._get_runner()
             async for event in runner.stream(messages):
                 if event.type == "done" and isinstance(event.data, RunResult):
-                    self._state.token_usage = merge_usage(self._state.token_usage, event.data.token_usage)
-                    self._state.status = "completed"
+                    self._state = self._state.model_copy(
+                        update={
+                            "status": "completed",
+                            "token_usage": merge_usage(self._state.token_usage, event.data.token_usage),
+                        }
+                    )
                 elif event.type == "error":
-                    self._state.status = "error"
-                    self._state.error = str(event.data)
+                    self._state = self._state.model_copy(update={"status": "error", "error": str(event.data)})
                 yield event
         except Exception as e:
-            self._state.status = "error"
-            self._state.error = str(e)
+            self._state = self._state.model_copy(update={"status": "error", "error": str(e)})
             yield StreamEvent(type="error", data=e)
 
     def build_tool_context(self) -> ToolUseContext:

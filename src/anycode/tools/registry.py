@@ -44,6 +44,19 @@ class ToolRegistry:
     def deregister(self, name: str) -> None:
         self._tools.pop(name, None)
 
+    def register_from_mcp(self, tools: list[ToolDefinition]) -> None:
+        """Batch-register MCP tools, skipping duplicates."""
+        for tool in tools:
+            if tool.name not in self._tools:
+                self._tools[tool.name] = tool
+
+    def deregister_prefix(self, prefix: str) -> int:
+        """Remove all tools whose name starts with *prefix*. Returns count removed."""
+        to_remove = [name for name in self._tools if name.startswith(prefix)]
+        for name in to_remove:
+            del self._tools[name]
+        return len(to_remove)
+
     def to_tool_defs(self) -> list[LLMToolDef]:
         return [
             LLMToolDef(

@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-10
+
+### Added
+
+- **Additional LLM Providers** — 4 new provider adapters implementing the `LLMAdapter` Protocol.
+  - `GeminiAdapter` — Google Gemini via `google-genai` SDK with function calling and streaming support.
+  - `OllamaAdapter` — Local Ollama models via HTTP (`httpx`), zero external SDK dependencies, OpenAI-compatible tool format.
+  - `BedrockAdapter` — AWS Bedrock for Claude models via `boto3`, Anthropic message format, streaming via response streams.
+  - `AzureOpenAIAdapter` — Azure OpenAI via the official `openai` SDK with Azure-specific auth and deployment configuration.
+  - `_openai_compat` shared helper module — extracted common OpenAI mapping logic (messages, tools, stop reasons) for reuse across OpenAI, Azure, and Ollama adapters.
+  - Extended `create_adapter()` factory to resolve all 6 providers with lazy imports.
+- **MCP Integration module** (`src/anycode/mcp/`) — Model Context Protocol support for external tool servers.
+  - `MCPClient` — manages connection lifecycle (stdio, SSE, streamable-http transports) via the official `mcp` SDK, with tool discovery and tool execution.
+  - `schema_to_pydantic_model()` — dynamic Pydantic model generation from JSON Schema for MCP tool inputs.
+  - `mcp_tool_to_definition()` — converts MCP tools into AnyCode `ToolDefinition` with prefixed naming (`mcp_{server}_{tool}`).
+  - `discover_and_register()` — batch discovery and registration of MCP tools into the `ToolRegistry`.
+  - `validate_server_config()` — transport-aware configuration validation.
+  - `ToolRegistry.register_from_mcp()` and `ToolRegistry.deregister_prefix()` for MCP tool lifecycle management.
+- **Agent Handoff module** (`src/anycode/handoff/`) — context-preserving agent-to-agent task delegation.
+  - `HANDOFF_TOOL_DEF` — built-in sentinel tool that agents call to request a handoff (returns `__HANDOFF__:to:summary:reason`).
+  - `HandoffExecutor` — orchestrates context transfer with conversation trimming, system/user prompt generation, and configurable depth limiting.
+  - `trim_context()`, `build_handoff_system_prompt()`, `build_handoff_user_message()` — protocol helpers for handoff payloads.
+  - Runner integration: `AgentRunner` detects handoff sentinels in tool results and yields `StreamEvent(type="handoff")`.
+- **Intelligent Routing module** (`src/anycode/routing/`) — zero-cost heuristic task routing.
+  - `classify_task()` — microsecond complexity classification (5 levels: trivial, simple, moderate, complex, expert) based on description length and dependency count.
+  - `match_rule()` / `evaluate_rules()` — declarative rule engine supporting complexity conditions, keyword-in checks, and regex patterns with priority ordering.
+  - `DefaultRouter` — `Router` Protocol implementation combining classifier + rules engine with default model fallback.
+  - Orchestrator integration: routing decisions applied before task wave execution.
+- New Pydantic types (all `frozen=True`): `MCPServerConfig`, `MCPToolInfo`, `HandoffRequest`, `Handoff`, `HandoffPolicy` Protocol, `ComplexityLevel`, `RoutingRule`, `RoutingConfig`, `RouteDecision`, `Router` Protocol.
+- Extended `AgentConfig.provider` literal to include `"google" | "ollama" | "bedrock" | "azure"`.
+- Extended `OrchestratorConfig` with `mcp_servers`, `handoff_policy`, `max_handoff_depth`, `routing` fields.
+- Extended `TeamRunResult` with `handoffs` field.
+- Optional dependency groups in `pyproject.toml`: `google` (`google-generativeai>=0.8`), `bedrock` (`boto3>=1.34`), `azure` (`openai>=1.50`), `mcp` (`mcp>=1.0`).
+- **Examples**: `examples/09_multi_provider.py`, `examples/10_mcp_tools.py`, `examples/11_agent_handoff.py`, `examples/12_intelligent_routing.py`.
+- **Test suites**: `tests/test_providers.py` (35 tests), `tests/test_mcp.py` (24 tests), `tests/test_handoff.py` (19 tests), `tests/test_routing.py` (18 tests).
+
+### Changed
+
+- **Orchestrator** — `AnyCode` now manages MCP client lifecycles (connect/disconnect) as an async context manager, registers the handoff tool for agents that opt in, injects per-agent MCP tools into the tool registry, and applies routing decisions before task wave execution.
+- **AgentRunner** — detects handoff sentinel results in the tool loop; on detection, yields a `StreamEvent(type="handoff")` and terminates the turn.
+- **ToolRegistry** — added `register_from_mcp()` for batch MCP tool registration and `deregister_prefix()` for cleanup on server disconnect.
+- **providers/openai.py** — refactored to import shared mapping logic from `_openai_compat.py` (no behavior change).
+
 ## [0.3.0] - 2026-04-05
 
 ### Added
@@ -87,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four examples: solo worker, crew workflow, staged pipeline, hybrid tooling.
 - Pydantic-based immutable type system (`frozen=True` on all models).
 
-[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Quantlix/anycode/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Quantlix/anycode/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Quantlix/anycode/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Quantlix/anycode/releases/tag/v0.1.0
