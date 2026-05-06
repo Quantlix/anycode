@@ -165,6 +165,9 @@ class AgentRunResult(BaseModel):
     messages: list[LLMMessage]
     token_usage: TokenUsage
     tool_calls: list[ToolCallRecord]
+    handoff_request: HandoffRequest | None = None
+    reflections_count: int = 0
+    quality_score: float | None = None
 
 
 # -- Team --
@@ -185,6 +188,8 @@ class TeamRunResult(BaseModel):
     agent_results: dict[str, AgentRunResult]
     total_token_usage: TokenUsage
     handoffs: list[Handoff] | None = None
+    route_decisions: list[RouteDecision] | None = None
+    cost_report: CostReport | None = None
 
 
 # -- Tasks --
@@ -230,6 +235,9 @@ class OrchestratorConfig(BaseModel):
     handoff_policy: HandoffPolicy | None = None
     max_handoff_depth: int = 3
     routing: RoutingConfig | None = None
+    cost: CostConfig | None = None
+    reflection: ReflectionConfig | None = None
+    rag: RAGConfig | None = None
 
 
 # -- Memory --
@@ -303,6 +311,7 @@ class RunResult(BaseModel):
     tool_calls: list[ToolCallRecord]
     token_usage: TokenUsage
     turns: int
+    handoff_request: HandoffRequest | None = None
 
 
 class PoolStatus(BaseModel):
@@ -628,3 +637,105 @@ class Router(Protocol):
     """Route tasks to optimal models based on complexity."""
 
     async def route(self, task: Task, agents: list[AgentConfig]) -> RouteDecision | None: ...
+
+
+# -- Cost engine (Phase 5.2) --
+
+
+class ModelPricing(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    model: str
+    provider: str
+    input_cost_per_1k: float
+    output_cost_per_1k: float
+    cached_input_cost_per_1k: float | None = None
+
+
+class CostConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = True
+    budget_usd: float | None = None
+    alert_threshold: float = 0.8
+    on_budget_exceeded: Literal["stop", "warn", "continue"] = "stop"
+    custom_pricing: list[ModelPricing] | None = None
+
+
+class CostBreakdown(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    agent: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+    input_cost_usd: float
+    output_cost_usd: float
+    total_cost_usd: float
+    calls: int
+
+
+class CostReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    total_cost_usd: float
+    total_input_tokens: int
+    total_output_tokens: int
+    by_agent: list[CostBreakdown]
+    by_model: list[CostBreakdown]
+    budget_usd: float | None = None
+    budget_remaining_usd: float | None = None
+
+
+# -- Reflection (Phase 5.1) --
+
+
+class CriticResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    score: float
+    passed: bool
+    feedback: str
+    suggestions: list[str] = []
+
+
+@runtime_checkable
+class Critic(Protocol):
+    """Evaluates the quality of an agent's output."""
+
+    async def evaluate(self, output: str, prompt: str, context: AgentInfo) -> CriticResult: ...
+
+
+class ReflectionConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    enabled: bool = False
+    mode: Literal["self", "peer", "custom"] = "self"
+    critic_model: str | None = None
+    critic_provider: str | None = None
+    quality_threshold: float = 0.7
+    max_reflections: int = 2
+    critic_prompt: str | None = None
+    custom_critic: Critic | None = None
+
+
+# -- RAG memory (Phase 5.4) --
+
+
+class RAGEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    text: str
+    source: str
+    score: float
+    timestamp: datetime
+
+
+class RAGContext(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    entries: list[RAGEntry]
+    total_tokens: int
+
+
+class RAGConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    auto_index: bool = True
+    top_k: int = 5
+    min_relevance: float = 0.3
+    max_context_tokens: int = 2000
+    index_tool_results: bool = True
+    namespace: str = "default"

@@ -24,6 +24,13 @@ from anycode.core.orchestrator import AnyCode, TaskSpec
 from anycode.core.pool import AgentPool
 from anycode.core.runner import AgentRunner
 from anycode.core.scheduler import Scheduler
+from anycode.cost import (
+    DEFAULT_PRICING,
+    CostTracker,
+    build_cost_report,
+    calculate_cost,
+    find_pricing,
+)
 from anycode.guardrails.budget import BudgetTracker, estimate_cost
 from anycode.guardrails.hooks import HookRunner, LoggingHook
 from anycode.guardrails.validators import (
@@ -46,8 +53,13 @@ from anycode.mcp.client import MCPClient
 from anycode.mcp.config import validate_server_config as mcp_validate_server_config
 from anycode.memory.composite import CompositeMemory
 from anycode.memory.factory import create_memory_store
+from anycode.memory.indexer import RAGIndexer
+from anycode.memory.rag import RAGRetriever
 from anycode.memory.vector_store import InMemoryVectorStore
 from anycode.providers.adapter import create_adapter
+from anycode.reflection.critic import DEFAULT_CRITIC_PROMPT, LLMCritic
+from anycode.reflection.evaluator import parse_critic_json
+from anycode.reflection.loop import ReflectionLoop
 from anycode.routing.classifier import classify_task
 from anycode.routing.router import DefaultRouter
 from anycode.routing.rules import evaluate_rules, match_rule
@@ -81,6 +93,11 @@ from anycode.types import (
     CheckpointStore,
     ComplexityLevel,
     ContentBlock,
+    CostBreakdown,
+    CostConfig,
+    CostReport,
+    Critic,
+    CriticResult,
     GuardrailConfig,
     Handoff,
     HandoffPolicy,
@@ -97,10 +114,15 @@ from anycode.types import (
     MemoryConfig,
     MemoryEntry,
     MemoryStore,
+    ModelPricing,
     OrchestratorConfig,
     OrchestratorEvent,
     OutputValidator,
     PoolStatus,
+    RAGConfig,
+    RAGContext,
+    RAGEntry,
+    ReflectionConfig,
     RouteDecision,
     Router,
     RoutingConfig,
@@ -131,6 +153,8 @@ from anycode.types import (
     VectorSearchResult,
     VectorStore,
 )
+from anycode.viz.dag import render_dag
+from anycode.viz.timeline import render_timeline
 
 __all__ = [
     # Constants — event names
@@ -292,4 +316,31 @@ __all__ = [
     "StructuredOutputConfig",
     "StructuredRunResult",
     "StructuredAgentResult",
+    # Cost
+    "CostTracker",
+    "build_cost_report",
+    "DEFAULT_PRICING",
+    "calculate_cost",
+    "find_pricing",
+    "CostConfig",
+    "CostReport",
+    "CostBreakdown",
+    "ModelPricing",
+    # Reflection
+    "LLMCritic",
+    "ReflectionLoop",
+    "parse_critic_json",
+    "DEFAULT_CRITIC_PROMPT",
+    "ReflectionConfig",
+    "Critic",
+    "CriticResult",
+    # RAG
+    "RAGRetriever",
+    "RAGIndexer",
+    "RAGConfig",
+    "RAGContext",
+    "RAGEntry",
+    # Visualization
+    "render_dag",
+    "render_timeline",
 ]
