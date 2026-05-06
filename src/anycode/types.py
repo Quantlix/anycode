@@ -64,6 +64,51 @@ class TokenUsage(BaseModel):
     output_tokens: int = 0
 
 
+# -- Execution lifecycle --
+
+ExecutionPhase = Literal[
+    "initialized",
+    "planning",
+    "executing",
+    "observing",
+    "verifying",
+    "recovering",
+    "completed",
+    "failed",
+    "cancelled",
+]
+
+StopReasonCode = Literal[
+    "success",
+    "max_turns",
+    "budget_exceeded",
+    "context_pressure",
+    "tool_error",
+    "verification_failed",
+    "blocked_dependency",
+    "user_cancelled",
+    "doom_loop",
+    "unknown",
+]
+
+
+class StopReason(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    code: StopReasonCode
+    message: str
+    recoverable: bool = False
+
+
+class LifecycleEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    run_id: str
+    agent_name: str
+    task_id: str | None = None
+    phase: ExecutionPhase
+    stop_reason: StopReason | None = None
+    metadata: dict[str, str | int | float | bool] = {}
+
+
 class LLMResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     id: str
@@ -168,6 +213,9 @@ class AgentRunResult(BaseModel):
     handoff_request: HandoffRequest | None = None
     reflections_count: int = 0
     quality_score: float | None = None
+    terminal_phase: str | None = None
+    stop_reason: StopReason | None = None
+    lifecycle_events: list[LifecycleEvent] = []
 
 
 # -- Team --
@@ -312,6 +360,9 @@ class RunResult(BaseModel):
     token_usage: TokenUsage
     turns: int
     handoff_request: HandoffRequest | None = None
+    terminal_phase: str | None = None
+    stop_reason: StopReason | None = None
+    lifecycle_events: list[LifecycleEvent] = []
 
 
 class PoolStatus(BaseModel):
@@ -368,6 +419,9 @@ class SpanAttributes(BaseModel):
     token_output: int = 0
     cost_usd: float = 0.0
     turn_number: int = 0
+    phase: str | None = None
+    stop_reason: str | None = None
+    recoverable: bool | None = None
 
 
 # -- Guardrails --

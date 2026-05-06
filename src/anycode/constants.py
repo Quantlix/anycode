@@ -48,6 +48,7 @@ TEL_EVENT_LLM_CALL_START = "llm.call.start"
 TEL_EVENT_LLM_CALL_COMPLETE = "llm.call.complete"
 TEL_EVENT_BUDGET_WARNING = "budget.warning"
 TEL_EVENT_BUDGET_EXHAUSTED = "budget.exhausted"
+TEL_EVENT_LIFECYCLE_TRANSITION = "lifecycle.transition"
 
 # ---------------------------------------------------------------------------
 # Content block type identifiers
