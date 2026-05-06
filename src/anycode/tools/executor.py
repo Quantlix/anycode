@@ -7,6 +7,7 @@ from typing import Any
 
 from anycode.constants import DEFAULT_TOOL_CONCURRENCY
 from anycode.helpers.concurrency_gate import Semaphore
+from anycode.hitl.approval import ApprovalManager
 from anycode.telemetry.tracer import Tracer
 from anycode.tools.registry import ToolRegistry
 from anycode.types import BatchToolCall, SpanAttributes, ToolDefinition, ToolResult, ToolUseContext
@@ -34,8 +35,6 @@ class ToolExecutor:
 
         # HITL: tool-level approval
         if self._approval_manager is not None:
-            from anycode.hitl.approval import ApprovalManager
-
             if isinstance(self._approval_manager, ApprovalManager):
                 response = await self._approval_manager.check_and_request(
                     request_type="tool_call",

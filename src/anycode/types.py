@@ -75,7 +75,7 @@ class LLMResponse(BaseModel):
 
 class StreamEvent(BaseModel):
     model_config = ConfigDict(frozen=True)
-    type: Literal["text", "tool_use", "tool_result", "done", "error"]
+    type: Literal["text", "tool_use", "tool_result", "done", "error", "handoff"]
     data: Any
 
 
@@ -133,15 +133,17 @@ class AgentConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     name: str
     model: str
-    provider: Literal["anthropic", "openai"] | None = None
+    provider: Literal["anthropic", "openai", "google", "ollama", "bedrock", "azure"] | None = None
     system_prompt: str | None = None
     tools: list[str] | None = None
     max_turns: int | None = None
     max_tokens: int | None = None
     temperature: float | None = None
+    mcp_servers: list[str] | None = None
 
 
 class AgentState(BaseModel):
+    model_config = ConfigDict(frozen=True)
     status: Literal["idle", "running", "completed", "error"] = "idle"
     messages: list[LLMMessage] = []
     token_usage: TokenUsage = TokenUsage()
@@ -163,6 +165,9 @@ class AgentRunResult(BaseModel):
     messages: list[LLMMessage]
     token_usage: TokenUsage
     tool_calls: list[ToolCallRecord]
+    handoff_request: HandoffRequest | None = None
+    reflections_count: int = 0
+    quality_score: float | None = None
 
 
 # -- Team --
@@ -182,6 +187,9 @@ class TeamRunResult(BaseModel):
     success: bool
     agent_results: dict[str, AgentRunResult]
     total_token_usage: TokenUsage
+    handoffs: list[Handoff] | None = None
+    route_decisions: list[RouteDecision] | None = None
+    cost_report: CostReport | None = None
 
 
 # -- Tasks --
@@ -190,6 +198,7 @@ TaskStatus = Literal["pending", "in_progress", "completed", "failed", "blocked"]
 
 
 class Task(BaseModel):
+    model_config = ConfigDict(frozen=True)
     id: str
     title: str
     description: str
@@ -216,12 +225,19 @@ class OrchestratorConfig(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
     max_concurrency: int | None = None
     default_model: str | None = None
-    default_provider: Literal["anthropic", "openai"] | None = None
+    default_provider: Literal["anthropic", "openai", "google", "ollama", "bedrock", "azure"] | None = None
     on_progress: Callable[[OrchestratorEvent], None] | None = None
     memory: MemoryConfig | None = None
     checkpoint: CheckpointConfig | None = None
     approval: ApprovalConfig | None = None
     approval_handler: ApprovalGate | None = None
+    mcp_servers: list[MCPServerConfig] | None = None
+    handoff_policy: HandoffPolicy | None = None
+    max_handoff_depth: int = 3
+    routing: RoutingConfig | None = None
+    cost: CostConfig | None = None
+    reflection: ReflectionConfig | None = None
+    rag: RAGConfig | None = None
 
 
 # -- Memory --
@@ -295,6 +311,7 @@ class RunResult(BaseModel):
     tool_calls: list[ToolCallRecord]
     token_usage: TokenUsage
     turns: int
+    handoff_request: HandoffRequest | None = None
 
 
 class PoolStatus(BaseModel):
@@ -530,3 +547,195 @@ class ApprovalConfig(BaseModel):
     default_on_timeout: Literal["approve", "reject"] = "reject"
     require_approval_tools: list[str] | None = None
     require_approval_tasks: bool = False
+
+
+# -- MCP (Model Context Protocol) --
+
+
+class MCPServerConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    transport: Literal["stdio", "sse", "streamable-http"]
+    command: str | None = None
+    args: list[str] | None = None
+    url: str | None = None
+    env: dict[str, str] | None = None
+    timeout: float = 30.0
+
+
+class MCPToolInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    server: str
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+
+
+# -- Agent handoff --
+
+
+class HandoffRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    to_agent: str
+    summary: str
+    reason: str
+
+
+class Handoff(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    id: str
+    from_agent: str
+    to_agent: str
+    context: list[LLMMessage]
+    summary: str
+    reason: str
+    metadata: dict[str, Any] | None = None
+    created_at: datetime
+
+
+@runtime_checkable
+class HandoffPolicy(Protocol):
+    """Evaluates whether an agent should hand off to another agent."""
+
+    async def should_handoff(self, agent: AgentInfo, result: RunResult) -> HandoffRequest | None: ...
+
+
+# -- Intelligent routing --
+
+ComplexityLevel = Literal["trivial", "simple", "moderate", "complex", "expert"]
+
+
+class RoutingRule(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    condition: str
+    target_model: str
+    target_provider: str | None = None
+    priority: int = 0
+
+
+class RoutingConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    rules: list[RoutingRule] | None = None
+    default_model: str | None = None
+    default_provider: str | None = None
+    classify_with_llm: bool = False
+
+
+class RouteDecision(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    task_id: str
+    original_model: str
+    routed_model: str
+    routed_provider: str | None = None
+    complexity: ComplexityLevel
+    reason: str
+
+
+@runtime_checkable
+class Router(Protocol):
+    """Route tasks to optimal models based on complexity."""
+
+    async def route(self, task: Task, agents: list[AgentConfig]) -> RouteDecision | None: ...
+
+
+# -- Cost engine (Phase 5.2) --
+
+
+class ModelPricing(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    model: str
+    provider: str
+    input_cost_per_1k: float
+    output_cost_per_1k: float
+    cached_input_cost_per_1k: float | None = None
+
+
+class CostConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = True
+    budget_usd: float | None = None
+    alert_threshold: float = 0.8
+    on_budget_exceeded: Literal["stop", "warn", "continue"] = "stop"
+    custom_pricing: list[ModelPricing] | None = None
+
+
+class CostBreakdown(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    agent: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+    input_cost_usd: float
+    output_cost_usd: float
+    total_cost_usd: float
+    calls: int
+
+
+class CostReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    total_cost_usd: float
+    total_input_tokens: int
+    total_output_tokens: int
+    by_agent: list[CostBreakdown]
+    by_model: list[CostBreakdown]
+    budget_usd: float | None = None
+    budget_remaining_usd: float | None = None
+
+
+# -- Reflection (Phase 5.1) --
+
+
+class CriticResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    score: float
+    passed: bool
+    feedback: str
+    suggestions: list[str] = []
+
+
+@runtime_checkable
+class Critic(Protocol):
+    """Evaluates the quality of an agent's output."""
+
+    async def evaluate(self, output: str, prompt: str, context: AgentInfo) -> CriticResult: ...
+
+
+class ReflectionConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    enabled: bool = False
+    mode: Literal["self", "peer", "custom"] = "self"
+    critic_model: str | None = None
+    critic_provider: str | None = None
+    quality_threshold: float = 0.7
+    max_reflections: int = 2
+    critic_prompt: str | None = None
+    custom_critic: Critic | None = None
+
+
+# -- RAG memory (Phase 5.4) --
+
+
+class RAGEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    text: str
+    source: str
+    score: float
+    timestamp: datetime
+
+
+class RAGContext(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    entries: list[RAGEntry]
+    total_tokens: int
+
+
+class RAGConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    auto_index: bool = True
+    top_k: int = 5
+    min_relevance: float = 0.3
+    max_context_tokens: int = 2000
+    index_tool_results: bool = True
+    namespace: str = "default"

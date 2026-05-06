@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from anycode.memory.sqlite_store import SQLiteStore
+
 
 @pytest.mark.integration
 class TestSQLiteStoreIntegration:
     @pytest.mark.asyncio
     async def test_full_lifecycle(self, tmp_path: object) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         db_path = f"{tmp_path}/test.db"
         store = SQLiteStore(db_path)
@@ -36,7 +37,6 @@ class TestSQLiteStoreIntegration:
 
     @pytest.mark.asyncio
     async def test_persistence_across_reconnect(self, tmp_path: object) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         db_path = f"{tmp_path}/persist.db"
         store1 = SQLiteStore(db_path)
@@ -55,7 +55,6 @@ class TestSQLiteStoreIntegration:
 
     @pytest.mark.asyncio
     async def test_update_preserves_created_at(self, tmp_path: object) -> None:
-        from anycode.memory.sqlite_store import SQLiteStore
 
         db_path = f"{tmp_path}/update.db"
         store = SQLiteStore(db_path)

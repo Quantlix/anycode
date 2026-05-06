@@ -1,4 +1,4 @@
-"""Unit tests for Phase 2C: HITL approval gates and manager."""
+"""Unit tests for HITL approval gates and manager."""
 
 from __future__ import annotations
 

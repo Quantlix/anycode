@@ -2,16 +2,35 @@
 # Execute: uv run python examples/03_staged_pipeline.py
 
 import asyncio
-from datetime import datetime, timezone
+import os
+import sys
+from datetime import UTC, datetime
+
+from dotenv import load_dotenv
 
 from anycode import AgentConfig, AnyCode, OrchestratorConfig, OrchestratorEvent, Task, TaskSpec, TeamConfig
+
+load_dotenv()
+
+
+def _resolve_provider() -> tuple[str, str]:
+    """Return (provider, model) based on available API keys."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    print("ERROR: Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env")
+    sys.exit(1)
+
+
+PROVIDER, MODEL = _resolve_provider()
 
 # --- Specialist agent configurations ---
 
 spec_writer = AgentConfig(
     name="spec-writer",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
         "You are a technical specification author. Produce concise markdown specs\n"
         "detailing interfaces, data structures, and file layout. Avoid filler text."
@@ -22,11 +41,10 @@ spec_writer = AgentConfig(
 
 coder = AgentConfig(
     name="coder",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
-        "You are a backend Python developer. Read the spec produced earlier\n"
-        "and implement it to /tmp/cache-svc/. Use only the provided tools."
+        "You are a backend Python developer. Read the spec produced earlier\nand implement it to /tmp/cache-svc/. Use only the provided tools."
     ),
     tools=["bash", "file_read", "file_write"],
     max_turns=8,
@@ -34,8 +52,8 @@ coder = AgentConfig(
 
 validator = AgentConfig(
     name="validator",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
         "You are a QA specialist. Execute the implemented code and verify it behaves correctly.\n"
         "Summarize: what succeeded, what broke, and any bugs discovered."
@@ -46,8 +64,8 @@ validator = AgentConfig(
 
 critic = AgentConfig(
     name="critic",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
         "You are a senior code critic. Read source files and deliver a structured verdict.\n"
         "Sections: Overview, Positives, Concerns (if any), Decision (APPROVE / REVISE)."
@@ -62,17 +80,17 @@ timers: dict[str, float] = {}
 
 
 def on_event(ev: OrchestratorEvent) -> None:
-    ts = datetime.now(timezone.utc).isoformat()[11:23]
+    ts = datetime.now(UTC).isoformat()[11:23]
 
     match ev.type:
         case "task_start":
-            timers[ev.task or ""] = datetime.now(timezone.utc).timestamp() * 1000
+            timers[ev.task or ""] = datetime.now(UTC).timestamp() * 1000
             detail = ev.data if isinstance(ev.data, Task) else None
             title = detail.title if detail else ev.task
             assignee = detail.assignee if detail else "unassigned"
             print(f'[{ts}] STAGE ON    "{title}" → {assignee}')
         case "task_complete":
-            now = datetime.now(timezone.utc).timestamp() * 1000
+            now = datetime.now(UTC).timestamp() * 1000
             elapsed = now - timers.get(ev.task or "", now)
             detail = ev.data if isinstance(ev.data, Task) else None
             title = detail.title if detail else ev.task
@@ -86,17 +104,22 @@ def on_event(ev: OrchestratorEvent) -> None:
 
 
 async def main() -> None:
-    engine = AnyCode(config=OrchestratorConfig(
-        default_model="gpt-4o-mini",
-        max_concurrency=2,
-        on_progress=on_event,
-    ))
+    engine = AnyCode(
+        config=OrchestratorConfig(
+            default_model=MODEL,
+            max_concurrency=2,
+            on_progress=on_event,
+        )
+    )
 
-    crew = engine.create_team("pipeline-crew", TeamConfig(
-        name="pipeline-crew",
-        agents=[spec_writer, coder, validator, critic],
-        shared_memory=True,
-    ))
+    crew = engine.create_team(
+        "pipeline-crew",
+        TeamConfig(
+            name="pipeline-crew",
+            agents=[spec_writer, coder, validator, critic],
+            shared_memory=True,
+        ),
+    )
 
     # --- Task definitions with explicit dependency edges ---
 
@@ -145,8 +168,8 @@ async def main() -> None:
             description=(
                 f"Read all .py files under /tmp/cache-svc/src/ and the spec at {SPEC_PATH}.\n"
                 "Deliver a structured review:\n"
-                '- Overview (two sentences)\n'
-                '- Positives (bullet list)\n'
+                "- Overview (two sentences)\n"
+                "- Positives (bullet list)\n"
                 '- Concerns (bullet list, or "None")\n'
                 "- Decision: APPROVE or REVISE"
             ),
@@ -166,8 +189,7 @@ async def main() -> None:
     print("\n" + "#" * 55)
     print("Pipeline complete.\n")
     print(f"Overall result: {'OK' if outcome.success else 'FAIL'}")
-    print(f"Token totals — input: {outcome.total_token_usage.input_tokens}, "
-          f"output: {outcome.total_token_usage.output_tokens}")
+    print(f"Token totals — input: {outcome.total_token_usage.input_tokens}, output: {outcome.total_token_usage.output_tokens}")
 
     print("\nAgent summaries:")
     for name, res in outcome.agent_results.items():

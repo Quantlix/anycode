@@ -24,6 +24,13 @@ from anycode.core.orchestrator import AnyCode, TaskSpec
 from anycode.core.pool import AgentPool
 from anycode.core.runner import AgentRunner
 from anycode.core.scheduler import Scheduler
+from anycode.cost import (
+    DEFAULT_PRICING,
+    CostTracker,
+    build_cost_report,
+    calculate_cost,
+    find_pricing,
+)
 from anycode.guardrails.budget import BudgetTracker, estimate_cost
 from anycode.guardrails.hooks import HookRunner, LoggingHook
 from anycode.guardrails.validators import (
@@ -32,15 +39,30 @@ from anycode.guardrails.validators import (
     MaxLengthValidator,
     run_validators,
 )
+from anycode.handoff.executor import HandoffExecutor
+from anycode.handoff.protocol import build_handoff_system_prompt, build_handoff_user_message, trim_context
+from anycode.handoff.tool import HANDOFF_TOOL_DEF
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
 from anycode.hitl.approval import ApprovalManager
 from anycode.hitl.channels import CallbackApprovalGate, StdinApprovalGate, WebhookApprovalGate
+from anycode.mcp.bridge import discover_and_register as mcp_discover_and_register
+from anycode.mcp.bridge import mcp_tool_to_definition, schema_to_pydantic_model
+from anycode.mcp.client import MCPClient
+from anycode.mcp.config import validate_server_config as mcp_validate_server_config
 from anycode.memory.composite import CompositeMemory
 from anycode.memory.factory import create_memory_store
+from anycode.memory.indexer import RAGIndexer
+from anycode.memory.rag import RAGRetriever
 from anycode.memory.vector_store import InMemoryVectorStore
 from anycode.providers.adapter import create_adapter
+from anycode.reflection.critic import DEFAULT_CRITIC_PROMPT, LLMCritic
+from anycode.reflection.evaluator import parse_critic_json
+from anycode.reflection.loop import ReflectionLoop
+from anycode.routing.classifier import classify_task
+from anycode.routing.router import DefaultRouter
+from anycode.routing.rules import evaluate_rules, match_rule
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
     build_retry_prompt,
@@ -69,8 +91,17 @@ from anycode.types import (
     CheckpointConfig,
     CheckpointData,
     CheckpointStore,
+    ComplexityLevel,
     ContentBlock,
+    CostBreakdown,
+    CostConfig,
+    CostReport,
+    Critic,
+    CriticResult,
     GuardrailConfig,
+    Handoff,
+    HandoffPolicy,
+    HandoffRequest,
     ImageBlock,
     LLMAdapter,
     LLMChatOptions,
@@ -78,13 +109,24 @@ from anycode.types import (
     LLMResponse,
     LLMStreamOptions,
     LLMToolDef,
+    MCPServerConfig,
+    MCPToolInfo,
     MemoryConfig,
     MemoryEntry,
     MemoryStore,
+    ModelPricing,
     OrchestratorConfig,
     OrchestratorEvent,
     OutputValidator,
     PoolStatus,
+    RAGConfig,
+    RAGContext,
+    RAGEntry,
+    ReflectionConfig,
+    RouteDecision,
+    Router,
+    RoutingConfig,
+    RoutingRule,
     RunnerOptions,
     RunResult,
     SchedulingStrategy,
@@ -111,6 +153,8 @@ from anycode.types import (
     VectorSearchResult,
     VectorStore,
 )
+from anycode.viz.dag import render_dag
+from anycode.viz.timeline import render_timeline
 
 __all__ = [
     # Constants — event names
@@ -134,6 +178,23 @@ __all__ = [
     "TaskSpec",
     # Providers
     "create_adapter",
+    # MCP
+    "MCPClient",
+    "mcp_discover_and_register",
+    "mcp_tool_to_definition",
+    "schema_to_pydantic_model",
+    "mcp_validate_server_config",
+    # Handoff
+    "HandoffExecutor",
+    "HANDOFF_TOOL_DEF",
+    "build_handoff_system_prompt",
+    "build_handoff_user_message",
+    "trim_context",
+    # Routing
+    "DefaultRouter",
+    "classify_task",
+    "evaluate_rules",
+    "match_rule",
     # Collaboration
     "Team",
     "MessageBus",
@@ -231,6 +292,16 @@ __all__ = [
     "LLMChatOptions",
     "LLMStreamOptions",
     "LLMAdapter",
+    "MCPServerConfig",
+    "MCPToolInfo",
+    "HandoffRequest",
+    "Handoff",
+    "HandoffPolicy",
+    "ComplexityLevel",
+    "RoutingRule",
+    "RoutingConfig",
+    "RouteDecision",
+    "Router",
     "RunnerOptions",
     "RunResult",
     "PoolStatus",
@@ -245,4 +316,31 @@ __all__ = [
     "StructuredOutputConfig",
     "StructuredRunResult",
     "StructuredAgentResult",
+    # Cost
+    "CostTracker",
+    "build_cost_report",
+    "DEFAULT_PRICING",
+    "calculate_cost",
+    "find_pricing",
+    "CostConfig",
+    "CostReport",
+    "CostBreakdown",
+    "ModelPricing",
+    # Reflection
+    "LLMCritic",
+    "ReflectionLoop",
+    "parse_critic_json",
+    "DEFAULT_CRITIC_PROMPT",
+    "ReflectionConfig",
+    "Critic",
+    "CriticResult",
+    # RAG
+    "RAGRetriever",
+    "RAGIndexer",
+    "RAGConfig",
+    "RAGContext",
+    "RAGEntry",
+    # Visualization
+    "render_dag",
+    "render_timeline",
 ]

@@ -10,6 +10,7 @@ from anycode.checkpoint.manager import CheckpointManager
 from anycode.hitl.approval import ApprovalManager
 from anycode.hitl.channels import CallbackApprovalGate
 from anycode.memory.composite import CompositeMemory
+from anycode.memory.sqlite_store import SQLiteStore
 from anycode.memory.vector_store import InMemoryVectorStore
 from anycode.tasks.task import create_task
 from anycode.types import (
@@ -26,7 +27,6 @@ class TestFullPipeline:
     @pytest.mark.asyncio
     async def test_memory_checkpoint_hitl_roundtrip(self, tmp_path: object) -> None:
         """End-to-end: store memory, create checkpoint, run approval gate."""
-        from anycode.memory.sqlite_store import SQLiteStore
 
         # -- Memory --
         kv = SQLiteStore(f"{tmp_path}/pipeline.db")

@@ -84,6 +84,10 @@ MAX_VALIDATION_RETRIES = 3
 
 PROVIDER_ANTHROPIC = "anthropic"
 PROVIDER_OPENAI = "openai"
+PROVIDER_GOOGLE = "google"
+PROVIDER_OLLAMA = "ollama"
+PROVIDER_BEDROCK = "bedrock"
+PROVIDER_AZURE = "azure"
 
 # ---------------------------------------------------------------------------
 # String truncation limits
@@ -166,3 +170,43 @@ GREP_IGNORED_DIRS = frozenset(
 # ---------------------------------------------------------------------------
 
 BASH_TIMEOUT_LIMIT_S = 30
+
+# ---------------------------------------------------------------------------
+# Provider defaults
+# ---------------------------------------------------------------------------
+
+OLLAMA_DEFAULT_BASE_URL = "http://localhost:11434"
+OLLAMA_REQUEST_TIMEOUT_S = 120.0
+AZURE_DEFAULT_API_VERSION = "2024-10-21"
+
+# ---------------------------------------------------------------------------
+# MCP (Model Context Protocol)
+# ---------------------------------------------------------------------------
+
+MCP_TOOL_PREFIX = "mcp"
+MCP_DEFAULT_TIMEOUT = 30.0
+MCP_TRANSPORT_STDIO = "stdio"
+MCP_TRANSPORT_SSE = "sse"
+MCP_TRANSPORT_STREAMABLE_HTTP = "streamable-http"
+
+# ---------------------------------------------------------------------------
+# Agent handoff
+# ---------------------------------------------------------------------------
+
+DEFAULT_MAX_HANDOFF_DEPTH = 3
+HANDOFF_CONTEXT_MAX_MESSAGES = 20
+HANDOFF_MESSAGE_TRUNCATE_LENGTH = 500
+HANDOFF_MESSAGE_TRUNCATE_SUFFIX_AT = 497
+HANDOFF_TOOL_NAME = "handoff"
+
+# ---------------------------------------------------------------------------
+# Intelligent routing
+# ---------------------------------------------------------------------------
+
+ROUTING_TRIVIAL_MAX_LEN = 100
+ROUTING_SIMPLE_MAX_LEN = 300
+ROUTING_MODERATE_MAX_LEN = 600
+ROUTING_COMPLEX_MAX_LEN = 1000
+ROUTING_TRIVIAL_MAX_DEPS = 0
+ROUTING_SIMPLE_MAX_DEPS = 1
+ROUTING_MODERATE_MAX_DEPS = 3

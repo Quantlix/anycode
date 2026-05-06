@@ -105,9 +105,7 @@ def demo_tracing(provider: str, model: str) -> None:
         root.set_attributes(SpanAttributes(agent_name="reviewer", model=model))
 
         with tracer.span("anycode.llm.chat", parent=root) as llm_span:
-            llm_span.set_attributes(
-                SpanAttributes(model=model, provider=provider, token_input=350, token_output=120)
-            )
+            llm_span.set_attributes(SpanAttributes(model=model, provider=provider, token_input=350, token_output=120))
 
         with tracer.span("anycode.tool.file_read", parent=root) as tool_span:
             tool_span.set_attributes(SpanAttributes(tool_name="file_read"))
@@ -195,7 +193,7 @@ async def demo_guardrails(provider: str, model: str) -> None:
 
     # Push it over the limit
     tracker.record_usage(TokenUsage(input_tokens=5000, output_tokens=5000))
-    print(f"\nAfter large usage:")
+    print("\nAfter large usage:")
     print(f"Exhausted: {tracker.is_exhausted()}")
     print(f"Reason: {tracker.get_exhaustion_reason()}")
 
@@ -311,7 +309,10 @@ def demo_structured_schemas() -> None:
     parsed3 = parse_structured_output(bad_json, CodeReview)
     print(f"Invalid text -> parsed: {parsed3 is not None}")
 
-    nested_json = '{"title": "Sprint Review", "metrics": {"lines_reviewed": 1500, "bugs_found": 3, "coverage_pct": 87.5}, "recommendations": ["Add error handling", "Improve test coverage"]}'
+    nested_json = (
+        '{"title": "Sprint Review", "metrics": {"lines_reviewed": 1500, "bugs_found": 3, '
+        '"coverage_pct": 87.5}, "recommendations": ["Add error handling", "Improve test coverage"]}'
+    )
     parsed4 = parse_structured_output(nested_json, NestedReport)
     print(f"Nested model -> parsed: {parsed4 is not None}")
     if parsed4:
@@ -380,10 +381,7 @@ async def demo_live_agent(provider: str, model: str) -> None:
     )
 
     structured_result = await agent.run_structured(
-        "Review this Python function:\n\n"
-        "def add(a, b):\n"
-        "    return a + b\n\n"
-        "Provide your assessment.",
+        "Review this Python function:\n\ndef add(a, b):\n    return a + b\n\nProvide your assessment.",
         schema=CodeReview,
     )
 

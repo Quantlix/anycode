@@ -7,6 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-06
+
+### Added
+
+- **Phase 3.2 — Agent Handoff (orchestrator integration)** — `Team` workflows now route handoff requests through `HandoffExecutor`, validate handoff targets against team membership, support policy-driven handoffs via `OrchestratorConfig.handoff_policy`, and emit `Handoff` records on `TeamRunResult.handoffs`.
+- **Phase 3.4 — Intelligent Routing (orchestrator integration)** — `Router.route()` decisions are applied per task before execution; the resolved model/provider override is layered onto the agent config without mutating the original. `TeamRunResult.route_decisions` exposes the decision trail.
+- **Phase 4.1 — CLI Toolkit** — new `anycode` CLI (built on `typer` + `rich`):
+  - `anycode init <dir>` scaffolds a project (`team.yaml`, `main.py`, `.env.example`, `tools/`, `.gitignore`).
+  - `anycode run <config.yaml>` loads a team config and runs it end-to-end.
+  - `anycode inspect tools|providers|team <path>|config <path>` introspects the runtime.
+  - `anycode version` prints package + Python info.
+  - Available via `pip install anycode-py[cli]`.
+- **Phase 4.2 — Declarative YAML/TOML config** (`src/anycode/config/`) — `load_config(path)` + `validate_config(path)` parse `.yaml`/`.yml`/`.toml` files into typed `LoadedConfig` with `${ENV_VAR}` substitution. New `AnyCode.from_config(path)` and `engine.run_team_from_config(goal=...)` classmethod/method.
+- **Phase 4.3 — Examples cookbook** — five new end-to-end examples (`13_cost_tracking.py`, `14_self_reflection.py`, `15_rag_memory.py`, `16_dag_visualization.py`, `17_yaml_config.py`).
+- **Phase 5.1 — Self-Reflection / Critic Loop** (`src/anycode/reflection/`) — `LLMCritic`, `parse_critic_json`, `ReflectionLoop` with `self`/`peer`/`custom` modes. Configured via `OrchestratorConfig.reflection = ReflectionConfig(...)`. Tracks `reflections_count` and `quality_score` on `AgentRunResult`.
+- **Phase 5.2 — Cost-Aware Execution Engine** (`src/anycode/cost/`) — `CostTracker`, `build_cost_report`, `DEFAULT_PRICING`, `find_pricing` (with wildcard fallback), `calculate_cost`. Configured via `OrchestratorConfig.cost = CostConfig(budget_usd=..., on_budget_exceeded="stop"|"warn"|"continue")`. Emits cost-alert events at the configured threshold and stops execution when the budget is exhausted (when `on_budget_exceeded="stop"`). `TeamRunResult.cost_report` exposes per-agent and per-model breakdown.
+- **Phase 5.3 — DAG Visualization** (`src/anycode/viz/`) — `render_dag(queue, format="mermaid"|"dot"|"json"|"ascii", show_status=True)` and `render_timeline(team_result, width=40)`. Mermaid output includes `classDef` styling per task status.
+- **Phase 5.4 — RAG Memory** (`src/anycode/memory/rag.py`, `src/anycode/memory/indexer.py`) — `RAGRetriever` (dedup, namespace filtering, relevance/token caps) and `RAGIndexer` (paragraph-aware chunking, optional tool-result indexing). Configured via `OrchestratorConfig.rag = RAGConfig(...)`. RAG context is auto-injected into every task prompt and outputs are auto-indexed to the configured `VectorStore` (defaults to `InMemoryVectorStore`).
+
+### Changed
+
+- `AgentRunResult` gained `handoff_request`, `reflections_count`, and `quality_score` fields (all optional / defaulted).
+- `RunResult` gained `handoff_request` field (optional).
+- `TeamRunResult` gained `handoffs`, `route_decisions`, and `cost_report` fields (all optional).
+- `OrchestratorConfig` gained `cost`, `reflection`, and `rag` fields (all optional).
+- Public exports added to `anycode.__init__`: `CostTracker`, `build_cost_report`, `DEFAULT_PRICING`, `calculate_cost`, `find_pricing`, `render_dag`, `render_timeline`, `LLMCritic`, `ReflectionLoop`, `parse_critic_json`, `RAGRetriever`, `RAGIndexer`, plus the new types `ModelPricing`, `CostConfig`, `CostBreakdown`, `CostReport`, `CriticResult`, `Critic`, `ReflectionConfig`, `RAGConfig`, `RAGContext`, `RAGEntry`.
+
+### Tests
+
+- 43 new tests across `tests/test_cost.py`, `tests/test_viz.py`, `tests/test_config.py`, `tests/test_reflection.py`, `tests/test_rag.py`, `tests/test_cli.py`. Total suite: 343 passing.
+
+## [0.4.0] - 2026-06-10
+
+### Added
+
+- **Additional LLM Providers** — 4 new provider adapters implementing the `LLMAdapter` Protocol.
+  - `GeminiAdapter` — Google Gemini via `google-genai` SDK with function calling and streaming support.
+  - `OllamaAdapter` — Local Ollama models via HTTP (`httpx`), zero external SDK dependencies, OpenAI-compatible tool format.
+  - `BedrockAdapter` — AWS Bedrock for Claude models via `boto3`, Anthropic message format, streaming via response streams.
+  - `AzureOpenAIAdapter` — Azure OpenAI via the official `openai` SDK with Azure-specific auth and deployment configuration.
+  - `_openai_compat` shared helper module — extracted common OpenAI mapping logic (messages, tools, stop reasons) for reuse across OpenAI, Azure, and Ollama adapters.
+  - Extended `create_adapter()` factory to resolve all 6 providers with lazy imports.
+- **MCP Integration module** (`src/anycode/mcp/`) — Model Context Protocol support for external tool servers.
+  - `MCPClient` — manages connection lifecycle (stdio, SSE, streamable-http transports) via the official `mcp` SDK, with tool discovery and tool execution.
+  - `schema_to_pydantic_model()` — dynamic Pydantic model generation from JSON Schema for MCP tool inputs.
+  - `mcp_tool_to_definition()` — converts MCP tools into AnyCode `ToolDefinition` with prefixed naming (`mcp_{server}_{tool}`).
+  - `discover_and_register()` — batch discovery and registration of MCP tools into the `ToolRegistry`.
+  - `validate_server_config()` — transport-aware configuration validation.
+  - `ToolRegistry.register_from_mcp()` and `ToolRegistry.deregister_prefix()` for MCP tool lifecycle management.
+- **Agent Handoff module** (`src/anycode/handoff/`) — context-preserving agent-to-agent task delegation.
+  - `HANDOFF_TOOL_DEF` — built-in sentinel tool that agents call to request a handoff (returns `__HANDOFF__:to:summary:reason`).
+  - `HandoffExecutor` — orchestrates context transfer with conversation trimming, system/user prompt generation, and configurable depth limiting.
+  - `trim_context()`, `build_handoff_system_prompt()`, `build_handoff_user_message()` — protocol helpers for handoff payloads.
+  - Runner integration: `AgentRunner` detects handoff sentinels in tool results and yields `StreamEvent(type="handoff")`.
+- **Intelligent Routing module** (`src/anycode/routing/`) — zero-cost heuristic task routing.
+  - `classify_task()` — microsecond complexity classification (5 levels: trivial, simple, moderate, complex, expert) based on description length and dependency count.
+  - `match_rule()` / `evaluate_rules()` — declarative rule engine supporting complexity conditions, keyword-in checks, and regex patterns with priority ordering.
+  - `DefaultRouter` — `Router` Protocol implementation combining classifier + rules engine with default model fallback.
+  - Orchestrator integration: routing decisions applied before task wave execution.
+- New Pydantic types (all `frozen=True`): `MCPServerConfig`, `MCPToolInfo`, `HandoffRequest`, `Handoff`, `HandoffPolicy` Protocol, `ComplexityLevel`, `RoutingRule`, `RoutingConfig`, `RouteDecision`, `Router` Protocol.
+- Extended `AgentConfig.provider` literal to include `"google" | "ollama" | "bedrock" | "azure"`.
+- Extended `OrchestratorConfig` with `mcp_servers`, `handoff_policy`, `max_handoff_depth`, `routing` fields.
+- Extended `TeamRunResult` with `handoffs` field.
+- Optional dependency groups in `pyproject.toml`: `google` (`google-generativeai>=0.8`), `bedrock` (`boto3>=1.34`), `azure` (`openai>=1.50`), `mcp` (`mcp>=1.0`).
+- **Examples**: `examples/09_multi_provider.py`, `examples/10_mcp_tools.py`, `examples/11_agent_handoff.py`, `examples/12_intelligent_routing.py`.
+- **Test suites**: `tests/test_providers.py` (35 tests), `tests/test_mcp.py` (24 tests), `tests/test_handoff.py` (19 tests), `tests/test_routing.py` (18 tests).
+
+### Changed
+
+- **Orchestrator** — `AnyCode` now manages MCP client lifecycles (connect/disconnect) as an async context manager, registers the handoff tool for agents that opt in, injects per-agent MCP tools into the tool registry, and applies routing decisions before task wave execution.
+- **AgentRunner** — detects handoff sentinel results in the tool loop; on detection, yields a `StreamEvent(type="handoff")` and terminates the turn.
+- **ToolRegistry** — added `register_from_mcp()` for batch MCP tool registration and `deregister_prefix()` for cleanup on server disconnect.
+- **providers/openai.py** — refactored to import shared mapping logic from `_openai_compat.py` (no behavior change).
+
 ## [0.3.0] - 2026-04-05
 
 ### Added
@@ -87,7 +161,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four examples: solo worker, crew workflow, staged pipeline, hybrid tooling.
 - Pydantic-based immutable type system (`frozen=True` on all models).
 
-[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Quantlix/anycode/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Quantlix/anycode/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Quantlix/anycode/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Quantlix/anycode/releases/tag/v0.1.0

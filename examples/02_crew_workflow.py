@@ -2,17 +2,35 @@
 # Execute: uv run python examples/02_crew_workflow.py
 
 import asyncio
+import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from anycode import AgentConfig, AnyCode, OrchestratorEvent
+from dotenv import load_dotenv
+
+from anycode import AgentConfig, AnyCode, OrchestratorConfig, OrchestratorEvent, TeamConfig
+
+load_dotenv()
+
+
+def _resolve_provider() -> tuple[str, str]:
+    """Return (provider, model) based on available API keys."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    print("ERROR: Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env")
+    sys.exit(1)
+
+
+PROVIDER, MODEL = _resolve_provider()
 
 # --- Define specialized crew members ---
 
 planner = AgentConfig(
     name="planner",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
         "You are a backend architect experienced with Python microservices.\n"
         "Design clean API specifications and directory layouts.\n"
@@ -25,8 +43,8 @@ planner = AgentConfig(
 
 builder = AgentConfig(
     name="builder",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
         "You are a seasoned Python backend engineer. Build exactly what the planner describes.\n"
         "Focus on clean, runnable code with sensible error handling. Use the tools to write and verify files."
@@ -38,8 +56,8 @@ builder = AgentConfig(
 
 auditor = AgentConfig(
     name="auditor",
-    model="gpt-4o-mini",
-    provider="openai",
+    model=MODEL,
+    provider=PROVIDER,
     system_prompt=(
         "You are a meticulous code auditor. Examine code for bugs, security gaps, and clarity issues.\n"
         "Structure your report: Approved items, Suggestions, Blockers.\n"
@@ -56,14 +74,14 @@ agent_timers: dict[str, float] = {}
 
 
 def handle_progress(ev: OrchestratorEvent) -> None:
-    clock = datetime.now(timezone.utc).isoformat()[11:23]
+    clock = datetime.now(UTC).isoformat()[11:23]
 
     match ev.type:
         case "agent_start":
-            agent_timers[ev.agent or ""] = datetime.now(timezone.utc).timestamp() * 1000
+            agent_timers[ev.agent or ""] = datetime.now(UTC).timestamp() * 1000
             print(f"[{clock}] STARTED   >> {ev.agent}")
         case "agent_complete":
-            now = datetime.now(timezone.utc).timestamp() * 1000
+            now = datetime.now(UTC).timestamp() * 1000
             duration = now - agent_timers.get(ev.agent or "", now)
             print(f"[{clock}] COMPLETED << {ev.agent} ({duration:.0f}ms)")
         case "task_start":
@@ -79,18 +97,21 @@ def handle_progress(ev: OrchestratorEvent) -> None:
 async def main() -> None:
     engine = AnyCode(
         config=OrchestratorConfig(
-            default_model="gpt-4o-mini",
+            default_model=MODEL,
             max_concurrency=1,
             on_progress=handle_progress,
         )
     )
 
-    crew = engine.create_team("backend-crew", TeamConfig(
-        name="backend-crew",
-        agents=[planner, builder, auditor],
-        shared_memory=True,
-        max_concurrency=1,
-    ))
+    crew = engine.create_team(
+        "backend-crew",
+        TeamConfig(
+            name="backend-crew",
+            agents=[planner, builder, auditor],
+            shared_memory=True,
+            max_concurrency=1,
+        ),
+    )
 
     agent_names = ", ".join(a.name for a in crew.get_agents())
     print(f'Crew "{crew.name}" ready — members: {agent_names}')
@@ -112,8 +133,7 @@ async def main() -> None:
     print("\n" + "#" * 55)
     print("\nCrew workflow complete.")
     print(f"Outcome: {'SUCCESS' if report.success else 'FAILURE'}")
-    print(f"Tokens consumed — input: {report.total_token_usage.input_tokens}, "
-          f"output: {report.total_token_usage.output_tokens}")
+    print(f"Tokens consumed — input: {report.total_token_usage.input_tokens}, output: {report.total_token_usage.output_tokens}")
 
     print("\nBreakdown by member:")
     for member_name, member_report in report.agent_results.items():
@@ -140,5 +160,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    from anycode import OrchestratorConfig, TeamConfig
     asyncio.run(main())
