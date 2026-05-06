@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-06
+
+### Added
+
+- **Phase 3.2 — Agent Handoff (orchestrator integration)** — `Team` workflows now route handoff requests through `HandoffExecutor`, validate handoff targets against team membership, support policy-driven handoffs via `OrchestratorConfig.handoff_policy`, and emit `Handoff` records on `TeamRunResult.handoffs`.
+- **Phase 3.4 — Intelligent Routing (orchestrator integration)** — `Router.route()` decisions are applied per task before execution; the resolved model/provider override is layered onto the agent config without mutating the original. `TeamRunResult.route_decisions` exposes the decision trail.
+- **Phase 4.1 — CLI Toolkit** — new `anycode` CLI (built on `typer` + `rich`):
+  - `anycode init <dir>` scaffolds a project (`team.yaml`, `main.py`, `.env.example`, `tools/`, `.gitignore`).
+  - `anycode run <config.yaml>` loads a team config and runs it end-to-end.
+  - `anycode inspect tools|providers|team <path>|config <path>` introspects the runtime.
+  - `anycode version` prints package + Python info.
+  - Available via `pip install anycode-py[cli]`.
+- **Phase 4.2 — Declarative YAML/TOML config** (`src/anycode/config/`) — `load_config(path)` + `validate_config(path)` parse `.yaml`/`.yml`/`.toml` files into typed `LoadedConfig` with `${ENV_VAR}` substitution. New `AnyCode.from_config(path)` and `engine.run_team_from_config(goal=...)` classmethod/method.
+- **Phase 4.3 — Examples cookbook** — five new end-to-end examples (`13_cost_tracking.py`, `14_self_reflection.py`, `15_rag_memory.py`, `16_dag_visualization.py`, `17_yaml_config.py`).
+- **Phase 5.1 — Self-Reflection / Critic Loop** (`src/anycode/reflection/`) — `LLMCritic`, `parse_critic_json`, `ReflectionLoop` with `self`/`peer`/`custom` modes. Configured via `OrchestratorConfig.reflection = ReflectionConfig(...)`. Tracks `reflections_count` and `quality_score` on `AgentRunResult`.
+- **Phase 5.2 — Cost-Aware Execution Engine** (`src/anycode/cost/`) — `CostTracker`, `build_cost_report`, `DEFAULT_PRICING`, `find_pricing` (with wildcard fallback), `calculate_cost`. Configured via `OrchestratorConfig.cost = CostConfig(budget_usd=..., on_budget_exceeded="stop"|"warn"|"continue")`. Emits cost-alert events at the configured threshold and stops execution when the budget is exhausted (when `on_budget_exceeded="stop"`). `TeamRunResult.cost_report` exposes per-agent and per-model breakdown.
+- **Phase 5.3 — DAG Visualization** (`src/anycode/viz/`) — `render_dag(queue, format="mermaid"|"dot"|"json"|"ascii", show_status=True)` and `render_timeline(team_result, width=40)`. Mermaid output includes `classDef` styling per task status.
+- **Phase 5.4 — RAG Memory** (`src/anycode/memory/rag.py`, `src/anycode/memory/indexer.py`) — `RAGRetriever` (dedup, namespace filtering, relevance/token caps) and `RAGIndexer` (paragraph-aware chunking, optional tool-result indexing). Configured via `OrchestratorConfig.rag = RAGConfig(...)`. RAG context is auto-injected into every task prompt and outputs are auto-indexed to the configured `VectorStore` (defaults to `InMemoryVectorStore`).
+
+### Changed
+
+- `AgentRunResult` gained `handoff_request`, `reflections_count`, and `quality_score` fields (all optional / defaulted).
+- `RunResult` gained `handoff_request` field (optional).
+- `TeamRunResult` gained `handoffs`, `route_decisions`, and `cost_report` fields (all optional).
+- `OrchestratorConfig` gained `cost`, `reflection`, and `rag` fields (all optional).
+- Public exports added to `anycode.__init__`: `CostTracker`, `build_cost_report`, `DEFAULT_PRICING`, `calculate_cost`, `find_pricing`, `render_dag`, `render_timeline`, `LLMCritic`, `ReflectionLoop`, `parse_critic_json`, `RAGRetriever`, `RAGIndexer`, plus the new types `ModelPricing`, `CostConfig`, `CostBreakdown`, `CostReport`, `CriticResult`, `Critic`, `ReflectionConfig`, `RAGConfig`, `RAGContext`, `RAGEntry`.
+
+### Tests
+
+- 43 new tests across `tests/test_cost.py`, `tests/test_viz.py`, `tests/test_config.py`, `tests/test_reflection.py`, `tests/test_rag.py`, `tests/test_cli.py`. Total suite: 343 passing.
+
 ## [0.4.0] - 2026-06-10
 
 ### Added
