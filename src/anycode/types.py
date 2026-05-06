@@ -64,6 +64,188 @@ class TokenUsage(BaseModel):
     output_tokens: int = 0
 
 
+# -- Execution lifecycle --
+
+ExecutionPhase = Literal[
+    "initialized",
+    "planning",
+    "executing",
+    "observing",
+    "verifying",
+    "recovering",
+    "completed",
+    "failed",
+    "cancelled",
+]
+
+StopReasonCode = Literal[
+    "success",
+    "max_turns",
+    "budget_exceeded",
+    "context_pressure",
+    "tool_error",
+    "verification_failed",
+    "blocked_dependency",
+    "user_cancelled",
+    "doom_loop",
+    "unknown",
+]
+
+
+class StopReason(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    code: StopReasonCode
+    message: str
+    recoverable: bool = False
+
+
+class LifecycleEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    run_id: str
+    agent_name: str
+    task_id: str | None = None
+    phase: ExecutionPhase
+    stop_reason: StopReason | None = None
+    metadata: dict[str, str | int | float | bool] = {}
+
+
+# -- Adaptive context lifecycle --
+
+ContextPressure = Literal["normal", "trim", "offload", "compact", "handoff"]
+ContextSourceKind = Literal["instructions", "working_memory", "task_state", "external_memory", "offloaded_artifact"]
+
+
+class ContextArtifact(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    artifact_id: str
+    path: str
+    bytes: int
+    digest: str
+    head_excerpt: str
+    tail_excerpt: str
+    recovery_hint: str
+    source_event_id: str | None = None
+
+
+class ContextSource(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    kind: ContextSourceKind
+    label: str
+    estimated_tokens: int
+    preserved: bool = True
+
+
+class ContextPolicy(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    max_context_tokens: int = 100_000
+    trim_ratio: float = 0.65
+    offload_ratio: float = 0.75
+    compact_ratio: float = 0.85
+    handoff_ratio: float = 0.95
+    keep_recent_messages: int = 6
+    max_tool_output_tokens: int = 4000
+    summary_target_tokens: int = 800
+    artifact_dir: str = ".anycode/artifacts"
+
+
+class ContextManifest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    pressure: ContextPressure
+    estimated_tokens: int
+    max_tokens: int
+    sources: list[ContextSource] = []
+    offloaded: list[ContextArtifact] = []
+    compaction_summary: str | None = None
+    handoff_path: str | None = None
+
+
+# -- Verification sensors and quality gates --
+
+VerificationKind = Literal["computational", "inferential", "hybrid"]
+VerificationSeverity = Literal["info", "warning", "error", "critical"]
+GateOutcome = Literal["pass", "warn", "retry", "block", "escalate"]
+SensorPhase = Literal["before_tool", "after_tool", "after_task", "after_team"]
+
+
+class VerificationResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sensor_name: str
+    kind: VerificationKind
+    passed: bool
+    severity: VerificationSeverity
+    message: str
+    evidence: dict[str, str | int | float | bool] = {}
+    feedback_for_agent: str | None = None
+    duration_ms: float = 0.0
+
+
+class VerificationSensorConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    kind: VerificationKind
+    phases: tuple[SensorPhase, ...] = ("after_task",)
+    block_on_failure: bool = False
+    retry_on_failure: bool = False
+    options: dict[str, str | int | float | bool] = {}
+
+
+class QualityGateDecision(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    outcome: GateOutcome
+    results: tuple[VerificationResult, ...]
+    message: str
+
+
+# -- Harness evaluation suite --
+
+
+class EvalScenario(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    description: str = ""
+    prompt: str
+    system_prompt: str | None = None
+    provider: Literal["anthropic", "openai", "google", "ollama", "bedrock", "azure"] | None = None
+    model: str | None = None
+    success_criteria: tuple[str, ...] = ()
+    forbidden_substrings: tuple[str, ...] = ()
+    expected_stop_reason: str | None = None
+    allowed_tools: tuple[str, ...] = ()
+    max_turns: int = 4
+    max_tokens: int | None = None
+    temperature: float | None = None
+
+
+class EvalScenarioResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scenario_name: str
+    passed: bool
+    output: str
+    stop_reason_code: str | None = None
+    expected_stop_reason: str | None = None
+    runtime_seconds: float
+    turns: int
+    tool_calls: int
+    token_usage: TokenUsage = TokenUsage()
+    failure_reason: str | None = None
+    matched_criteria: tuple[str, ...] = ()
+    missing_criteria: tuple[str, ...] = ()
+
+
+class EvalReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    suite_name: str
+    harness_variant: str
+    total_scenarios: int
+    passed: int
+    failed: int
+    total_runtime_seconds: float
+    total_input_tokens: int
+    total_output_tokens: int
+    scenario_results: tuple[EvalScenarioResult, ...]
+
+
 class LLMResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     id: str
@@ -140,6 +322,7 @@ class AgentConfig(BaseModel):
     max_tokens: int | None = None
     temperature: float | None = None
     mcp_servers: list[str] | None = None
+    context_policy: ContextPolicy | None = None
 
 
 class AgentState(BaseModel):
@@ -168,6 +351,10 @@ class AgentRunResult(BaseModel):
     handoff_request: HandoffRequest | None = None
     reflections_count: int = 0
     quality_score: float | None = None
+    terminal_phase: str | None = None
+    stop_reason: StopReason | None = None
+    lifecycle_events: list[LifecycleEvent] = []
+    context_manifests: list[ContextManifest] = []
 
 
 # -- Team --
@@ -312,6 +499,10 @@ class RunResult(BaseModel):
     token_usage: TokenUsage
     turns: int
     handoff_request: HandoffRequest | None = None
+    terminal_phase: str | None = None
+    stop_reason: StopReason | None = None
+    lifecycle_events: list[LifecycleEvent] = []
+    context_manifests: list[ContextManifest] = []
 
 
 class PoolStatus(BaseModel):
@@ -368,6 +559,9 @@ class SpanAttributes(BaseModel):
     token_output: int = 0
     cost_usd: float = 0.0
     turn_number: int = 0
+    phase: str | None = None
+    stop_reason: str | None = None
+    recoverable: bool | None = None
 
 
 # -- Guardrails --

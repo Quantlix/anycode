@@ -14,6 +14,11 @@ _env_test = Path(__file__).resolve().parent.parent / ".env.test"
 if _env_test.exists():
     load_dotenv(_env_test, override=False)
 
+# Also load .env (provider API keys) so live LLM tests can run when available.
+_env = Path(__file__).resolve().parent.parent / ".env"
+if _env.exists():
+    load_dotenv(_env, override=False)
+
 REDIS_URL = os.environ.get("ANYCODE_TEST_REDIS_URL", "redis://localhost:6380/0")
 POSTGRES_URL = os.environ.get("ANYCODE_TEST_POSTGRES_URL", "postgresql://anycode_test:testpass@localhost:5433/anycode_test")
 CHROMADB_URL = os.environ.get("ANYCODE_TEST_CHROMADB_URL", "http://localhost:8100")
