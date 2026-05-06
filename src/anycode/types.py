@@ -197,6 +197,55 @@ class QualityGateDecision(BaseModel):
     message: str
 
 
+# -- Harness evaluation suite --
+
+
+class EvalScenario(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    description: str = ""
+    prompt: str
+    system_prompt: str | None = None
+    provider: Literal["anthropic", "openai", "google", "ollama", "bedrock", "azure"] | None = None
+    model: str | None = None
+    success_criteria: tuple[str, ...] = ()
+    forbidden_substrings: tuple[str, ...] = ()
+    expected_stop_reason: str | None = None
+    allowed_tools: tuple[str, ...] = ()
+    max_turns: int = 4
+    max_tokens: int | None = None
+    temperature: float | None = None
+
+
+class EvalScenarioResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    scenario_name: str
+    passed: bool
+    output: str
+    stop_reason_code: str | None = None
+    expected_stop_reason: str | None = None
+    runtime_seconds: float
+    turns: int
+    tool_calls: int
+    token_usage: TokenUsage = TokenUsage()
+    failure_reason: str | None = None
+    matched_criteria: tuple[str, ...] = ()
+    missing_criteria: tuple[str, ...] = ()
+
+
+class EvalReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    suite_name: str
+    harness_variant: str
+    total_scenarios: int
+    passed: int
+    failed: int
+    total_runtime_seconds: float
+    total_input_tokens: int
+    total_output_tokens: int
+    scenario_results: tuple[EvalScenarioResult, ...]
+
+
 class LLMResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     id: str
