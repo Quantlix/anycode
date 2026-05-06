@@ -109,6 +109,57 @@ class LifecycleEvent(BaseModel):
     metadata: dict[str, str | int | float | bool] = {}
 
 
+# -- Adaptive context lifecycle --
+
+ContextPressure = Literal["normal", "trim", "offload", "compact", "handoff"]
+ContextSourceKind = Literal["instructions", "working_memory", "task_state", "external_memory", "offloaded_artifact"]
+
+
+class ContextArtifact(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    artifact_id: str
+    path: str
+    bytes: int
+    digest: str
+    head_excerpt: str
+    tail_excerpt: str
+    recovery_hint: str
+    source_event_id: str | None = None
+
+
+class ContextSource(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    kind: ContextSourceKind
+    label: str
+    estimated_tokens: int
+    preserved: bool = True
+
+
+class ContextPolicy(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    max_context_tokens: int = 100_000
+    trim_ratio: float = 0.65
+    offload_ratio: float = 0.75
+    compact_ratio: float = 0.85
+    handoff_ratio: float = 0.95
+    keep_recent_messages: int = 6
+    max_tool_output_tokens: int = 4000
+    summary_target_tokens: int = 800
+    artifact_dir: str = ".anycode/artifacts"
+
+
+class ContextManifest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    pressure: ContextPressure
+    estimated_tokens: int
+    max_tokens: int
+    sources: list[ContextSource] = []
+    offloaded: list[ContextArtifact] = []
+    compaction_summary: str | None = None
+    handoff_path: str | None = None
+
+
 class LLMResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     id: str
@@ -185,6 +236,7 @@ class AgentConfig(BaseModel):
     max_tokens: int | None = None
     temperature: float | None = None
     mcp_servers: list[str] | None = None
+    context_policy: ContextPolicy | None = None
 
 
 class AgentState(BaseModel):
@@ -216,6 +268,7 @@ class AgentRunResult(BaseModel):
     terminal_phase: str | None = None
     stop_reason: StopReason | None = None
     lifecycle_events: list[LifecycleEvent] = []
+    context_manifests: list[ContextManifest] = []
 
 
 # -- Team --
@@ -363,6 +416,7 @@ class RunResult(BaseModel):
     terminal_phase: str | None = None
     stop_reason: StopReason | None = None
     lifecycle_events: list[LifecycleEvent] = []
+    context_manifests: list[ContextManifest] = []
 
 
 class PoolStatus(BaseModel):
