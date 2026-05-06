@@ -78,6 +78,7 @@ class Agent:
             allowed_tools=self.config.tools,
             agent_name=self.name,
             agent_role=(self.config.system_prompt or "assistant")[:AGENT_ROLE_MAX_LENGTH],
+            verification=self.config.verification,
         )
         self._runner = AgentRunner(
             adapter,
@@ -169,7 +170,7 @@ class Agent:
                 }
             )
             return AgentRunResult(
-                success=True,
+                success=result.stop_reason is None or result.stop_reason.code == "success",
                 output=result.output,
                 messages=result.messages,
                 token_usage=result.token_usage,
@@ -179,6 +180,9 @@ class Agent:
                 stop_reason=result.stop_reason,
                 lifecycle_events=result.lifecycle_events,
                 context_manifests=result.context_manifests,
+                verification_results=result.verification_results,
+                gate_decisions=result.gate_decisions,
+                retries=result.retries,
             )
         except Exception as e:
             self._state = self._state.model_copy(update={"status": "error", "error": str(e)})

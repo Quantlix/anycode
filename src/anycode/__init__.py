@@ -81,6 +81,7 @@ from anycode.memory.indexer import RAGIndexer
 from anycode.memory.rag import RAGRetriever
 from anycode.memory.vector_store import InMemoryVectorStore
 from anycode.providers.adapter import create_adapter
+from anycode.providers.fake import FakeAdapter, FakeResponse
 from anycode.reflection.critic import DEFAULT_CRITIC_PROMPT, LLMCritic
 from anycode.reflection.evaluator import parse_critic_json
 from anycode.reflection.loop import ReflectionLoop
@@ -278,6 +279,8 @@ __all__ = [
     "compare_reports",
     # Providers
     "create_adapter",
+    "FakeAdapter",
+    "FakeResponse",
     # MCP
     "MCPClient",
     "mcp_discover_and_register",

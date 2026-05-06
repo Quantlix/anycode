@@ -66,13 +66,19 @@ def _classify_pressure(ratio: float, policy: ContextPolicy) -> ContextPressure:
 class ContextManager:
     """Assembles model prompts under a ContextPolicy."""
 
-    def __init__(self, policy: ContextPolicy) -> None:
-        self._policy = policy
+    def __init__(self, policy: ContextPolicy, *, provider: str | None = None) -> None:
+        self._provider = provider
+        self._base_policy = policy
+        self._policy = policy.for_provider(provider)
         self._artifacts: list[ContextArtifact] = []
 
     @property
     def policy(self) -> ContextPolicy:
         return self._policy
+
+    @property
+    def provider(self) -> str | None:
+        return self._provider
 
     @property
     def artifacts(self) -> list[ContextArtifact]:
@@ -130,7 +136,17 @@ class ContextManager:
             joined = " ".join(t.strip() for t in text_parts if t.strip())
             if joined:
                 bullets.append(f"- [{msg.role}] {joined[:240]}")
-        summary = _COMPACTION_PROMPT + "\n" + "\n".join(bullets[: self._policy.summary_target_tokens // 8])
+        preserved_lines: list[str] = []
+        if self._policy.preserved_task_state:
+            preserved_lines.append("PRESERVED TASK STATE:")
+            for key, value in self._policy.preserved_task_state.items():
+                preserved_lines.append(f"  {key}: {value}")
+        if self._policy.preserved_verification_failures:
+            preserved_lines.append("OPEN VERIFICATION FAILURES:")
+            for failure in self._policy.preserved_verification_failures:
+                preserved_lines.append(f"  - {failure}")
+        body_lines = preserved_lines + bullets[: self._policy.summary_target_tokens // 8]
+        summary = _COMPACTION_PROMPT + "\n" + "\n".join(body_lines)
         compact_msg = LLMMessage(role="user", content=[TextBlock(text=summary)])
         return [compact_msg, *tail], summary
 
@@ -213,6 +229,9 @@ class ContextManager:
             offloaded=offloaded,
             compaction_summary=compaction_summary,
             handoff_path=handoff_path,
+            preserved_task_state=dict(self._policy.preserved_task_state),
+            preserved_verification_failures=tuple(self._policy.preserved_verification_failures),
+            provider=self._provider,
         )
         return new_messages, manifest
 

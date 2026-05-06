@@ -20,6 +20,7 @@ from anycode.types import (
     ReflectionConfig,
     RoutingConfig,
     TeamConfig,
+    VerificationSensorConfig,
 )
 
 _ENV_VAR_PATTERN = re.compile(r"\$\{([A-Z_][A-Z0-9_]*)\}")
@@ -102,7 +103,28 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
     if not isinstance(agents_raw, list) or not agents_raw:
         raise ValueError("Config must define a non-empty 'agents' list.")
 
-    agents = [AgentConfig.model_validate(a) for a in agents_raw]
+    global_verification = raw.get("verification")
+    global_sensors: tuple[VerificationSensorConfig, ...] = ()
+    if global_verification:
+        if not isinstance(global_verification, list):
+            raise ValueError("Top-level 'verification' must be a list of sensor configs.")
+        global_sensors = tuple(VerificationSensorConfig.model_validate(item) for item in global_verification)
+
+    typed_agents: list[AgentConfig] = []
+    for raw_agent in agents_raw:
+        agent_data = dict(raw_agent)
+        agent_verification_raw = agent_data.pop("verification", None)
+        agent = AgentConfig.model_validate(agent_data)
+        sensors: tuple[VerificationSensorConfig, ...] = global_sensors
+        if agent_verification_raw is not None:
+            if not isinstance(agent_verification_raw, list):
+                raise ValueError(f"Agent '{agent.name}' verification must be a list.")
+            agent_sensors = tuple(VerificationSensorConfig.model_validate(item) for item in agent_verification_raw)
+            sensors = agent_sensors if agent_sensors else global_sensors
+        if sensors:
+            agent = agent.model_copy(update={"verification": sensors})
+        typed_agents.append(agent)
+    agents = typed_agents
 
     team = TeamConfig(
         name=raw.get("name", "team"),

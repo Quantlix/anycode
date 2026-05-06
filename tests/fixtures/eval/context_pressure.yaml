@@ -1,0 +1,14 @@
+name: context_pressure
+description: Long prompt exercises context lifecycle without exceeding fake budget.
+prompt: |
+  Summarize the following long context in one sentence: lorem ipsum dolor sit amet,
+  consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore
+  magna aliqua. Use the word summary in your reply.
+deterministic: true
+fake_responses:
+  - "Summary: the text is filler placeholder content."
+success_criteria:
+  - summary
+expected_stop_reason: success
+max_turns: 2
+model: fake-model

@@ -147,6 +147,14 @@ class ContextPolicy(BaseModel):
     max_tool_output_tokens: int = 4000
     summary_target_tokens: int = 800
     artifact_dir: str = ".anycode/artifacts"
+    preserved_task_state: dict[str, str] = {}
+    preserved_verification_failures: tuple[str, ...] = ()
+    provider_overrides: dict[str, ContextPolicy] = {}
+
+    def for_provider(self, provider: str | None) -> ContextPolicy:
+        if provider and provider in self.provider_overrides:
+            return self.provider_overrides[provider]
+        return self
 
 
 class ContextManifest(BaseModel):
@@ -158,6 +166,9 @@ class ContextManifest(BaseModel):
     offloaded: list[ContextArtifact] = []
     compaction_summary: str | None = None
     handoff_path: str | None = None
+    preserved_task_state: dict[str, str] = {}
+    preserved_verification_failures: tuple[str, ...] = ()
+    provider: str | None = None
 
 
 # -- Verification sensors and quality gates --
@@ -215,6 +226,9 @@ class EvalScenario(BaseModel):
     max_turns: int = 4
     max_tokens: int | None = None
     temperature: float | None = None
+    deterministic: bool = False
+    fake_responses: tuple[str, ...] = ()
+    fake_tool_failures: tuple[str, ...] = ()
 
 
 class EvalScenarioResult(BaseModel):
@@ -231,6 +245,9 @@ class EvalScenarioResult(BaseModel):
     failure_reason: str | None = None
     matched_criteria: tuple[str, ...] = ()
     missing_criteria: tuple[str, ...] = ()
+    cost_usd: float = 0.0
+    retries: int = 0
+    verification_failures: int = 0
 
 
 class EvalReport(BaseModel):
@@ -243,6 +260,9 @@ class EvalReport(BaseModel):
     total_runtime_seconds: float
     total_input_tokens: int
     total_output_tokens: int
+    total_cost_usd: float = 0.0
+    total_retries: int = 0
+    total_verification_failures: int = 0
     scenario_results: tuple[EvalScenarioResult, ...]
 
 
@@ -323,6 +343,7 @@ class AgentConfig(BaseModel):
     temperature: float | None = None
     mcp_servers: list[str] | None = None
     context_policy: ContextPolicy | None = None
+    verification: tuple[VerificationSensorConfig, ...] = ()
 
 
 class AgentState(BaseModel):
@@ -355,6 +376,9 @@ class AgentRunResult(BaseModel):
     stop_reason: StopReason | None = None
     lifecycle_events: list[LifecycleEvent] = []
     context_manifests: list[ContextManifest] = []
+    verification_results: list[VerificationResult] = []
+    gate_decisions: list[QualityGateDecision] = []
+    retries: int = 0
 
 
 # -- Team --
@@ -489,6 +513,7 @@ class RunnerOptions(BaseModel):
     allowed_tools: list[str] | None = None
     agent_name: str | None = None
     agent_role: str | None = None
+    verification: tuple[VerificationSensorConfig, ...] = ()
 
 
 class RunResult(BaseModel):
@@ -503,6 +528,9 @@ class RunResult(BaseModel):
     stop_reason: StopReason | None = None
     lifecycle_events: list[LifecycleEvent] = []
     context_manifests: list[ContextManifest] = []
+    verification_results: list[VerificationResult] = []
+    gate_decisions: list[QualityGateDecision] = []
+    retries: int = 0
 
 
 class PoolStatus(BaseModel):

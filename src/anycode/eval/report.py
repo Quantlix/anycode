@@ -29,14 +29,18 @@ def render_markdown(report: EvalReport) -> str:
         f"- Failed: **{report.failed}**",
         f"- Total runtime: **{report.total_runtime_seconds:.3f}s**",
         f"- Tokens: input={report.total_input_tokens} output={report.total_output_tokens}",
+        f"- Cost: **${report.total_cost_usd:.4f}**",
+        f"- Retries: {report.total_retries}",
+        f"- Verification failures: {report.total_verification_failures}",
         "",
-        "| Scenario | Passed | Stop Reason | Runtime (s) | Turns | Tools | Failure |",
-        "|---|---|---|---|---|---|---|",
+        "| Scenario | Passed | Stop Reason | Runtime (s) | Turns | Tools | Cost ($) | Retries | VFails | Failure |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in report.scenario_results:
         lines.append(
-            f"| {r.scenario_name} | {'✔' if r.passed else '✘'} | {r.stop_reason_code or '-'} | "
-            f"{r.runtime_seconds:.3f} | {r.turns} | {r.tool_calls} | {r.failure_reason or ''} |"
+            f"| {r.scenario_name} | {'\u2714' if r.passed else '\u2718'} | {r.stop_reason_code or '-'} | "
+            f"{r.runtime_seconds:.3f} | {r.turns} | {r.tool_calls} | "
+            f"{r.cost_usd:.4f} | {r.retries} | {r.verification_failures} | {r.failure_reason or ''} |"
         )
     return "\n".join(lines)
 

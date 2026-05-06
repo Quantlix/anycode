@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from anycode.cost.pricing import calculate_cost
 from anycode.types import AgentRunResult, EvalScenario, EvalScenarioResult, TokenUsage
 
 
@@ -56,6 +57,15 @@ def score(
             parts.append(f"forbidden substrings present: {forbidden_hits}")
         failure = "; ".join(parts) or "unknown failure"
 
+    usage = result.token_usage or TokenUsage()
+    cost_usd = 0.0
+    if scenario.model and (usage.input_tokens or usage.output_tokens):
+        try:
+            cost_usd = calculate_cost(usage, scenario.model)
+        except Exception:  # noqa: BLE001 - cost is informational
+            cost_usd = 0.0
+    verification_failures = sum(1 for r in result.verification_results if not r.passed)
+
     return EvalScenarioResult(
         scenario_name=scenario.name,
         passed=passed,
@@ -65,8 +75,11 @@ def score(
         runtime_seconds=runtime_seconds,
         turns=len([m for m in result.messages if m.role == "assistant"]),
         tool_calls=len(result.tool_calls),
-        token_usage=result.token_usage or TokenUsage(),
+        token_usage=usage,
         failure_reason=failure,
         matched_criteria=tuple(matched),
         missing_criteria=tuple(missing),
+        cost_usd=cost_usd,
+        retries=result.retries,
+        verification_failures=verification_failures,
     )

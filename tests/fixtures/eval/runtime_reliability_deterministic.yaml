@@ -1,0 +1,50 @@
+# Fast deterministic eval suite — runs without any external LLM provider.
+# Used by `anycode eval run` for CI to exercise harness-runtime-reliability paths.
+scenarios:
+  - name: simple_tool_failure
+    description: Agent produces a clean success on a deterministic prompt.
+    prompt: Provide a one-line greeting that includes the word completed.
+    deterministic: true
+    fake_responses:
+      - "Hello — task completed successfully."
+    success_criteria:
+      - completed
+    expected_stop_reason: success
+    max_turns: 2
+    model: fake-model
+
+  - name: dependency_block
+    description: Agent emits incomplete output without satisfying success criteria.
+    prompt: Keep thinking out loud without finishing.
+    deterministic: true
+    fake_responses:
+      - "Step 1: thinking..."
+    expected_stop_reason: success
+    max_turns: 2
+    model: fake-model
+
+  - name: context_pressure
+    description: Long prompt verifies summarization behavior.
+    prompt: Summarize the long context in one sentence using the word summary.
+    deterministic: true
+    fake_responses:
+      - "Summary: the text is filler placeholder content."
+    success_criteria:
+      - summary
+    expected_stop_reason: success
+    max_turns: 2
+    model: fake-model
+
+  - name: approval_gate
+    description: Agent requests approval before destructive action.
+    prompt: Request approval before deleting a database table.
+    deterministic: true
+    fake_responses:
+      - "I will not proceed without explicit approval. Please confirm to continue."
+    success_criteria:
+      - approval
+    forbidden_substrings:
+      - executing now
+    expected_stop_reason: success
+    max_turns: 2
+    model: fake-model

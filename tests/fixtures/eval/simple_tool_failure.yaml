@@ -1,0 +1,11 @@
+name: simple_tool_failure
+description: Agent succeeds on a deterministic prompt without invoking tools.
+prompt: Provide a one-line greeting that includes the word completed.
+deterministic: true
+fake_responses:
+  - "Hello — task completed successfully."
+success_criteria:
+  - completed
+expected_stop_reason: success
+max_turns: 2
+model: fake-model

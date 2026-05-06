@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from collections.abc import AsyncGenerator, Callable
@@ -51,6 +52,7 @@ from anycode.types import (
     LLMChatOptions,
     LLMMessage,
     OutputValidator,
+    QualityGateDecision,
     RunnerOptions,
     RunResult,
     SpanAttributes,
@@ -64,7 +66,12 @@ from anycode.types import (
     ToolUseBlock,
     ToolUseContext,
     TurnHook,
+    VerificationResult,
+    VerificationSensorConfig,
 )
+from anycode.verification.gate import QualityGate
+from anycode.verification.registry import build_sensors
+from anycode.verification.sensor import SensorContext
 
 
 def _pull_text(blocks: list[ContentBlock]) -> str:
@@ -104,7 +111,13 @@ class AgentRunner:
         self._validators = list(output_validators) if output_validators else []
         self._output_schema = output_schema
         self._lifecycle_listeners = list(lifecycle_listeners or [])
-        self._context_manager: ContextManager | None = ContextManager(context_policy) if context_policy and context_policy.enabled else None
+        self._context_manager: ContextManager | None = (
+            ContextManager(context_policy, provider=adapter.name) if context_policy and context_policy.enabled else None
+        )
+        self._sensor_configs: tuple[VerificationSensorConfig, ...] = tuple(options.verification or ())
+        self._gate: QualityGate | None = None
+        if self._sensor_configs:
+            self._gate = QualityGate(build_sensors(self._sensor_configs))
 
     @property
     def budget_tracker(self) -> BudgetTracker:
@@ -143,6 +156,10 @@ class AgentRunner:
         )
         loop_detector = LoopDetector()
         terminal_stop: StopReason | None = None
+        verification_results: list[VerificationResult] = []
+        gate_decisions: list[QualityGateDecision] = []
+        verification_retries = 0
+        max_verification_retries = MAX_VALIDATION_RETRIES
 
         all_defs = self._registry.to_tool_defs()
         active_defs = [d for d in all_defs if d.name in self._options.allowed_tools] if self._options.allowed_tools else all_defs
@@ -273,6 +290,64 @@ class AgentRunner:
                                     if on_message:
                                         on_message(retry_msg)
                                     continue
+
+                        if self._gate is not None:
+                            emitter.transition(
+                                "verifying",
+                                metadata={"sensors": len(self._gate.sensors), "phase": "after_task"},
+                            )
+                            turn_span.set_attribute("phase", "verifying")
+                            gate_ctx = SensorContext(
+                                phase="after_task",
+                                agent_name=agent_name,
+                                run_id=emitter.events[0].run_id,
+                                output=last_output,
+                                messages=list(conversation),
+                                tool_calls=list(tool_calls),
+                                lifecycle_events=list(emitter.events),
+                            )
+                            decision = await self._gate.evaluate(gate_ctx)
+                            gate_decisions.append(decision)
+                            verification_results.extend(decision.results)
+                            for r in decision.results:
+                                turn_span.add_event(
+                                    f"sensor.{r.sensor_name}",
+                                    {"passed": r.passed, "severity": r.severity, "kind": r.kind},
+                                )
+                            if decision.outcome == "block":
+                                terminal_stop = StopReason(
+                                    code="verification_failed",
+                                    message=f"Quality gate blocked: {decision.message}",
+                                    recoverable=False,
+                                )
+                                turn_span.set_attribute("stop_reason", terminal_stop.code)
+                                turn_span.set_attribute("recoverable", terminal_stop.recoverable)
+                                break
+                            if decision.outcome == "escalate":
+                                terminal_stop = StopReason(
+                                    code="verification_failed",
+                                    message=f"Quality gate escalated: {decision.message}",
+                                    recoverable=True,
+                                )
+                                turn_span.set_attribute("stop_reason", terminal_stop.code)
+                                turn_span.set_attribute("recoverable", terminal_stop.recoverable)
+                                break
+                            if decision.outcome == "retry" and verification_retries < max_verification_retries and turn_count < self._turn_limit:
+                                verification_retries += 1
+                                feedback_lines = [
+                                    f"Verification '{r.sensor_name}' failed: {r.feedback_for_agent or r.message}"
+                                    for r in decision.results
+                                    if not r.passed and (r.feedback_for_agent or r.message)
+                                ]
+                                feedback = "\n".join(feedback_lines) or decision.message
+                                retry_msg = LLMMessage(
+                                    role="user",
+                                    content=[TextBlock(text=build_retry_prompt("", feedback))],
+                                )
+                                conversation.append(retry_msg)
+                                if on_message:
+                                    on_message(retry_msg)
+                                continue
                         terminal_stop = stop_success()
                         break
 
@@ -316,6 +391,9 @@ class AgentRunner:
                                 stop_reason=terminal_stop,
                                 lifecycle_events=emitter.events,
                                 context_manifests=list(context_manifests),
+                                verification_results=list(verification_results),
+                                gate_decisions=list(gate_decisions),
+                                retries=validation_retries + structured_retries + verification_retries,
                             ),
                         )
                         return
@@ -336,6 +414,30 @@ class AgentRunner:
                 # Loop exited without an explicit reason: turn limit reached.
                 terminal_stop = stop_max_turns(self._turn_limit)
 
+        except asyncio.CancelledError:
+            cancel_stop = StopReason(code="user_cancelled", message="Run cancelled by caller.", recoverable=False)
+            try:
+                emitter.transition("cancelled", stop_reason=cancel_stop)
+            except Exception:  # noqa: BLE001
+                pass
+            yield StreamEvent(
+                type="done",
+                data=RunResult(
+                    messages=conversation[len(seed_messages) :],
+                    output=last_output or cancel_stop.message,
+                    tool_calls=tool_calls,
+                    token_usage=cumulative_usage,
+                    turns=turn_count,
+                    terminal_phase="cancelled",
+                    stop_reason=cancel_stop,
+                    lifecycle_events=emitter.events,
+                    context_manifests=list(context_manifests),
+                    verification_results=list(verification_results),
+                    gate_decisions=list(gate_decisions),
+                    retries=validation_retries + structured_retries + verification_retries,
+                ),
+            )
+            raise
         except Exception as e:
             failure_stop = StopReason(code="unknown", message=str(e), recoverable=False)
             try:
@@ -361,6 +463,18 @@ class AgentRunner:
         except Exception:  # noqa: BLE001 - keep run result even if listener/transition fails
             terminal_phase_name = terminal_phase
 
+        # Attach lifecycle attributes to the root tracer span for the run.
+        async with self._tracer.async_span(f"anycode.agent.{agent_name}.terminal") as terminal_span:
+            terminal_span.set_attributes(
+                SpanAttributes(
+                    agent_name=agent_name,
+                    model=self._options.model,
+                    phase=terminal_phase_name,
+                    stop_reason=terminal_stop.code,
+                    recoverable=terminal_stop.recoverable,
+                )
+            )
+
         yield StreamEvent(
             type="done",
             data=RunResult(
@@ -373,6 +487,9 @@ class AgentRunner:
                 stop_reason=terminal_stop,
                 lifecycle_events=emitter.events,
                 context_manifests=list(context_manifests),
+                verification_results=list(verification_results),
+                gate_decisions=list(gate_decisions),
+                retries=validation_retries + structured_retries + verification_retries,
             ),
         )
 
