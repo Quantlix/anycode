@@ -7,12 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added — Phase 6: Harness Runtime Reliability
+### Added
 
-- **6.1 Runtime telemetry & cancellation** — `AgentRunner.stream` now catches `asyncio.CancelledError`, emits a terminal `cancelled` lifecycle phase with a `user_cancelled` `StopReason`, and records final `phase`/`stop_reason`/`recoverable` attributes on a dedicated `anycode.agent.{name}.terminal` span before re-raising.
-- **6.2 Adaptive context lifecycle** — `ContextPolicy` gains `provider_overrides`, `preserved_task_state`, and `preserved_verification_failures`. `ContextManager` accepts a `provider=` kwarg, resolves the matching override via `ContextPolicy.for_provider()`, and emits a `ContextManifest` that includes the resolved provider plus preserved state/failure sections during compaction.
-- **6.3 Declarative quality gates** — new `anycode.verification.registry` exposes `register_sensor_factory`, `build_sensor`, and `build_sensors`. Built-in factories cover `ruff`, `pyright`, `pytest`, and a pure-Python `regex` sensor. `AgentConfig.verification` and `RunnerOptions.verification` plumb `VerificationSensorConfig` tuples; the runner instantiates a `QualityGate`, evaluates it on the `after_task` phase, and translates `block`/`escalate` outcomes into a `verification_failed` stop reason while `retry` outcomes feed sensor feedback back into the agent loop. The YAML config loader reads top-level and per-agent `verification:` blocks.
-- **6.4 Deterministic evaluation suite** — new `anycode.providers.fake.FakeAdapter` (and `FakeResponse`) replays a scripted reply sequence with no LLM credentials. `EvalScenario` gains `deterministic`, `fake_responses`, and `fake_tool_failures` fields; `run_scenario` now branches into a deterministic harness when the flag is set. `EvalScenarioResult` and `EvalReport` aggregate `cost_usd`, `retries`, and `verification_failures` so CI can track the new metrics.
+- **Runtime telemetry & cancellation** — `AgentRunner.stream` now catches `asyncio.CancelledError`, emits a terminal `cancelled` lifecycle phase with a `user_cancelled` `StopReason`, and records final `phase`/`stop_reason`/`recoverable` attributes on a dedicated `anycode.agent.{name}.terminal` span before re-raising.
+- **Adaptive context lifecycle** — `ContextPolicy` gains `provider_overrides`, `preserved_task_state`, and `preserved_verification_failures`. `ContextManager` accepts a `provider=` kwarg, resolves the matching override via `ContextPolicy.for_provider()`, and emits a `ContextManifest` that includes the resolved provider plus preserved state/failure sections during compaction.
+- **Declarative quality gates** — new `anycode.verification.registry` exposes `register_sensor_factory`, `build_sensor`, and `build_sensors`. Built-in factories cover `ruff`, `pyright`, `pytest`, and a pure-Python `regex` sensor. `AgentConfig.verification` and `RunnerOptions.verification` plumb `VerificationSensorConfig` tuples; the runner instantiates a `QualityGate`, evaluates it on the `after_task` phase, and translates `block`/`escalate` outcomes into a `verification_failed` stop reason while `retry` outcomes feed sensor feedback back into the agent loop. The YAML config loader reads top-level and per-agent `verification:` blocks.
+- **Deterministic evaluation suite** — new `anycode.providers.fake.FakeAdapter` (and `FakeResponse`) replays a scripted reply sequence with no LLM credentials. `EvalScenario` gains `deterministic`, `fake_responses`, and `fake_tool_failures` fields; `run_scenario` now branches into a deterministic harness when the flag is set. `EvalScenarioResult` and `EvalReport` aggregate `cost_usd`, `retries`, and `verification_failures` so CI can track the new metrics.
 - New examples: `examples/22_deterministic_eval.py`, `examples/23_context_pressure.py`, `examples/24_verification_gates.py`, `examples/25_runtime_cancellation.py`.
 - New deterministic eval fixture `tests/fixtures/eval/runtime_reliability_deterministic.yaml`.
 - New tests in `tests/test_phase6_runtime.py` covering provider overrides, the sensor registry, the deterministic suite, and runner cancellation telemetry.
@@ -171,7 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four examples: solo worker, crew workflow, staged pipeline, hybrid tooling.
 - Pydantic-based immutable type system (`frozen=True` on all models).
 
-[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Quantlix/anycode/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Quantlix/anycode/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Quantlix/anycode/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Quantlix/anycode/compare/v0.1.0...v0.2.0

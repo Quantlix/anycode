@@ -23,19 +23,6 @@ AnyCode is a multi-agent AI orchestration framework for Python. It composes auto
 
 Source code lives under `src/anycode/` and follows a layered architecture:
 
-```
-src/anycode/
-├── core/           # Orchestration engine, agents, runner, pool, scheduler
-├── collaboration/  # Team coordination, message bus, shared memory, KV store
-├── tasks/          # Task queue, dependency resolution (topological sort)
-├── tools/          # Tool registry, executor, built-in tools (bash, file_*, grep)
-├── providers/      # LLM adapters (Anthropic, OpenAI) via Protocol interface
-├── telemetry/      # OpenTelemetry tracing, metrics, structured lifecycle events
-├── guardrails/     # Budget enforcement, content validators, lifecycle hooks
-├── structured/     # Schema-constrained LLM output via Pydantic models
-├── helpers/        # Concurrency gate (semaphore), token usage tracking
-└── types.py        # All Pydantic models — frozen (immutable) by default
-```
 
 - **Tests**: `tests/` — colocated as `tests/test_<module>.py`.
 - **Examples**: `examples/` — numbered, self-contained scripts (`01_solo_worker.py`, …).

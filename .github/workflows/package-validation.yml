@@ -1,0 +1,58 @@
+name: Package Validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install project and dev dependencies
+        run: uv sync --group dev
+
+      - name: Lint source
+        run: uv run ruff check src/
+
+      - name: Check formatting
+        run: uv run ruff format --check src/
+
+      - name: Run type checking
+        run: uv run pyright
+
+      - name: Run test suite
+        run: uv run python -m pytest
+
+      - name: Build distributions
+        run: |
+          rm -rf dist/ build/
+          uv run python -m build --no-isolation
+
+      - name: Verify distribution metadata
+        run: uv run twine check --strict dist/*
+
+      - name: Smoke test installed wheel
+        run: |
+          python -m venv .pkgtest
+          . .pkgtest/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          anycode version
+          python -c "from anycode import AnyCode; print(AnyCode.__name__)"

@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="https://img.shields.io/pypi/v/anycode?style=flat-square&color=0078D4" alt="PyPI version" />
-  <img src="https://img.shields.io/pypi/l/anycode?style=flat-square" alt="license" />
+    <img src="https://img.shields.io/pypi/v/anycode-py?style=flat-square&color=0078D4" alt="PyPI version" />
+    <img src="https://img.shields.io/pypi/l/anycode-py?style=flat-square" alt="license" />
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/Built%20by-Quantlix-blueviolet?style=flat-square" alt="Built by Quantlix" />
 </p>
@@ -57,10 +57,12 @@ Traditional agent libraries focus on running a single LLM in a loop. AnyCode tak
 Install the package from PyPI:
 
 ```bash
-pip install anycode
+pip install anycode-py
 # or with uv
-uv add anycode
+uv add anycode-py
 ```
+
+The distribution name on package indexes is `anycode-py`; the import package remains `anycode`.
 
 ### Single Agent Execution
 
