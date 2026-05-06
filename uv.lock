@@ -55,7 +55,7 @@ wheels = [
 
 [[package]]
 name = "anycode-py"
-version = "0.4.0"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -70,6 +70,11 @@ azure = [
 ]
 bedrock = [
     { name = "boto3" },
+]
+cli = [
+    { name = "pyyaml" },
+    { name = "rich" },
+    { name = "typer" },
 ]
 google = [
     { name = "google-genai" },
@@ -106,8 +111,11 @@ dev = [
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pyyaml" },
     { name = "redis", extra = ["hiredis"] },
+    { name = "rich" },
     { name = "ruff" },
+    { name = "typer" },
 ]
 
 [package.metadata]
@@ -126,9 +134,12 @@ requires-dist = [
     { name = "opentelemetry-sdk", marker = "extra == 'telemetry'", specifier = ">=1.20" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "pyyaml", marker = "extra == 'cli'", specifier = ">=6.0" },
     { name = "redis", extras = ["hiredis"], marker = "extra == 'redis'", specifier = ">=5.0" },
+    { name = "rich", marker = "extra == 'cli'", specifier = ">=13.0" },
+    { name = "typer", marker = "extra == 'cli'", specifier = ">=0.12" },
 ]
-provides-extras = ["telemetry", "persistence", "redis", "vector", "google", "ollama", "bedrock", "azure", "mcp"]
+provides-extras = ["telemetry", "persistence", "redis", "vector", "google", "ollama", "bedrock", "azure", "mcp", "cli"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -141,8 +152,11 @@ dev = [
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "redis", extras = ["hiredis"], specifier = ">=5.0" },
+    { name = "rich", specifier = ">=13.0" },
     { name = "ruff", specifier = ">=0.8" },
+    { name = "typer", specifier = ">=0.12" },
 ]
 
 [[package]]
