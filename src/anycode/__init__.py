@@ -44,6 +44,17 @@ from anycode.cost import (
     calculate_cost,
     find_pricing,
 )
+from anycode.eval import (
+    compare_reports,
+    detect_provider,
+    load_scenario,
+    load_scenarios,
+    read_report,
+    render_markdown,
+    run_scenario,
+    run_suite,
+    write_report,
+)
 from anycode.guardrails.budget import BudgetTracker, estimate_cost
 from anycode.guardrails.hooks import HookRunner, LoggingHook
 from anycode.guardrails.validators import (
@@ -116,6 +127,9 @@ from anycode.types import (
     CostReport,
     Critic,
     CriticResult,
+    EvalReport,
+    EvalScenario,
+    EvalScenarioResult,
     ExecutionPhase,
     GateOutcome,
     GuardrailConfig,
@@ -249,6 +263,19 @@ __all__ = [
     "GateOutcome",
     "QualityGateDecision",
     "SensorPhase",
+    # Eval suite
+    "EvalScenario",
+    "EvalScenarioResult",
+    "EvalReport",
+    "detect_provider",
+    "run_scenario",
+    "run_suite",
+    "load_scenario",
+    "load_scenarios",
+    "read_report",
+    "write_report",
+    "render_markdown",
+    "compare_reports",
     # Providers
     "create_adapter",
     # MCP
