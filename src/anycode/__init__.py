@@ -21,6 +21,8 @@ from anycode.constants import (
 )
 from anycode.core import stop_reason as stop_reasons
 from anycode.core.agent import Agent
+from anycode.core.context_artifacts import offload_text, restore_text
+from anycode.core.context_manager import ContextManager, estimate_messages_tokens, rebuild_from_handoff
 from anycode.core.lifecycle import (
     ALL_PHASES,
     TERMINAL_PHASES,
@@ -104,6 +106,11 @@ from anycode.types import (
     CheckpointStore,
     ComplexityLevel,
     ContentBlock,
+    ContextArtifact,
+    ContextManifest,
+    ContextPolicy,
+    ContextPressure,
+    ContextSource,
     CostBreakdown,
     CostConfig,
     CostReport,
@@ -201,6 +208,12 @@ __all__ = [
     "fingerprint_call",
     "is_valid_transition",
     "stop_reasons",
+    # Adaptive context lifecycle
+    "ContextManager",
+    "estimate_messages_tokens",
+    "rebuild_from_handoff",
+    "offload_text",
+    "restore_text",
     # Providers
     "create_adapter",
     # MCP
@@ -342,6 +355,11 @@ __all__ = [
     "StopReason",
     "StopReasonCode",
     "LifecycleEvent",
+    "ContextArtifact",
+    "ContextManifest",
+    "ContextPolicy",
+    "ContextPressure",
+    "ContextSource",
     "StructuredOutputConfig",
     "StructuredRunResult",
     "StructuredAgentResult",
