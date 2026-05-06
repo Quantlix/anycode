@@ -25,12 +25,18 @@ from anycode.constants import (
 from anycode.core.agent import Agent
 from anycode.core.pool import AgentPool
 from anycode.core.scheduler import Scheduler
+from anycode.cost.report import build_cost_report
+from anycode.cost.tracker import CostTracker
 from anycode.handoff.executor import HandoffExecutor
 from anycode.handoff.tool import HANDOFF_TOOL_DEF
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.hitl.approval import ApprovalManager
 from anycode.mcp.bridge import discover_and_register
 from anycode.mcp.client import MCPClient
+from anycode.memory.indexer import RAGIndexer
+from anycode.memory.rag import RAGRetriever
+from anycode.memory.vector_store import InMemoryVectorStore
+from anycode.reflection.loop import ReflectionLoop
 from anycode.routing.router import DefaultRouter
 from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task, get_task_dependency_order, validate_task_dependencies
@@ -40,17 +46,22 @@ from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
     AgentConfig,
+    AgentInfo,
     AgentRunResult,
     GuardrailConfig,
+    Handoff,
     OrchestratorConfig,
     OrchestratorEvent,
     OutputValidator,
+    RouteDecision,
+    RunResult,
     Task,
     TeamConfig,
     TeamRunResult,
     TokenUsage,
     TraceConfig,
     TurnHook,
+    VectorStore,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,10 +103,33 @@ class AnyCode:
         if self._config.routing and self._config.routing.enabled:
             self._router = DefaultRouter(self._config.routing)
 
+        # Cost engine
+        self._cost_tracker: CostTracker | None = None
+        if self._config.cost and self._config.cost.enabled:
+            self._cost_tracker = CostTracker(config=self._config.cost)
+
+        # Reflection loop
+        self._reflection: ReflectionLoop | None = None
+        if self._config.reflection and self._config.reflection.enabled:
+            self._reflection = ReflectionLoop(self._config.reflection)
+
+        # RAG memory
+        self._rag_store: VectorStore | None = None
+        self._rag_retriever: RAGRetriever | None = None
+        self._rag_indexer: RAGIndexer | None = None
+        if self._config.rag and self._config.rag.enabled:
+            self._rag_store = InMemoryVectorStore()
+            self._rag_retriever = RAGRetriever(self._rag_store, self._config.rag)
+            self._rag_indexer = RAGIndexer(self._rag_store, self._config.rag)
+
         if self._config.checkpoint and self._config.checkpoint.enabled:
             self._checkpoint_manager = CheckpointManager(self._config.checkpoint)
         if self._config.approval and self._config.approval.enabled and self._config.approval_handler:
             self._approval_manager = ApprovalManager(self._config.approval, self._config.approval_handler)
+
+        # Lazy-populated when AnyCode.from_config is used
+        self._loaded_team: Team | None = None
+        self._loaded_tasks: list[Any] | None = None
 
     def configure(
         self,
@@ -283,6 +317,7 @@ class AnyCode:
         total_usage: TokenUsage = EMPTY_USAGE
         all_succeeded = True
         start_wave = 0
+        handoffs: list[Handoff] = []
 
         workflow_id = self._compute_workflow_id(resolved)
 
@@ -297,7 +332,7 @@ class AnyCode:
         waves = self._build_waves(ordered, queue)
 
         # Intelligent routing — apply after scheduling, before execution
-        route_decisions: dict[str, object] = {}
+        route_decisions: dict[str, RouteDecision] = {}
         if self._router:
             agents = team.get_agents()
             for task in ordered:
@@ -310,7 +345,7 @@ class AnyCode:
             if wave_idx < start_wave:
                 continue
 
-            outcomes = await asyncio.gather(*[self._run_wave_task(t, queue, team) for t in wave])
+            outcomes = await asyncio.gather(*[self._run_wave_task(t, queue, team, route_decisions.get(t.id), handoffs) for t in wave])
             for outcome in outcomes:
                 if outcome is None:
                     all_succeeded = False
@@ -331,7 +366,15 @@ class AnyCode:
                     total_usage=total_usage,
                 )
 
-        return TeamRunResult(success=all_succeeded, agent_results=agent_results, total_token_usage=total_usage)
+        cost_report = build_cost_report(self._cost_tracker) if self._cost_tracker else None
+        return TeamRunResult(
+            success=all_succeeded,
+            agent_results=agent_results,
+            total_token_usage=total_usage,
+            handoffs=handoffs or None,
+            route_decisions=list(route_decisions.values()) or None,
+            cost_report=cost_report,
+        )
 
     async def _resume_from_checkpoint(
         self,
@@ -361,6 +404,8 @@ class AnyCode:
         task: Task,
         queue: TaskQueue,
         team: Team,
+        route_decision: RouteDecision | None = None,
+        handoffs: list[Handoff] | None = None,
     ) -> tuple[str, AgentRunResult] | None:
         """Execute a single task within a wave. Returns (assignee, result) or None if unassigned."""
         assignee = task.assignee
@@ -393,11 +438,100 @@ class AnyCode:
         queue.update(task.id, status="in_progress")
 
         prompt = self._build_task_prompt(task, queue)
-        agent = self._pool.get(assignee) or self._build_agent_for_team(assignee, team)
+        agent = self._resolve_task_agent(assignee, team, route_decision)
+
+        # RAG: inject relevant past context
+        if self._rag_retriever:
+            try:
+                context = await self._rag_retriever.retrieve(prompt)
+                if context.entries:
+                    prompt = f"{self._rag_retriever.format_context(context)}\n\n---\n\n{prompt}"
+            except Exception as e:  # pragma: no cover — best effort
+                logger.warning("RAG retrieval failed for task %s: %s", task.id, e)
 
         self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=assignee))
         try:
-            result = await agent.run(prompt)
+            if self._reflection:
+                agent_info = self._build_agent_info(agent.config)
+                result = await self._reflection.run(
+                    agent,
+                    prompt,
+                    agent_info=agent_info,
+                    agent_provider=agent.config.provider,
+                )
+            else:
+                result = await agent.run(prompt)
+
+            # Cost tracking
+            if self._cost_tracker:
+                self._cost_tracker.record(assignee, agent.config.model, result.token_usage)
+                if self._cost_tracker.is_budget_alert_due():
+                    budget = self._config.cost.budget_usd if self._config.cost else None
+                    self._emit(
+                        OrchestratorEvent(
+                            type=ORCH_EVENT_ERROR,
+                            agent=assignee,
+                            data={"cost_alert": self._cost_tracker.total_cost_usd, "budget": budget},
+                        )
+                    )
+                if self._cost_tracker.is_budget_exhausted() and self._config.cost and self._config.cost.on_budget_exceeded == "stop":
+                    msg = f"Cost budget exhausted at ${self._cost_tracker.total_cost_usd:.4f}."
+                    queue.fail(task.id, msg)
+                    return (assignee, result.model_copy(update={"success": False, "output": msg}))
+
+            # RAG indexing
+            if self._rag_indexer:
+                try:
+                    await self._rag_indexer.index_agent_result(assignee, prompt, result)
+                except Exception as e:  # pragma: no cover — best effort
+                    logger.warning("RAG indexing failed for task %s: %s", task.id, e)
+
+            # Handoff handling
+            handoff_request = result.handoff_request
+            if handoff_request is None and self._config.handoff_policy is not None:
+                try:
+                    agent_info = self._build_agent_info(agent.config)
+                    run_record = self._to_run_result(result)
+                    handoff_request = await self._config.handoff_policy.should_handoff(agent_info, run_record)
+                except Exception as e:  # pragma: no cover — best effort
+                    logger.warning("Handoff policy raised for task %s: %s", task.id, e)
+
+            if handoff_request is not None:
+                if not team.get_agent(handoff_request.to_agent):
+                    err = f"Handoff target '{handoff_request.to_agent}' is not a member of team '{team.name}'."
+                    logger.warning(err)
+                    failed = result.model_copy(update={"success": False, "output": err})
+                    queue.fail(task.id, err)
+                    return (assignee, failed)
+
+                resolver = _OrchestratorAgentResolver(self, team)
+                ho_result, ho_record = await self._handoff_executor.execute(
+                    handoff_request,
+                    from_agent=assignee,
+                    conversation=result.messages,
+                    agent_resolver=resolver,
+                )
+                if handoffs is not None:
+                    handoffs.append(ho_record)
+                merged_usage = merge_usage(result.token_usage, ho_result.token_usage)
+                merged = AgentRunResult(
+                    success=ho_result.success and result.success,
+                    output=ho_result.output if ho_result.success else result.output,
+                    messages=result.messages + ho_result.messages,
+                    token_usage=merged_usage,
+                    tool_calls=result.tool_calls + ho_result.tool_calls,
+                    handoff_request=None,
+                    reflections_count=result.reflections_count,
+                    quality_score=result.quality_score,
+                )
+                self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=assignee, data=merged))
+                if merged.success:
+                    queue.complete(task.id, merged.output)
+                    self._emit(OrchestratorEvent(type=ORCH_EVENT_TASK_COMPLETE, task=task.id, agent=assignee))
+                else:
+                    queue.fail(task.id, merged.output)
+                return (assignee, merged)
+
             self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=assignee, data=result))
             if result.success:
                 queue.complete(task.id, result.output)
@@ -408,6 +542,19 @@ class AnyCode:
         except Exception as e:
             queue.fail(task.id, str(e))
             return (assignee, AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[]))
+
+    def _resolve_task_agent(self, assignee: str, team: Team, route_decision: RouteDecision | None) -> Agent:
+        """Build (or reuse) the Agent instance for a task, applying any route decision."""
+        if route_decision is not None:
+            base_config = team.get_agent(assignee)
+            if base_config is None:
+                raise ValueError(f'AnyCode: "{assignee}" is not part of team "{team.name}".')
+            update: dict[str, object] = {"model": route_decision.routed_model}
+            if route_decision.routed_provider:
+                update["provider"] = route_decision.routed_provider
+            routed_config = base_config.model_copy(update=update)
+            return self.build_agent(routed_config)
+        return self._pool.get(assignee) or self._build_agent_for_team(assignee, team)
 
     def _build_agent_for_team(self, agent_name: str, team: Team) -> Agent:
         config = team.get_agent(agent_name)
@@ -514,3 +661,75 @@ class AnyCode:
     def _compute_workflow_id(tasks: list[Task]) -> str:
         content = "|".join(f"{t.title}:{t.description}" for t in sorted(tasks, key=lambda t: t.title))
         return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    @staticmethod
+    def _build_agent_info(config: AgentConfig) -> AgentInfo:
+        from anycode.constants import AGENT_ROLE_MAX_LENGTH
+
+        return AgentInfo(
+            name=config.name,
+            role=(config.system_prompt or "assistant")[:AGENT_ROLE_MAX_LENGTH],
+            model=config.model,
+        )
+
+    @staticmethod
+    def _to_run_result(result: AgentRunResult) -> RunResult:
+        return RunResult(
+            messages=result.messages,
+            output=result.output,
+            tool_calls=result.tool_calls,
+            token_usage=result.token_usage,
+            turns=0,
+            handoff_request=result.handoff_request,
+        )
+
+    @classmethod
+    def from_config(cls, path: str) -> AnyCode:
+        """Build an AnyCode instance from a YAML/TOML config file."""
+        from anycode.config.loader import load_config
+
+        loaded = load_config(path)
+        engine = cls(loaded.to_orchestrator_config())
+        if loaded.guardrails:
+            engine.configure(guardrails=loaded.guardrails)
+        team = engine.create_team(loaded.team.name, loaded.team)
+        engine._loaded_team = team
+        engine._loaded_tasks = loaded.tasks
+        return engine
+
+    async def run_team_from_config(self, goal: str | None = None) -> TeamRunResult:
+        """Run a team that was loaded from a config file. Uses predefined tasks if present, otherwise treats *goal* as the goal."""
+        team = getattr(self, "_loaded_team", None)
+        if team is None:
+            raise RuntimeError("AnyCode: no config-loaded team. Use AnyCode.from_config(path) first.")
+        tasks = getattr(self, "_loaded_tasks", None)
+        if tasks:
+            specs = [TaskSpec(title=t.title, description=t.description, assignee=t.assignee, depends_on=t.depends_on) for t in tasks]
+            return await self.run_tasks(team, specs)
+        if goal is None:
+            raise ValueError("AnyCode: config defines no tasks; provide a goal to run_team_from_config().")
+        return await self.run_team(team, goal)
+
+
+class _OrchestratorAgentResolver:
+    """Adapter that lets HandoffExecutor invoke any agent registered in the team/pool."""
+
+    def __init__(self, engine: AnyCode, team: Team) -> None:
+        self._engine = engine
+        self._team = team
+
+    async def resolve_and_run(self, name: str, prompt: str, system_prompt_extra: str) -> AgentRunResult:
+        config = self._team.get_agent(name)
+        if config is None:
+            return AgentRunResult(
+                success=False,
+                output=f"Handoff target '{name}' is not in team '{self._team.name}'.",
+                messages=[],
+                token_usage=EMPTY_USAGE,
+                tool_calls=[],
+            )
+        merged_prompt = config.system_prompt or ""
+        merged_system = f"{merged_prompt}\n\n{system_prompt_extra}".strip() if merged_prompt else system_prompt_extra
+        runtime_config = config.model_copy(update={"system_prompt": merged_system})
+        agent = self._engine.build_agent(runtime_config)
+        return await agent.run(prompt)

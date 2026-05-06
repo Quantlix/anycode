@@ -245,10 +245,11 @@ class AgentRunner:
                             type="done",
                             data=RunResult(
                                 messages=conversation[len(seed_messages) :],
-                                output=last_output,
+                                output=last_output or handoff_req.summary,
                                 tool_calls=tool_calls,
                                 token_usage=cumulative_usage,
                                 turns=turn_count,
+                                handoff_request=handoff_req,
                             ),
                         )
                         return
