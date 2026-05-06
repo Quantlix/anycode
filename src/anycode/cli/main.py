@@ -11,6 +11,7 @@ from anycode.cli.commands import init as init_cmd
 from anycode.cli.commands import inspect as inspect_cmd
 from anycode.cli.commands import run as run_cmd
 from anycode.cli.commands import version as version_cmd
+from anycode.cli.commands.eval import app as eval_app
 
 app = typer.Typer(
     name="anycode",
@@ -23,6 +24,7 @@ app.command("init", help="Scaffold a new AnyCode project.")(init_cmd.command)
 app.command("run", help="Run an AnyCode team or agent from a config file or flags.")(run_cmd.command)
 app.command("inspect", help="Inspect built-in tools, providers, or a team config.")(inspect_cmd.command)
 app.command("version", help="Print the AnyCode version and runtime info.")(version_cmd.command)
+app.add_typer(eval_app, name="eval", help="Run and compare harness evaluation suites.")
 
 
 def main() -> None:  # pragma: no cover - thin shim
