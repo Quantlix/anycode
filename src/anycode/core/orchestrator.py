@@ -50,11 +50,14 @@ from anycode.types import (
     AgentRunResult,
     GuardrailConfig,
     Handoff,
+    LifecycleEvent,
     OrchestratorConfig,
     OrchestratorEvent,
     OutputValidator,
+    QualityGateDecision,
     RouteDecision,
     RunResult,
+    StopReason,
     Task,
     TeamConfig,
     TeamRunResult,
@@ -62,7 +65,11 @@ from anycode.types import (
     TraceConfig,
     TurnHook,
     VectorStore,
+    VerificationResult,
 )
+from anycode.verification.gate import QualityGate
+from anycode.verification.registry import build_sensors
+from anycode.verification.sensor import SensorContext
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +133,13 @@ class AnyCode:
             self._checkpoint_manager = CheckpointManager(self._config.checkpoint)
         if self._config.approval and self._config.approval.enabled and self._config.approval_handler:
             self._approval_manager = ApprovalManager(self._config.approval, self._config.approval_handler)
+
+        # Team-level verification gate (after_team phase)
+        self._team_gate: QualityGate | None = None
+        if self._config.verification:
+            team_sensors = build_sensors(self._config.verification)
+            if team_sensors:
+                self._team_gate = QualityGate(team_sensors)
 
         # Lazy-populated when AnyCode.from_config is used
         self._loaded_team: Team | None = None
@@ -318,6 +332,10 @@ class AnyCode:
         all_succeeded = True
         start_wave = 0
         handoffs: list[Handoff] = []
+        lifecycle_events: list[LifecycleEvent] = []
+        verification_results: list[VerificationResult] = []
+        gate_decisions: list[QualityGateDecision] = []
+        team_stop_reason: StopReason | None = None
 
         workflow_id = self._compute_workflow_id(resolved)
 
@@ -353,6 +371,12 @@ class AnyCode:
                 assignee, result = outcome
                 agent_results[assignee] = result
                 total_usage = merge_usage(total_usage, result.token_usage)
+                if result.lifecycle_events:
+                    lifecycle_events.extend(result.lifecycle_events)
+                if result.verification_results:
+                    verification_results.extend(result.verification_results)
+                if result.gate_decisions:
+                    gate_decisions.extend(result.gate_decisions)
                 if not result.success:
                     all_succeeded = False
 
@@ -367,6 +391,29 @@ class AnyCode:
                 )
 
         cost_report = build_cost_report(self._cost_tracker) if self._cost_tracker else None
+
+        # Run team-level after_team verification gate
+        if self._team_gate is not None and all_succeeded:
+            team_ctx = SensorContext(
+                phase="after_team",
+                agent_name=team.name,
+                run_id=self._compute_workflow_id(resolved),
+                output="\n\n".join(r.output for r in agent_results.values() if r.output),
+                messages=[],
+                tool_calls=[],
+                lifecycle_events=list(lifecycle_events),
+            )
+            team_decision = await self._team_gate.evaluate(team_ctx)
+            gate_decisions.append(team_decision)
+            verification_results.extend(team_decision.results)
+            if team_decision.outcome in ("block", "escalate"):
+                all_succeeded = False
+                team_stop_reason = StopReason(
+                    code="verification_failed",
+                    message=f"Team gate {team_decision.outcome}: {team_decision.message}",
+                    recoverable=team_decision.outcome == "escalate",
+                )
+
         return TeamRunResult(
             success=all_succeeded,
             agent_results=agent_results,
@@ -374,6 +421,10 @@ class AnyCode:
             handoffs=handoffs or None,
             route_decisions=list(route_decisions.values()) or None,
             cost_report=cost_report,
+            lifecycle_events=tuple(lifecycle_events),
+            verification_results=tuple(verification_results),
+            gate_decisions=tuple(gate_decisions),
+            stop_reason=team_stop_reason,
         )
 
     async def _resume_from_checkpoint(

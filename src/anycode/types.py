@@ -401,6 +401,10 @@ class TeamRunResult(BaseModel):
     handoffs: list[Handoff] | None = None
     route_decisions: list[RouteDecision] | None = None
     cost_report: CostReport | None = None
+    lifecycle_events: tuple[LifecycleEvent, ...] = ()
+    verification_results: tuple[VerificationResult, ...] = ()
+    gate_decisions: tuple[QualityGateDecision, ...] = ()
+    stop_reason: StopReason | None = None
 
 
 # -- Tasks --
@@ -449,6 +453,7 @@ class OrchestratorConfig(BaseModel):
     cost: CostConfig | None = None
     reflection: ReflectionConfig | None = None
     rag: RAGConfig | None = None
+    verification: tuple[VerificationSensorConfig, ...] = ()
 
 
 # -- Memory --

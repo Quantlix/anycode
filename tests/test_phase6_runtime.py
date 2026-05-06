@@ -135,3 +135,125 @@ async def test_runner_cancellation_emits_cancelled_phase() -> None:
         assert getattr(result, "terminal_phase", None) == "cancelled"
         stop = getattr(result, "stop_reason", None)
         assert stop is not None and stop.code == "user_cancelled"
+
+
+# --- Multi-phase quality gates --------------------------------------------
+
+
+def _stub_tool() -> object:
+    """Build a trivial passthrough tool for tests."""
+    from pydantic import BaseModel as _BM
+
+    from anycode.types import ToolDefinition, ToolResult
+
+    class _Empty(_BM):
+        pass
+
+    async def _execute(**_kwargs: object) -> ToolResult:
+        return ToolResult(data="ok", is_error=False)
+
+    return ToolDefinition(name="echo", description="echo", input_model=_Empty, execute=_execute)
+
+
+def _block_sensor(name: str, phase: str) -> object:
+    from anycode.types import VerificationResult as _VR
+    from anycode.verification.sensor import Sensor as _S
+
+    cfg = VerificationSensorConfig(
+        name=name,
+        kind="computational",
+        phases=(phase,),  # type: ignore[arg-type]
+        block_on_failure=True,
+    )
+
+    def _fn(_ctx: object) -> _VR:
+        return _VR(
+            sensor_name=name,
+            kind="computational",
+            passed=False,
+            severity="critical",
+            message=f"blocked at {phase}",
+        )
+
+    return _S(config=cfg, fn=_fn)  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_runner_invokes_before_tool_gate_and_blocks() -> None:
+    """A critical sensor at before_tool should produce a verification_failed stop reason."""
+    from anycode.verification.gate import QualityGate
+
+    adapter = FakeAdapter(responses=[FakeResponse(text="calling tool", tool_calls=(("echo", {}),))])
+    registry = ToolRegistry()
+    registry.register(_stub_tool())  # type: ignore[arg-type]
+    executor = ToolExecutor(registry)
+    options = RunnerOptions(model="fake-model", max_turns=2, agent_name="t")
+    runner = AgentRunner(adapter, registry, executor, options)
+    runner._gate = QualityGate([_block_sensor("preflight", "before_tool")])  # type: ignore[arg-type]
+
+    result = await runner.run([LLMMessage(role="user", content=[TextBlock(text="go")])])
+    assert result.stop_reason is not None
+    assert result.stop_reason.code == "verification_failed"
+    assert "before tool" in result.stop_reason.message
+    assert any(d.outcome == "block" for d in result.gate_decisions)
+
+
+@pytest.mark.asyncio
+async def test_runner_invokes_after_tool_gate_and_blocks() -> None:
+    """A critical sensor at after_tool should produce a verification_failed stop reason."""
+    from anycode.verification.gate import QualityGate
+
+    adapter = FakeAdapter(responses=[FakeResponse(text="calling tool", tool_calls=(("echo", {}),))])
+    registry = ToolRegistry()
+    registry.register(_stub_tool())  # type: ignore[arg-type]
+    executor = ToolExecutor(registry)
+    options = RunnerOptions(model="fake-model", max_turns=2, agent_name="t")
+    runner = AgentRunner(adapter, registry, executor, options)
+    runner._gate = QualityGate([_block_sensor("postcheck", "after_tool")])  # type: ignore[arg-type]
+
+    result = await runner.run([LLMMessage(role="user", content=[TextBlock(text="go")])])
+    assert result.stop_reason is not None
+    assert result.stop_reason.code == "verification_failed"
+    assert "after tool" in result.stop_reason.message
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_after_team_gate_marks_failure() -> None:
+    """Orchestrator team-level gate should block a successful team run on critical failure."""
+    from anycode.core.orchestrator import AnyCode, TaskSpec
+    from anycode.types import AgentConfig, OrchestratorConfig, TeamConfig
+
+    cfg = OrchestratorConfig(
+        verification=(
+            VerificationSensorConfig(
+                name="regex",
+                kind="computational",
+                phases=("after_team",),
+                block_on_failure=True,
+                options={"pattern": "FORBIDDEN", "expect": "no_match", "severity": "critical"},
+            ),
+        ),
+    )
+    engine = AnyCode(cfg)
+    agent_cfg = AgentConfig(name="dev", model="fake-model")
+    team = engine.create_team("t", TeamConfig(name="t", agents=[agent_cfg]))
+
+    # Provide a deterministic agent that emits the forbidden token.
+    fake = FakeAdapter(responses=[FakeResponse(text="FORBIDDEN content here")])
+    pooled = engine._pool.get("dev")
+    assert pooled is not None
+    # Replace the adapter on the agent's runner via build path: easiest is to monkey-patch run.
+    from anycode.types import AgentRunResult as _ARR
+    from anycode.types import TokenUsage as _TU
+
+    async def _fake_run(_prompt: str) -> _ARR:
+        return _ARR(success=True, output="FORBIDDEN content here", messages=[], token_usage=_TU(input_tokens=1, output_tokens=1), tool_calls=[])
+
+    pooled.run = _fake_run  # type: ignore[method-assign]
+    del fake  # adapter unused; we monkey-patched the agent
+
+    result = await engine.run_tasks(team, [TaskSpec(title="task", description="emit", assignee="dev")])
+    assert result.stop_reason is not None
+    assert result.stop_reason.code == "verification_failed"
+    assert result.success is False
+    assert any(d.outcome == "block" for d in result.gate_decisions)

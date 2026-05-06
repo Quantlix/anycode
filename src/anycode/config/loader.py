@@ -45,6 +45,7 @@ class LoadedConfig:
     cost: CostConfig | None = None
     reflection: ReflectionConfig | None = None
     rag: RAGConfig | None = None
+    verification: tuple[VerificationSensorConfig, ...] = ()
 
     def to_orchestrator_config(self) -> OrchestratorConfig:
         return OrchestratorConfig(
@@ -53,6 +54,7 @@ class LoadedConfig:
             cost=self.cost,
             reflection=self.reflection,
             rag=self.rag,
+            verification=self.verification,
         )
 
 
@@ -150,4 +152,5 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
         cost=cost,
         reflection=reflection,
         rag=rag,
+        verification=global_sensors,
     )

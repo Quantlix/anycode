@@ -351,10 +351,59 @@ class AgentRunner:
                         terminal_stop = stop_success()
                         break
 
+                    pre_decision = await self._evaluate_tool_gate(
+                        phase="before_tool",
+                        agent_name=agent_name,
+                        run_id=emitter.events[0].run_id,
+                        last_output=last_output,
+                        conversation=conversation,
+                        tool_calls=tool_calls,
+                        emitter=emitter,
+                        turn_span=turn_span,
+                        verification_results=verification_results,
+                        gate_decisions=gate_decisions,
+                    )
+                    if pre_decision is not None and pre_decision.outcome in ("block", "escalate"):
+                        recoverable = pre_decision.outcome == "escalate"
+                        terminal_stop = StopReason(
+                            code="verification_failed",
+                            message=f"Quality gate {pre_decision.outcome} before tool use: {pre_decision.message}",
+                            recoverable=recoverable,
+                        )
+                        turn_span.set_attribute("stop_reason", terminal_stop.code)
+                        turn_span.set_attribute("recoverable", terminal_stop.recoverable)
+                        break
+
                     ctx = self._build_context()
                     results = await self._execute_tool_blocks(tool_blocks, turn_span, ctx)
 
                     self._budget.record_tool_call(len(results))
+
+                    post_decision = await self._evaluate_tool_gate(
+                        phase="after_tool",
+                        agent_name=agent_name,
+                        run_id=emitter.events[0].run_id,
+                        last_output=last_output,
+                        conversation=conversation,
+                        tool_calls=tool_calls + [r[1] for r in results],
+                        emitter=emitter,
+                        turn_span=turn_span,
+                        verification_results=verification_results,
+                        gate_decisions=gate_decisions,
+                    )
+                    if post_decision is not None and post_decision.outcome in ("block", "escalate"):
+                        recoverable = post_decision.outcome == "escalate"
+                        terminal_stop = StopReason(
+                            code="verification_failed",
+                            message=f"Quality gate {post_decision.outcome} after tool use: {post_decision.message}",
+                            recoverable=recoverable,
+                        )
+                        turn_span.set_attribute("stop_reason", terminal_stop.code)
+                        turn_span.set_attribute("recoverable", terminal_stop.recoverable)
+                        for _, record in results:
+                            tool_calls.append(record)
+                            yield StreamEvent(type="tool_result", data=record)
+                        break
 
                     for block in tool_blocks:
                         loop_detector.record(fingerprint_call(block.name, block.input))
@@ -492,6 +541,56 @@ class AgentRunner:
                 retries=validation_retries + structured_retries + verification_retries,
             ),
         )
+
+    async def _evaluate_tool_gate(
+        self,
+        *,
+        phase: str,
+        agent_name: str,
+        run_id: str,
+        last_output: str,
+        conversation: list[LLMMessage],
+        tool_calls: list[ToolCallRecord],
+        emitter: LifecycleEmitter,
+        turn_span: Span,
+        verification_results: list[VerificationResult],
+        gate_decisions: list[QualityGateDecision],
+    ) -> QualityGateDecision | None:
+        """Run the configured QualityGate at a tool-boundary phase.
+
+        Returns the decision (or None if no gate / no sensors registered for the phase).
+        Caller decides whether to terminate the run on block/escalate outcomes.
+        """
+        if self._gate is None:
+            return None
+        from anycode.types import SensorPhase as _SP  # noqa: F401  (typing only)
+
+        active = self._gate._sensors_for_phase(phase)  # type: ignore[arg-type]
+        if not active:
+            return None
+        emitter.transition(
+            "verifying",
+            metadata={"sensors": len(active), "phase": phase},
+        )
+        turn_span.set_attribute("phase", "verifying")
+        gate_ctx = SensorContext(
+            phase=phase,  # type: ignore[arg-type]
+            agent_name=agent_name,
+            run_id=run_id,
+            output=last_output,
+            messages=list(conversation),
+            tool_calls=list(tool_calls),
+            lifecycle_events=list(emitter.events),
+        )
+        decision = await self._gate.evaluate(gate_ctx)
+        gate_decisions.append(decision)
+        verification_results.extend(decision.results)
+        for r in decision.results:
+            turn_span.add_event(
+                f"sensor.{r.sensor_name}",
+                {"passed": r.passed, "severity": r.severity, "kind": r.kind, "phase": phase},
+            )
+        return decision
 
     async def _execute_tool_blocks(
         self,
