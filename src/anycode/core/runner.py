@@ -9,6 +9,7 @@ from collections.abc import AsyncGenerator, Callable
 from pydantic import BaseModel
 
 from anycode.constants import DEFAULT_TURN_LIMIT, HANDOFF_TOOL_NAME, MAX_VALIDATION_RETRIES, MS_PER_SECOND
+from anycode.core.context_manager import ContextManager
 from anycode.core.lifecycle import LifecycleEmitter, LifecycleListener, LoopDetector, fingerprint_call
 from anycode.core.stop_reason import (
     budget_exceeded as stop_budget_exceeded,
@@ -42,6 +43,8 @@ from anycode.tools.registry import ToolRegistry
 from anycode.types import (
     AgentInfo,
     ContentBlock,
+    ContextManifest,
+    ContextPolicy,
     GuardrailConfig,
     HandoffRequest,
     LLMAdapter,
@@ -88,6 +91,7 @@ class AgentRunner:
         output_validators: list[OutputValidator] | None = None,
         output_schema: type[BaseModel] | None = None,
         lifecycle_listeners: list[LifecycleListener] | None = None,
+        context_policy: ContextPolicy | None = None,
     ) -> None:
         self._adapter = adapter
         self._registry = tool_registry
@@ -100,6 +104,7 @@ class AgentRunner:
         self._validators = list(output_validators) if output_validators else []
         self._output_schema = output_schema
         self._lifecycle_listeners = list(lifecycle_listeners or [])
+        self._context_manager: ContextManager | None = ContextManager(context_policy) if context_policy and context_policy.enabled else None
 
     @property
     def budget_tracker(self) -> BudgetTracker:
@@ -124,6 +129,7 @@ class AgentRunner:
         conversation = list(seed_messages)
         cumulative_usage: TokenUsage = EMPTY_USAGE
         tool_calls: list[ToolCallRecord] = []
+        context_manifests: list[ContextManifest] = []
         last_output = ""
         turn_count = 0
         validation_retries = 0
@@ -182,8 +188,13 @@ class AgentRunner:
                     )
 
                     llm_start = time.monotonic()
+                    if self._context_manager is not None:
+                        prepared_messages, manifest = self._context_manager.assemble(conversation)
+                        context_manifests.append(manifest)
+                    else:
+                        prepared_messages = conversation
                     async with self._tracer.async_span("anycode.llm.chat", parent=turn_span) as llm_span:
-                        response = await self._adapter.chat(conversation, chat_params)
+                        response = await self._adapter.chat(prepared_messages, chat_params)
                         llm_span.set_attributes(
                             SpanAttributes(
                                 model=self._options.model,
@@ -304,6 +315,7 @@ class AgentRunner:
                                 terminal_phase=final_event.phase,
                                 stop_reason=terminal_stop,
                                 lifecycle_events=emitter.events,
+                                context_manifests=list(context_manifests),
                             ),
                         )
                         return
@@ -360,6 +372,7 @@ class AgentRunner:
                 terminal_phase=terminal_phase_name,
                 stop_reason=terminal_stop,
                 lifecycle_events=emitter.events,
+                context_manifests=list(context_manifests),
             ),
         )
 
