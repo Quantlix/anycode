@@ -19,7 +19,18 @@ from anycode.constants import (
     QUEUE_EVENT_TASK_FAILED,
     QUEUE_EVENT_TASK_READY,
 )
+from anycode.core import stop_reason as stop_reasons
 from anycode.core.agent import Agent
+from anycode.core.lifecycle import (
+    ALL_PHASES,
+    TERMINAL_PHASES,
+    InvalidPhaseTransitionError,
+    LifecycleEmitter,
+    LifecycleListener,
+    LoopDetector,
+    fingerprint_call,
+    is_valid_transition,
+)
 from anycode.core.orchestrator import AnyCode, TaskSpec
 from anycode.core.pool import AgentPool
 from anycode.core.runner import AgentRunner
@@ -98,11 +109,13 @@ from anycode.types import (
     CostReport,
     Critic,
     CriticResult,
+    ExecutionPhase,
     GuardrailConfig,
     Handoff,
     HandoffPolicy,
     HandoffRequest,
     ImageBlock,
+    LifecycleEvent,
     LLMAdapter,
     LLMChatOptions,
     LLMMessage,
@@ -131,6 +144,8 @@ from anycode.types import (
     RunResult,
     SchedulingStrategy,
     SpanAttributes,
+    StopReason,
+    StopReasonCode,
     StreamEvent,
     StructuredAgentResult,
     StructuredOutputConfig,
@@ -176,6 +191,16 @@ __all__ = [
     "AgentPool",
     "Scheduler",
     "TaskSpec",
+    # Lifecycle
+    "LifecycleEmitter",
+    "LifecycleListener",
+    "LoopDetector",
+    "InvalidPhaseTransitionError",
+    "ALL_PHASES",
+    "TERMINAL_PHASES",
+    "fingerprint_call",
+    "is_valid_transition",
+    "stop_reasons",
     # Providers
     "create_adapter",
     # MCP
@@ -313,6 +338,10 @@ __all__ = [
     "ValidationResult",
     "OutputValidator",
     "TurnHook",
+    "ExecutionPhase",
+    "StopReason",
+    "StopReasonCode",
+    "LifecycleEvent",
     "StructuredOutputConfig",
     "StructuredRunResult",
     "StructuredAgentResult",
