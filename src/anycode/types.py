@@ -160,6 +160,43 @@ class ContextManifest(BaseModel):
     handoff_path: str | None = None
 
 
+# -- Verification sensors and quality gates --
+
+VerificationKind = Literal["computational", "inferential", "hybrid"]
+VerificationSeverity = Literal["info", "warning", "error", "critical"]
+GateOutcome = Literal["pass", "warn", "retry", "block", "escalate"]
+SensorPhase = Literal["before_tool", "after_tool", "after_task", "after_team"]
+
+
+class VerificationResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    sensor_name: str
+    kind: VerificationKind
+    passed: bool
+    severity: VerificationSeverity
+    message: str
+    evidence: dict[str, str | int | float | bool] = {}
+    feedback_for_agent: str | None = None
+    duration_ms: float = 0.0
+
+
+class VerificationSensorConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    kind: VerificationKind
+    phases: tuple[SensorPhase, ...] = ("after_task",)
+    block_on_failure: bool = False
+    retry_on_failure: bool = False
+    options: dict[str, str | int | float | bool] = {}
+
+
+class QualityGateDecision(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    outcome: GateOutcome
+    results: tuple[VerificationResult, ...]
+    message: str
+
+
 class LLMResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
     id: str
