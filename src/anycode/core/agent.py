@@ -174,6 +174,9 @@ class Agent:
                 token_usage=result.token_usage,
                 tool_calls=result.tool_calls,
                 handoff_request=result.handoff_request,
+                terminal_phase=result.terminal_phase,
+                stop_reason=result.stop_reason,
+                lifecycle_events=result.lifecycle_events,
             )
         except Exception as e:
             self._state = self._state.model_copy(update={"status": "error", "error": str(e)})

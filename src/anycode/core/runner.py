@@ -9,10 +9,27 @@ from collections.abc import AsyncGenerator, Callable
 from pydantic import BaseModel
 
 from anycode.constants import DEFAULT_TURN_LIMIT, HANDOFF_TOOL_NAME, MAX_VALIDATION_RETRIES, MS_PER_SECOND
+from anycode.core.lifecycle import LifecycleEmitter, LifecycleListener, LoopDetector, fingerprint_call
+from anycode.core.stop_reason import (
+    budget_exceeded as stop_budget_exceeded,
+)
+from anycode.core.stop_reason import (
+    doom_loop as stop_doom_loop,
+)
+from anycode.core.stop_reason import (
+    max_turns as stop_max_turns,
+)
+from anycode.core.stop_reason import (
+    success as stop_success,
+)
+from anycode.core.stop_reason import (
+    unknown as stop_unknown,
+)
 from anycode.guardrails.budget import BudgetTracker
 from anycode.guardrails.hooks import HookRunner
 from anycode.guardrails.validators import run_validators
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
+from anycode.helpers.uuid7 import uuid7
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
     build_retry_prompt,
@@ -34,6 +51,7 @@ from anycode.types import (
     RunnerOptions,
     RunResult,
     SpanAttributes,
+    StopReason,
     StreamEvent,
     TextBlock,
     TokenUsage,
@@ -69,6 +87,7 @@ class AgentRunner:
         hooks: list[TurnHook] | None = None,
         output_validators: list[OutputValidator] | None = None,
         output_schema: type[BaseModel] | None = None,
+        lifecycle_listeners: list[LifecycleListener] | None = None,
     ) -> None:
         self._adapter = adapter
         self._registry = tool_registry
@@ -80,6 +99,7 @@ class AgentRunner:
         self._hook_runner = HookRunner(hooks)
         self._validators = list(output_validators) if output_validators else []
         self._output_schema = output_schema
+        self._lifecycle_listeners = list(lifecycle_listeners or [])
 
     @property
     def budget_tracker(self) -> BudgetTracker:
@@ -110,6 +130,14 @@ class AgentRunner:
         structured_retries = 0
         agent_name = self._options.agent_name or "runner"
 
+        emitter = LifecycleEmitter(
+            run_id=str(uuid7()),
+            agent_name=agent_name,
+            listeners=self._lifecycle_listeners,
+        )
+        loop_detector = LoopDetector()
+        terminal_stop: StopReason | None = None
+
         all_defs = self._registry.to_tool_defs()
         active_defs = [d for d in all_defs if d.name in self._options.allowed_tools] if self._options.allowed_tools else all_defs
 
@@ -130,6 +158,7 @@ class AgentRunner:
                 if self._budget.is_exhausted():
                     reason = self._budget.get_exhaustion_reason() or "Budget exhausted."
                     last_output = reason
+                    terminal_stop = stop_budget_exceeded(reason)
                     yield StreamEvent(type="text", data=reason)
                     break
 
@@ -139,12 +168,16 @@ class AgentRunner:
                 ctx_info = self._build_agent_info()
                 conversation = await self._hook_runner.run_before_turn(conversation, ctx_info)
 
+                if emitter.phase != "executing":
+                    emitter.transition("executing", metadata={"turn": turn_count})
+
                 async with self._tracer.async_span(f"anycode.agent.{agent_name}.turn.{turn_count}") as turn_span:
                     turn_span.set_attributes(
                         SpanAttributes(
                             agent_name=agent_name,
                             model=self._options.model,
                             turn_number=turn_count,
+                            phase="executing",
                         )
                     )
 
@@ -229,6 +262,7 @@ class AgentRunner:
                                     if on_message:
                                         on_message(retry_msg)
                                     continue
+                        terminal_stop = stop_success()
                         break
 
                     ctx = self._build_context()
@@ -236,11 +270,28 @@ class AgentRunner:
 
                     self._budget.record_tool_call(len(results))
 
+                    for block in tool_blocks:
+                        loop_detector.record(fingerprint_call(block.name, block.input))
+                    looping, pattern, repeats = loop_detector.is_looping()
+                    if looping and pattern is not None:
+                        terminal_stop = stop_doom_loop(pattern, repeats)
+                        emitter.transition(
+                            "recovering",
+                            stop_reason=terminal_stop,
+                            metadata={"pattern": pattern, "repeats": repeats},
+                        )
+                        for _, record in results:
+                            tool_calls.append(record)
+                            yield StreamEvent(type="tool_result", data=record)
+                        break
+
                     handoff = self._detect_handoff(results)
                     if handoff is not None:
                         handoff_req, handoff_record = handoff
                         tool_calls.append(handoff_record)
                         yield StreamEvent(type="handoff", data=handoff_req)
+                        terminal_stop = stop_success("Handoff to downstream agent.")
+                        final_event = emitter.transition("completed", stop_reason=terminal_stop)
                         yield StreamEvent(
                             type="done",
                             data=RunResult(
@@ -250,9 +301,14 @@ class AgentRunner:
                                 token_usage=cumulative_usage,
                                 turns=turn_count,
                                 handoff_request=handoff_req,
+                                terminal_phase=final_event.phase,
+                                stop_reason=terminal_stop,
+                                lifecycle_events=emitter.events,
                             ),
                         )
                         return
+
+                    emitter.transition("observing", metadata={"tool_calls": len(results)})
 
                     result_blocks: list[ContentBlock] = [r[0] for r in results]
                     for _, record in results:
@@ -264,7 +320,16 @@ class AgentRunner:
                     if on_message:
                         on_message(tool_msg)
 
+            if terminal_stop is None:
+                # Loop exited without an explicit reason: turn limit reached.
+                terminal_stop = stop_max_turns(self._turn_limit)
+
         except Exception as e:
+            failure_stop = StopReason(code="unknown", message=str(e), recoverable=False)
+            try:
+                emitter.transition("failed", stop_reason=failure_stop)
+            except Exception:  # noqa: BLE001 - never mask the real error
+                pass
             yield StreamEvent(type="error", data=e)
             return
 
@@ -274,6 +339,16 @@ class AgentRunner:
                     last_output = _pull_text(msg.content)
                     break
 
+        if terminal_stop is None:
+            terminal_stop = stop_unknown()
+
+        terminal_phase = "completed" if terminal_stop.code == "success" else "failed"
+        try:
+            final_event = emitter.transition(terminal_phase, stop_reason=terminal_stop)
+            terminal_phase_name = final_event.phase
+        except Exception:  # noqa: BLE001 - keep run result even if listener/transition fails
+            terminal_phase_name = terminal_phase
+
         yield StreamEvent(
             type="done",
             data=RunResult(
@@ -282,6 +357,9 @@ class AgentRunner:
                 tool_calls=tool_calls,
                 token_usage=cumulative_usage,
                 turns=turn_count,
+                terminal_phase=terminal_phase_name,
+                stop_reason=terminal_stop,
+                lifecycle_events=emitter.events,
             ),
         )
 
