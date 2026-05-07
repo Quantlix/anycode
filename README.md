@@ -1,376 +1,474 @@
 <p align="center">
-    <img src="https://img.shields.io/pypi/v/anycode-py?style=flat-square&color=0078D4" alt="PyPI version" />
-    <img src="https://img.shields.io/pypi/l/anycode-py?style=flat-square" alt="license" />
+  <img src="https://img.shields.io/pypi/v/anycode-py?style=flat-square&color=0078D4" alt="PyPI version" />
+  <img src="https://img.shields.io/pypi/l/anycode-py?style=flat-square" alt="license" />
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/status-alpha-orange?style=flat-square" alt="Alpha status" />
   <img src="https://img.shields.io/badge/Built%20by-Quantlix-blueviolet?style=flat-square" alt="Built by Quantlix" />
 </p>
 
 # AnyCode
 
-### Scalable Multi-Agent AI Orchestration Framework for Python
+## Multi-agent AI orchestration framework for Python
 
-> Developed and maintained by **[Quantlix](https://github.com/Quantlix)**
+> Developed and maintained by [Quantlix](https://github.com/Quantlix).
 
-AnyCode is a lightweight yet powerful orchestration engine written entirely in Python. It enables you to compose autonomous AI agents into collaborative teams that communicate, share context, resolve task dependencies, and operate concurrently — all from a single runtime. Whether you're deploying on bare metal, inside containers, across serverless functions, or within CI/CD pipelines, AnyCode adapts to your infrastructure without friction.
+> **Active development warning:** AnyCode is an alpha-stage framework under active development. APIs, defaults, runtime behavior, and configuration formats may change between releases. It is not meant to be used for production systems yet, especially systems that handle sensitive data, irreversible actions, customer workloads, or critical infrastructure.
 
-Instead of managing individual agents in silos, AnyCode introduces a team-oriented paradigm: agents exchange messages through a built-in event bus, persist shared knowledge in memory stores, and execute work items according to a topologically sorted task graph. The result is a cohesive system where every agent understands its role and collaborates toward a unified objective.
+AnyCode is a Python framework for building coordinated AI agent teams. It helps developers compose autonomous LLM agents, connect them to typed tools, schedule dependent tasks, share memory, stream output, route work across providers, and inspect long-running agent workflows with explicit lifecycle and verification data.
 
----
+If you are researching Python multi-agent orchestration, LLM agent frameworks, AI task scheduling, MCP tool integration, RAG memory, agent handoff, or DAG-based agent workflows, AnyCode is designed to give you a compact and strongly typed foundation to explore those patterns.
 
-## Table of Contents
+## What Is AnyCode?
 
-- [Key Capabilities](#key-capabilities)
-- [Quick Start](#quick-start)
-- [Building Agent Teams](#building-agent-teams)
-- [Defining Task Pipelines](#defining-task-pipelines)
-- [Creating Custom Tools](#creating-custom-tools)
-- [Cross-Provider Model Mixing](#cross-provider-model-mixing)
-- [Live Streaming Output](#live-streaming-output)
-- [Architecture Overview](#architecture-overview)
-- [Built-In Tool Reference](#built-in-tool-reference)
-- [Core Concepts at a Glance](#core-concepts-at-a-glance)
-- [Contributing](#contributing)
-- [License](#license)
+AnyCode is an async-first orchestration layer for AI agents. A single agent can run a one-shot task, while a team can coordinate planning, implementation, review, memory, tool use, and validation through a shared runtime.
 
----
+The framework focuses on practical harness engineering:
 
-## Key Capabilities
+- Agent teams with shared memory and inter-agent messaging.
+- Dependency-aware task execution using DAG scheduling and wavefront concurrency.
+- Provider-agnostic LLM integration through a typed `LLMAdapter` protocol.
+- Pydantic-validated tool calls and immutable runtime models.
+- Observability, guardrails, structured output, checkpointing, HITL approval, MCP tools, routing, cost tracking, RAG memory, and verification gates.
 
-Traditional agent libraries focus on running a single LLM in a loop. AnyCode takes a fundamentally different approach — it gives you **an entire coordinated team**:
+AnyCode is built for experimentation, evaluation, local development, research prototypes, and early-stage product exploration. It is not yet a stable production platform.
 
-| Feature | Description |
-|---------|-------------|
-| **Inter-agent communication** | Agents relay information through `MessageBus`, share persistent state via `SharedMemory`, and synchronize through managed task queues |
-| **Dependency-driven execution** | Express task relationships with `depends_on` and let `TaskQueue` resolve ordering through topological sorting — no manual sequencing needed |
-| **Automatic goal decomposition** | Provide a high-level objective and the orchestrator intelligently partitions it into targeted subtasks assigned to the right agents |
-| **Provider-agnostic design** | Seamlessly use Anthropic Claude, OpenAI GPT, or integrate any custom backend through the `LLMAdapter` protocol |
-| **Schema-validated tooling** | Every tool is declared with a Pydantic model for input validation, plus five practical tools are included out of the box |
-| **Bounded parallelism** | Independent work items execute simultaneously, governed by a configurable concurrency semaphore |
-| **Flexible scheduling strategies** | Choose between round-robin, least-busy, capability-match, or dependency-first assignment policies |
-| **Incremental streaming** | Receive real-time text deltas from any agent as an `AsyncGenerator[StreamEvent, None]` |
-| **Full type safety** | Strict Pydantic models enforced at every layer, with validation at all external boundaries |
+## Current Package
 
----
+| Detail | Value |
+| --- | --- |
+| Distribution | `anycode-py` |
+| Import package | `anycode` |
+| Current version | `0.5.0` |
+| Python | `>=3.12` |
+| Project status | Alpha |
+| License | MIT |
+| Runtime style | Async-first |
+| Core model style | Frozen Pydantic models |
+| Build backend | Hatchling |
 
-## Quick Start
+## Why Developers Use AnyCode
 
-Install the package from PyPI:
+AnyCode is useful when you want more than a single chat loop. It gives each agent a role, a model, tool access, task context, lifecycle events, and measurable results.
+
+Key use cases include:
+
+- Build multi-agent AI workflows in Python.
+- Run planner, builder, reviewer, and evaluator agents as one coordinated team.
+- Execute task graphs with dependencies instead of manually sequencing prompts.
+- Mix Anthropic, OpenAI, Google Gemini, Ollama, Azure OpenAI, and AWS Bedrock models.
+- Register local tools or discover external tools through Model Context Protocol servers.
+- Add validation layers such as structured output, content validators, cost budgets, approval gates, and quality sensors.
+- Evaluate harness changes with deterministic fake adapters before using live LLM calls.
+
+## Shipped Capabilities
+
+| Area | What is available today |
+| --- | --- |
+| Core orchestration | `AnyCode`, `Agent`, `AgentRunner`, `AgentPool`, `Team`, `TaskQueue`, and `Scheduler` |
+| Team coordination | `MessageBus`, `SharedMemory`, task queues, event callbacks, and team-level results |
+| Task scheduling | Explicit `TaskSpec` dependencies, topological sort, wavefront execution, and cascading failure handling |
+| Providers | Anthropic, OpenAI, Google Gemini, Ollama, AWS Bedrock, Azure OpenAI, plus custom `LLMAdapter` implementations |
+| Tools | Built-in `bash`, `file_read`, `file_write`, `file_edit`, and `grep` tools, plus custom Pydantic tools |
+| MCP | Connect to MCP servers, discover tools, register prefixed MCP tools, and scope MCP tools per agent |
+| Safety and control | Guardrails, token and cost budgets, output validators, turn hooks, structured output, HITL approval gates |
+| Persistence | In-memory, SQLite, Redis, vector memory, ChromaDB support, checkpoint stores, and resume support |
+| Routing and handoff | Intelligent task routing, route decision reports, handoff requests, and context-preserving handoff execution |
+| Advanced runtime | Cost reports, self-reflection, critic loops, DAG visualization, RAG memory, lifecycle states, stop reasons |
+| Verification | Built-in `ruff`, `pyright`, `pytest`, `schema`, and `regex` sensors with quality gate decisions |
+| Evaluation | Scenario loading, deterministic fake responses, benchmark reports, markdown rendering, and report comparison |
+| Developer experience | CLI commands, YAML/TOML config, examples cookbook, CLI inspection, and deterministic eval reports |
+
+## Architecture At A Glance
+
+```text
+AnyCode orchestrator
+  -> Team coordination
+     -> AgentPool with bounded concurrency
+     -> TaskQueue with dependency-aware scheduling
+     -> MessageBus and SharedMemory
+  -> AgentRunner
+     -> LLMAdapter protocol
+     -> ToolExecutor and ToolRegistry
+     -> Guardrails, structured output, lifecycle, context policy, verification gates
+  -> Optional systems
+     -> Checkpointing, approval, MCP, routing, cost, reflection, RAG, evaluation
+```
+
+The main design rule is simple: the framework owns the harness, while providers and tools stay replaceable. Models are typed, immutable, and validated at runtime boundaries.
+
+## Getting Started Guide
+
+### 1. Requirements
+
+- Python `3.12` or newer.
+- `uv` for dependency management.
+- At least one LLM API key for live examples.
+
+### 2. Install AnyCode
+
+For a new or existing Python project:
 
 ```bash
-pip install anycode-py
-# or with uv
 uv add anycode-py
 ```
 
-The distribution name on package indexes is `anycode-py`; the import package remains `anycode`.
+For CLI and YAML/TOML configuration support:
 
-### Single Agent Execution
+```bash
+uv add "anycode-py[cli]"
+```
 
-The simplest way to get started — spin up one agent and hand it a task:
+For the full optional ecosystem:
+
+```bash
+uv add "anycode-py[cli,telemetry,persistence,redis,vector,mcp,google,ollama,bedrock,azure]"
+```
+
+### 3. Add API Keys
+
+Create a local `.env` file or export environment variables in your shell.
+
+```bash
+ANTHROPIC_API_KEY=your-anthropic-key
+OPENAI_API_KEY=your-openai-key
+GOOGLE_API_KEY=your-google-key
+```
+
+Only one supported provider is required to run the basic examples. Never commit API keys.
+
+### 4. Run One Agent
 
 ```python
 import asyncio
+import os
+
+from dotenv import load_dotenv
+
 from anycode import AnyCode
 
-async def main():
-    engine = AnyCode()
+load_dotenv()
+
+
+def resolve_model() -> tuple[str, str]:
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    raise RuntimeError("Set ANTHROPIC_API_KEY or OPENAI_API_KEY first.")
+
+
+async def main() -> None:
+    provider, model = resolve_model()
+    engine = AnyCode(config={"default_provider": provider, "default_model": model})
 
     result = await engine.run_agent(
         config={
-            "name": "engineer",
-            "model": "claude-sonnet-4-6",
-            "tools": ["bash", "file_write"],
+            "name": "explainer",
+            "provider": provider,
+            "model": model,
+            "system_prompt": "You explain Python clearly and briefly.",
+            "tools": [],
+            "max_turns": 2,
         },
-        prompt="Create a Python utility that checks whether a given string is a palindrome, save it to /tmp/palindrome.py, and execute it.",
+        prompt="Explain what an async generator is in two sentences.",
     )
 
     print(result.output)
+    print(f"tokens: in={result.token_usage.input_tokens} out={result.token_usage.output_tokens}")
+
 
 asyncio.run(main())
 ```
 
-> **Note:** Export `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` as environment variables before running any example.
-
----
-
-## Building Agent Teams
-
-Real-world workflows benefit from specialization. AnyCode lets you define distinct agents — each with its own system prompt, model, and tool access — and unify them into a collaborative team:
+### 5. Run A Team With Dependencies
 
 ```python
 import asyncio
-from anycode import AnyCode, AgentConfig, TeamConfig
+import os
 
-planner = AgentConfig(
-    name="planner",
-    model="claude-sonnet-4-6",
-    system_prompt="You draft module interfaces, folder layouts, and endpoint schemas.",
-    tools=["file_write"],
-)
+from dotenv import load_dotenv
 
-builder = AgentConfig(
-    name="builder",
-    model="claude-sonnet-4-6",
-    system_prompt="You translate specifications into production-ready code.",
-    tools=["bash", "file_read", "file_write", "file_edit"],
-)
+from anycode import AgentConfig, AnyCode, TaskSpec, TeamConfig
 
-auditor = AgentConfig(
-    name="auditor",
-    model="claude-sonnet-4-6",
-    system_prompt="You inspect code for bugs, edge cases, and readability concerns.",
-    tools=["file_read", "grep"],
-)
+load_dotenv()
 
-async def main():
-    engine = AnyCode(config={
-        "default_model": "claude-sonnet-4-6",
-        "on_progress": lambda ev: print(ev.type, ev.agent or ev.task or ""),
-    })
+PROVIDER = "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
+MODEL = "claude-haiku-4-5" if PROVIDER == "anthropic" else "gpt-4o-mini"
 
-    team = engine.create_team("backend-crew", TeamConfig(
-        name="backend-crew",
-        agents=[planner, builder, auditor],
-        shared_memory=True,
-    ))
 
-    result = await engine.run_team(team, "Scaffold a CRUD API for a notes app in /tmp/notes-api/")
+async def main() -> None:
+    engine = AnyCode(config={"max_concurrency": 3})
 
-    print(f"Completed: {result.success}")
-    print(f"Tokens used: {result.total_token_usage.output_tokens}")
-
-asyncio.run(main())
-```
-
----
-
-## Defining Task Pipelines
-
-For workflows that demand precise control over the execution graph, you can manually specify tasks along with their dependencies:
-
-```python
-from anycode import TaskSpec
-
-result = await engine.run_tasks(team, [
-    TaskSpec(
-        title="Draft schema definitions",
-        description="Produce Python type declarations and save them to /tmp/types.md",
-        assignee="planner",
-    ),
-    TaskSpec(
-        title="Implement core logic",
-        description="Read /tmp/types.md and build the service layer in /tmp/lib/",
-        assignee="builder",
-        depends_on=["Draft schema definitions"],
-    ),
-    TaskSpec(
-        title="Write unit tests",
-        description="Author pytest test suites covering all service methods.",
-        assignee="builder",
-        depends_on=["Implement core logic"],
-    ),
-    TaskSpec(
-        title="Audit implementation",
-        description="Examine /tmp/lib/ and generate a detailed review report.",
-        assignee="auditor",
-        depends_on=["Implement core logic"],
-    ),
-])
-```
-
-The `TaskQueue` resolves the dependency graph using topological sorting. Tasks with no unmet dependencies are dispatched in parallel, while dependent tasks wait until their predecessors complete successfully.
-
----
-
-## Creating Custom Tools
-
-Extend agent capabilities by registering your own tools. Each tool is defined with a Pydantic model for automatic validation:
-
-```python
-from pydantic import BaseModel, Field
-from anycode import define_tool, Agent, ToolRegistry, ToolExecutor, register_built_in_tools, ToolResult, ToolUseContext
-
-class ArticleSearchInput(BaseModel):
-    topic: str = Field(description="Subject to search for.")
-    limit: int = Field(default=5, description="Maximum articles to return.")
-
-async def fetch_articles(params: ArticleSearchInput, ctx: ToolUseContext) -> ToolResult:
-    articles = await my_knowledge_base(params.topic, params.limit)
-    return ToolResult(data=json.dumps(articles), is_error=False)
-
-fetch_articles_tool = define_tool(
-    name="fetch_articles",
-    description="Retrieves relevant articles from the knowledge base.",
-    input_model=ArticleSearchInput,
-    execute=fetch_articles,
-)
-
-registry = ToolRegistry()
-register_built_in_tools(registry)
-registry.register(fetch_articles_tool)
-
-executor = ToolExecutor(registry)
-agent = Agent(
-    config={"name": "analyst", "model": "claude-sonnet-4-6", "tools": ["fetch_articles"]},
-    tool_registry=registry,
-    tool_executor=executor,
-)
-
-result = await agent.run("Summarize the latest changes in the Python typing module.")
-```
-
----
-
-## Cross-Provider Model Mixing
-
-Combine different LLM providers within a single team. Assign a reasoning-heavy model to your strategist and a fast coding model to your implementer:
-
-```python
-thinker = AgentConfig(
-    name="thinker",
-    model="claude-opus-4-6",
-    provider="anthropic",
-    system_prompt="You devise architectural blueprints and technical strategies.",
-    tools=["file_write"],
-)
-
-implementer = AgentConfig(
-    name="implementer",
-    model="gpt-4o",
-    provider="openai",
-    system_prompt="You transform plans into functional, tested code.",
-    tools=["bash", "file_read", "file_write"],
-)
-
-team = engine.create_team("cross-provider", TeamConfig(
-    name="cross-provider",
-    agents=[thinker, implementer],
-    shared_memory=True,
-))
-
-await engine.run_team(team, "Create a CLI utility that transforms YAML files into JSON format.")
-```
-
----
-
-## Live Streaming Output
-
-For interactive applications or real-time feedback, stream agent output token-by-token:
-
-```python
-import asyncio
-import sys
-from anycode import Agent, ToolRegistry, ToolExecutor, register_built_in_tools
-
-async def main():
-    registry = ToolRegistry()
-    register_built_in_tools(registry)
-    executor = ToolExecutor(registry)
-
-    narrator = Agent(
-        config={"name": "narrator", "model": "claude-sonnet-4-6", "max_turns": 3},
-        tool_registry=registry,
-        tool_executor=executor,
+    team = engine.create_team(
+        "guide-crew",
+        TeamConfig(
+            name="guide-crew",
+            shared_memory=True,
+            agents=[
+                AgentConfig(
+                    name="planner",
+                    provider=PROVIDER,
+                    model=MODEL,
+                    system_prompt="Create concise technical plans.",
+                    tools=[],
+                ),
+                AgentConfig(
+                    name="writer",
+                    provider=PROVIDER,
+                    model=MODEL,
+                    system_prompt="Turn plans into clear developer documentation.",
+                    tools=[],
+                ),
+                AgentConfig(
+                    name="reviewer",
+                    provider=PROVIDER,
+                    model=MODEL,
+                    system_prompt="Review documentation for clarity and missing steps.",
+                    tools=[],
+                ),
+            ],
+        ),
     )
 
-    async for ev in narrator.stream("Describe the observer pattern in three sentences."):
-        if ev.type == "text" and isinstance(ev.data, str):
-            sys.stdout.write(ev.data)
+    result = await engine.run_tasks(
+        team,
+        [
+            TaskSpec(
+                title="Plan guide",
+                description="Outline a getting started guide for a Python agent framework.",
+                assignee="planner",
+            ),
+            TaskSpec(
+                title="Draft guide",
+                description="Write the guide using the plan from the planner.",
+                assignee="writer",
+                depends_on=["Plan guide"],
+            ),
+            TaskSpec(
+                title="Review guide",
+                description="Review the draft and list concrete improvements.",
+                assignee="reviewer",
+                depends_on=["Draft guide"],
+            ),
+        ],
+    )
+
+    print(f"success={result.success}")
+    for agent_name, agent_result in result.agent_results.items():
+        print(f"\n[{agent_name}]\n{agent_result.output[:600]}")
+
 
 asyncio.run(main())
 ```
 
----
+### 6. Use YAML Or TOML Config
 
-## Architecture Overview
+Install the CLI extra first:
 
-```
-+--------------------------------------------------------------+
-|  AnyCode  (orchestrator)                                     |
-|                                                              |
-|  create_team()  ·  run_team()  ·  run_tasks()  ·  run_agent()|
-+-----------------------------+--------------------------------+
-                              |
-                   +----------v----------+
-                   |  Team               |
-                   |  AgentConfig[]      |
-                   |  MessageBus         |
-                   |  TaskQueue          |
-                   |  SharedMemory       |
-                   +----------+----------+
-                              |
-                +-------------+-------------+
-                |                           |
-       +--------v---------+    +------------v-----------+
-       |  AgentPool       |    |  TaskQueue             |
-       |  Semaphore       |    |  dependency graph      |
-       |  run_parallel()  |    |  cascade failure       |
-       +--------+---------+    +------------------------+
-                |
-       +--------v---------+
-       |  Agent           |    +------------------------+
-       |  run / prompt /  |--->|  LLMAdapter            |
-       |  stream          |    |  Anthropic · OpenAI    |
-       +--------+---------+    +------------------------+
-                |
-       +--------v---------+
-       |  AgentRunner     |    +------------------------+
-       |  conversation    |--->|  ToolRegistry          |
-       |  loop + dispatch |    |  define_tool + 5       |
-       +------------------+    |  built-in tools        |
-                               +------------------------+
+```bash
+uv add "anycode-py[cli]"
 ```
 
-**Data flow summary:**
+Create `team.yaml`:
 
-1. The **orchestrator** receives a goal or an explicit task list
-2. A **Team** manages the agent roster, message bus, and shared memory
-3. The **AgentPool** dispatches work using a bounded concurrency semaphore
-4. The **TaskQueue** resolves dependencies via topological sort and cascades failures
-5. Each **Agent** runs a conversation loop through **AgentRunner**, invoking tools from the **ToolRegistry** as needed
-6. LLM calls are routed through the **LLMAdapter** abstraction, supporting any provider
+```yaml
+name: guide-crew
+shared_memory: true
+max_concurrency: 3
 
----
+agents:
+  - name: planner
+    provider: anthropic
+    model: claude-haiku-4-5
+    system_prompt: Create concise technical plans.
+    tools: []
 
-## Built-In Tool Reference
+  - name: writer
+    provider: anthropic
+    model: claude-haiku-4-5
+    system_prompt: Write clear developer documentation.
+    tools: []
 
-AnyCode ships with five practical tools that cover the most common agent operations:
+tasks:
+  - title: Plan guide
+    description: Outline a getting started guide for AnyCode.
+    assignee: planner
 
-| Tool | What It Does |
-|------|-------------|
-| `bash` | Executes shell commands with stdout/stderr capture, configurable timeout, and working-directory support |
-| `file_read` | Reads file contents from an absolute path, with optional offset and line-limit for handling large files |
-| `file_write` | Creates or overwrites a file at the specified path — parent directories are generated automatically |
-| `file_edit` | Performs targeted substring replacement within a file, with an option to replace all occurrences |
-| `grep` | Runs regex-based searches across files, leveraging ripgrep when available or falling back to a pure Python implementation |
+  - title: Draft guide
+    description: Write the guide from the plan.
+    assignee: writer
+    depends_on:
+      - Plan guide
 
-All tools follow the same `define_tool()` pattern, so extending or replacing them works identically to registering custom tools.
+verification:
+  - name: regex
+    kind: computational
+    phases:
+      - after_team
+    block_on_failure: true
+    options:
+      pattern: AnyCode
+      expect: match
+```
 
----
+Run it:
 
-## Core Concepts at a Glance
+```bash
+uv run anycode run team.yaml
+```
 
-| Concept | Component | Responsibility |
-|---------|-----------|----------------|
-| Conversation loop | `AgentRunner` | Manages the model <-> tool turn cycle until the task completes |
-| Typed tool declaration | `define_tool()` | Defines tools with Pydantic-validated input models |
-| Orchestration | `AnyCode` | Decomposes goals, assigns work, and manages concurrency |
-| Team coordination | `Team` + `MessageBus` | Enables inter-agent messaging and shared knowledge state |
-| Task scheduling | `TaskQueue` | Resolves execution order through topological dependency sorting |
+Or load the same config in Python:
 
----
+```python
+import asyncio
+
+from anycode import AnyCode
+
+
+async def main() -> None:
+    engine = AnyCode.from_config("team.yaml")
+    result = await engine.run_team_from_config()
+    print(result.model_dump_json(indent=2, exclude_none=True))
+
+
+asyncio.run(main())
+```
+
+## CLI Reference
+
+The CLI is available through the `cli` extra.
+
+```bash
+uv run anycode init my-agent-project
+uv run anycode run team.yaml
+uv run anycode run --agent helper --provider anthropic --model claude-haiku-4-5 --prompt "Summarize async Python."
+uv run anycode inspect tools
+uv run anycode inspect providers
+uv run anycode inspect team team.yaml
+uv run anycode inspect config team.yaml
+uv run anycode eval run tests/fixtures/eval/runtime_reliability_deterministic.yaml --variant baseline --markdown
+uv run anycode eval compare artifacts/eval/baseline.json artifacts/eval/candidate.json
+uv run anycode version
+```
+
+`anycode init` creates a small project with `team.yaml`, `main.py`, `.env.example`, a `tools/` package, and `.gitignore`.
+
+## Providers And Optional Extras
+
+| Extra | Purpose |
+| --- | --- |
+| `cli` | `anycode` CLI, Rich output, YAML parsing |
+| `telemetry` | OpenTelemetry tracing and exporters |
+| `persistence` | SQLite memory and checkpoint support |
+| `redis` | Redis memory backend |
+| `vector` | ChromaDB vector memory backend |
+| `google` | Google Gemini adapter |
+| `ollama` | Local Ollama adapter over HTTP |
+| `bedrock` | AWS Bedrock adapter |
+| `azure` | Azure OpenAI adapter |
+| `mcp` | Model Context Protocol client and tool discovery |
+
+Provider support is protocol-based. You can bring your own adapter by implementing the `LLMAdapter` interface.
+
+## Built-In Tools
+
+| Tool | Purpose |
+| --- | --- |
+| `bash` | Execute shell commands with timeout and captured output |
+| `file_read` | Read file contents with line and size controls |
+| `file_write` | Create or overwrite files and parent directories |
+| `file_edit` | Replace targeted text in existing files |
+| `grep` | Search files using regex, with ripgrep when available |
+
+Custom tools use Pydantic input models and are registered through `define_tool()` and `ToolRegistry`.
+
+## Examples Cookbook
+
+The `examples/` directory contains 25 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
+
+| Examples | Theme |
+| --- | --- |
+| `01_solo_worker.py` to `04_hybrid_tooling.py` | Single agents, teams, dependency pipelines, custom and built-in tools |
+| `05_production_features.py` | Telemetry, guardrails, and structured output |
+| `06_pluggable_memory.py` to `08_hitl_approval.py` | Memory stores, checkpointing, and human approval |
+| `09_multi_provider.py` to `12_intelligent_routing.py` | Provider mixing, MCP tools, handoff, and routing |
+| `13_cost_tracking.py` to `17_yaml_config.py` | Cost reports, reflection, RAG memory, DAG visualization, and YAML config |
+| `18_execution_lifecycle.py` to `21_eval_suite.py` | Lifecycle events, adaptive context, quality gates, and evaluation suites |
+| `22_deterministic_eval.py` to `25_runtime_cancellation.py` | Fake adapters, context pressure, verification gates, and cancellation telemetry |
+
+Run an example from the repository root:
+
+```bash
+uv run python examples/01_solo_worker.py
+```
+
+Most live examples require `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Deterministic evaluation examples can run without live LLM credentials.
+
+## Development Setup
+
+Clone the repository and install dependencies with `uv`:
+
+```bash
+git clone https://github.com/Quantlix/anycode.git
+cd anycode/anycode-python
+uv sync --group dev
+```
+
+Run the local verification commands:
+
+```bash
+uv run ruff check src/
+uv run ruff format --check src/
+uv run pyright
+uv run python -m pytest
+```
+
+The default pytest configuration excludes integration tests. Integration tests may require Docker services or provider credentials.
+
+## Security And Responsible Use
+
+AnyCode agents can be connected to tools that read files, write files, execute commands, call providers, and access external systems through MCP. Treat every tool-enabled agent as a privileged automation process.
+
+Recommended safeguards while the framework is alpha:
+
+- Run agents in disposable workspaces.
+- Scope tool access to the minimum needed tools.
+- Use fake adapters or deterministic evaluation before live model calls.
+- Keep API keys in environment variables or `.env` files that are not committed.
+- Add human approval gates for sensitive or irreversible actions.
+- Avoid production workloads until the security roadmap has landed and been independently reviewed.
+
+## FAQ
+
+### Is AnyCode production ready?
+
+No. AnyCode is under active development and currently marked alpha. It includes production-oriented ideas such as telemetry, guardrails, checkpoints, approvals, and quality gates, but the project is not meant for production use yet.
+
+### What makes AnyCode different from a single-agent loop?
+
+AnyCode gives you a team runtime: multiple agents, explicit task dependencies, shared memory, inter-agent messaging, scheduling strategies, provider routing, and structured run results.
+
+### Can I use different LLM providers in one workflow?
+
+Yes. Agents can use different providers and models in the same team. Routing can also select a model per task based on task complexity and configured rules.
+
+### Can AnyCode run without live API keys?
+
+Some examples require live providers. The deterministic evaluation suite and `FakeAdapter` support local tests without live LLM credentials.
+
+### Does AnyCode support custom tools?
+
+Yes. Tools are defined with Pydantic input models, registered at runtime, and executed through the same validation path as built-in tools.
 
 ## Contributing
 
-Contributions, suggestions, and issue reports are welcome. Please open an issue or submit a pull request on the [GitHub repository](https://github.com/Quantlix/anycode).
+Issues, discussions, and pull requests are welcome. Please keep contributions focused, typed, tested, and aligned with the existing async and immutable model style.
 
----
+Before proposing a change, run the local verification gate and keep updates scoped to the feature or bug being addressed.
 
 ## License
 
-Released under the MIT License — see [LICENSE](./LICENSE) for details.
-
----
+AnyCode is released under the MIT License. See [LICENSE](LICENSE) for details.
 
 <p align="center">
   Built with purpose by <strong><a href="https://github.com/Quantlix">Quantlix</a></strong>

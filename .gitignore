@@ -16,13 +16,15 @@ venv/
 *.so
 .coverage
 htmlcov/
+artifacts/
 
-# Claude Code local settings (contains personal preferences, never commit)
+# Claude Code local settings
 settings.local.json
 .claude/
 .mcp.json
 
-# Phase 2 — persistence artifacts
+
 .env.test.local
 *.db
 .anycode/
+RELEASE.md
