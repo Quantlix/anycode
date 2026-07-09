@@ -28,3 +28,4 @@ settings.local.json
 *.db
 .anycode/
 RELEASE.md
+build_out/
