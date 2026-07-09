@@ -1,4 +1,4 @@
-# Demo 14 — Self-Reflection (Phase 5.1)
+# Demo 14 — Self-Reflection
 # Execute: uv run python examples/14_self_reflection.py
 #
 # Demonstrates a critic loop that retries until quality threshold is met.

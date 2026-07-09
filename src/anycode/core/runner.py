@@ -6,12 +6,15 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncGenerator, Callable
+from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel
 
+from anycode.checkpoint.serializer import _serialize_message
 from anycode.constants import DEFAULT_TURN_LIMIT, HANDOFF_TOOL_NAME, MAX_VALIDATION_RETRIES, MS_PER_SECOND
+from anycode.context.profiles import resolve_profile
 from anycode.core.context_manager import ContextManager
-from anycode.core.lifecycle import LifecycleEmitter, LifecycleListener, LoopDetector, fingerprint_call
+from anycode.core.lifecycle import LifecycleEmitter, LifecycleEvent, LifecycleListener, LoopDetector, fingerprint_call
 from anycode.core.stop_reason import (
     budget_exceeded as stop_budget_exceeded,
 )
@@ -20,6 +23,9 @@ from anycode.core.stop_reason import (
 )
 from anycode.core.stop_reason import (
     max_turns as stop_max_turns,
+)
+from anycode.core.stop_reason import (
+    provider_unavailable as stop_provider_unavailable,
 )
 from anycode.core.stop_reason import (
     success as stop_success,
@@ -32,6 +38,8 @@ from anycode.guardrails.hooks import HookRunner
 from anycode.guardrails.validators import run_validators
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
+from anycode.providers.resilience import ProviderUnavailableError
+from anycode.runstore.store import FilesystemRunStore
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
     build_retry_prompt,
@@ -46,6 +54,7 @@ from anycode.types import (
     ContentBlock,
     ContextManifest,
     ContextPolicy,
+    DurabilityConfig,
     GuardrailConfig,
     HandoffRequest,
     LLMAdapter,
@@ -65,9 +74,11 @@ from anycode.types import (
     ToolResultBlock,
     ToolUseBlock,
     ToolUseContext,
+    TurnCheckpoint,
     TurnHook,
     VerificationResult,
     VerificationSensorConfig,
+    WakeCondition,
 )
 from anycode.verification.gate import QualityGate
 from anycode.verification.registry import build_sensors
@@ -99,6 +110,9 @@ class AgentRunner:
         output_schema: type[BaseModel] | None = None,
         lifecycle_listeners: list[LifecycleListener] | None = None,
         context_policy: ContextPolicy | None = None,
+        durability: DurabilityConfig | None = None,
+        run_store: FilesystemRunStore | None = None,
+        resume_from: TurnCheckpoint | None = None,
     ) -> None:
         self._adapter = adapter
         self._registry = tool_registry
@@ -112,12 +126,19 @@ class AgentRunner:
         self._output_schema = output_schema
         self._lifecycle_listeners = list(lifecycle_listeners or [])
         self._context_manager: ContextManager | None = (
-            ContextManager(context_policy, provider=adapter.name) if context_policy and context_policy.enabled else None
+            ContextManager(context_policy, provider=adapter.name, model=options.model)
+            if context_policy and (context_policy.enabled or context_policy.mode == "auto")
+            else None
         )
         self._sensor_configs: tuple[VerificationSensorConfig, ...] = tuple(options.verification or ())
         self._gate: QualityGate | None = None
         if self._sensor_configs:
             self._gate = QualityGate(build_sensors(self._sensor_configs))
+        self._durability = durability if (durability and durability.enabled) else None
+        self._run_store: FilesystemRunStore | None = None
+        if self._durability is not None:
+            self._run_store = run_store or FilesystemRunStore(self._durability.run_root)
+        self._resume_from = resume_from
 
     @property
     def budget_tracker(self) -> BudgetTracker:
@@ -147,10 +168,13 @@ class AgentRunner:
         turn_count = 0
         validation_retries = 0
         structured_retries = 0
+        base_retries = 0
         agent_name = self._options.agent_name or "runner"
 
+        restored = self._resume_from
+        run_id = restored.run_id if restored is not None else str(uuid7())
         emitter = LifecycleEmitter(
-            run_id=str(uuid7()),
+            run_id=run_id,
             agent_name=agent_name,
             listeners=self._lifecycle_listeners,
         )
@@ -158,8 +182,67 @@ class AgentRunner:
         terminal_stop: StopReason | None = None
         verification_results: list[VerificationResult] = []
         gate_decisions: list[QualityGateDecision] = []
+        restored_lifecycle: list[object] = []
         verification_retries = 0
         max_verification_retries = MAX_VALIDATION_RETRIES
+
+        if restored is not None:
+            # Continue a durable run from its last turn boundary: history,
+            # accounting, and loop-detection state all carry over.
+            conversation = list(restored.messages)
+            cumulative_usage = restored.token_usage
+            turn_count = restored.turn
+            last_output = restored.last_output
+            base_retries = restored.retries
+            self._budget.restore(restored.budget)
+            loop_detector.restore_window(restored.loop_window)
+            context_manifests = list(restored.context_manifests)
+            verification_results = list(restored.verification_results)
+            gate_decisions = list(restored.gate_decisions)
+            restored_lifecycle = list(restored.lifecycle_events)
+        seed_len = len(conversation) if restored is not None else len(seed_messages)
+
+        store = self._run_store
+        durability = self._durability
+        if store is not None and durability is not None:
+            if store.read_record(run_id) is None:
+                store.create_run(run_id, agent_name=agent_name, model=self._options.model)
+            else:
+                store.update_status(run_id, "running")
+
+            def _on_lifecycle(ev: LifecycleEvent) -> None:
+                if store is not None:
+                    store.append_event(run_id, "lifecycle", ev.model_dump(mode="json"))
+
+            emitter.add_listener(_on_lifecycle)
+
+        def _persist(kind: str, payload: dict[str, object]) -> None:
+            if store is not None:
+                store.append_event(run_id, kind, payload)  # type: ignore[arg-type]
+
+        def _all_lifecycle() -> list[object]:
+            return [*restored_lifecycle, *emitter.events]
+
+        def _save_turn_checkpoint() -> None:
+            if store is None or durability is None:
+                return
+            checkpoint = TurnCheckpoint(
+                run_id=run_id,
+                turn=turn_count,
+                messages=list(conversation),
+                token_usage=cumulative_usage,
+                budget=self._budget.snapshot(),
+                loop_window=loop_detector.export_window(),
+                last_output=last_output,
+                retries=base_retries + validation_retries + structured_retries + verification_retries,
+                lifecycle_events=_all_lifecycle(),  # type: ignore[arg-type]
+                context_manifests=list(context_manifests),
+                verification_results=list(verification_results),
+                gate_decisions=list(gate_decisions),
+                created_at=datetime.now(UTC),
+            )
+            store.save_checkpoint(checkpoint, keep_last=durability.keep_last_checkpoints)
+            _persist("checkpoint", {"turn": turn_count})
 
         all_defs = self._registry.to_tool_defs()
         active_defs = [d for d in all_defs if d.name in self._options.allowed_tools] if self._options.allowed_tools else all_defs
@@ -168,12 +251,14 @@ class AgentRunner:
             structured_tool = schema_to_tool_def(self._output_schema)
             active_defs = list(active_defs) + [structured_tool] if active_defs else [structured_tool]
 
+        cache_profile, _ = resolve_profile(provider=self._adapter.name, model=self._options.model)
         chat_params = LLMChatOptions(
             model=self._options.model,
             tools=active_defs if active_defs else None,
             max_tokens=self._options.max_tokens,
             temperature=self._options.temperature,
             system_prompt=self._options.system_prompt,
+            enable_prompt_cache=cache_profile.supports_prompt_cache,
         )
 
         try:
@@ -187,6 +272,10 @@ class AgentRunner:
 
                 turn_count += 1
                 self._budget.record_turn()
+                if store is not None:
+                    # Liveness at turn start too: an LLM call can legitimately
+                    # run for minutes, and watchdogs kill on stale heartbeats.
+                    store.touch_heartbeat(run_id)
 
                 ctx_info = self._build_agent_info()
                 conversation = await self._hook_runner.run_before_turn(conversation, ctx_info)
@@ -206,10 +295,21 @@ class AgentRunner:
 
                     llm_start = time.monotonic()
                     if self._context_manager is not None:
-                        prepared_messages, manifest = self._context_manager.assemble(conversation)
-                        context_manifests.append(manifest)
+                        tool_defs_text: str | None = None
+                        if active_defs:
+                            tool_defs_text = json.dumps(
+                                [{"name": d.name, "description": d.description, "input_schema": d.input_schema} for d in active_defs],
+                                default=str,
+                                sort_keys=True,
+                            )
+                        prepared_messages, manifest = self._context_manager.assemble(
+                            conversation,
+                            system_prompt=self._options.system_prompt,
+                            tool_definitions_text=tool_defs_text,
+                        )
                     else:
                         prepared_messages = conversation
+                        manifest = None
                     async with self._tracer.async_span("anycode.llm.chat", parent=turn_span) as llm_span:
                         response = await self._adapter.chat(prepared_messages, chat_params)
                         llm_span.set_attributes(
@@ -220,6 +320,52 @@ class AgentRunner:
                                 token_output=response.usage.output_tokens,
                             )
                         )
+                    if manifest is not None:
+                        manifest = ContextManager.reconcile(manifest, response.usage)
+                        context_manifests.append(manifest)
+                        if self._context_manager is not None:
+                            # Provider-actual counts calibrate future pressure
+                            # classification so compaction never fires late.
+                            self._context_manager.note_actual(manifest)
+                        if manifest.pressure in ("compact", "handoff"):
+                            _persist(
+                                "compaction",
+                                {
+                                    "pressure": manifest.pressure,
+                                    "estimated_tokens": manifest.estimated_tokens,
+                                    "archive_path": manifest.archive_path,
+                                },
+                            )
+
+                        # Automatic context reset: at `handoff` pressure the
+                        # context manager has archived a rebuildable artifact.
+                        # Continue the same run (identity, budget, accounting)
+                        # in a fresh, compact context instead of letting the
+                        # conversation grow past the window.
+                        if (
+                            manifest.pressure == "handoff"
+                            and manifest.handoff_path
+                            and self._context_manager is not None
+                            and self._context_manager.policy.auto_reset_on_handoff
+                        ):
+                            from anycode.core.context_manager import build_invariant_message, rebuild_from_handoff
+
+                            conversation = rebuild_from_handoff(manifest.handoff_path)
+                            conversation.append(
+                                build_invariant_message(
+                                    self._context_manager.policy,
+                                    notice=(
+                                        "Context was reset from a handoff artifact to stay within the "
+                                        f"model window (archived at {manifest.handoff_path})."
+                                    ),
+                                )
+                            )
+                            seed_len = min(seed_len, len(conversation))
+                            _persist(
+                                "compaction",
+                                {"reset": True, "handoff_path": manifest.handoff_path, "turn": turn_count},
+                            )
+                            _save_turn_checkpoint()
 
                     turn_span.set_attribute("llm_duration_ms", (time.monotonic() - llm_start) * MS_PER_SECOND)
                     cumulative_usage = merge_usage(cumulative_usage, response.usage)
@@ -231,6 +377,7 @@ class AgentRunner:
                     conversation.append(assistant_msg)
                     if on_message:
                         on_message(assistant_msg)
+                    _persist("message", _serialize_message(assistant_msg))
 
                     turn_text = _pull_text(response.content)
                     if turn_text:
@@ -308,6 +455,7 @@ class AgentRunner:
                             )
                             decision = await self._gate.evaluate(gate_ctx)
                             gate_decisions.append(decision)
+                            _persist("gate_decision", decision.model_dump(mode="json"))
                             verification_results.extend(decision.results)
                             for r in decision.results:
                                 turn_span.add_event(
@@ -363,6 +511,8 @@ class AgentRunner:
                         verification_results=verification_results,
                         gate_decisions=gate_decisions,
                     )
+                    if pre_decision is not None:
+                        _persist("gate_decision", pre_decision.model_dump(mode="json"))
                     if pre_decision is not None and pre_decision.outcome in ("block", "escalate"):
                         recoverable = pre_decision.outcome == "escalate"
                         terminal_stop = StopReason(
@@ -378,6 +528,16 @@ class AgentRunner:
                     results = await self._execute_tool_blocks(tool_blocks, turn_span, ctx)
 
                     self._budget.record_tool_call(len(results))
+                    for _rb, _record in results:
+                        _persist(
+                            "tool_result",
+                            {
+                                "tool_name": _record.tool_name,
+                                "input": _record.input,
+                                "output": _record.output[:16_000],
+                                "duration": _record.duration,
+                            },
+                        )
 
                     post_decision = await self._evaluate_tool_gate(
                         phase="after_tool",
@@ -391,6 +551,8 @@ class AgentRunner:
                         verification_results=verification_results,
                         gate_decisions=gate_decisions,
                     )
+                    if post_decision is not None:
+                        _persist("gate_decision", post_decision.model_dump(mode="json"))
                     if post_decision is not None and post_decision.outcome in ("block", "escalate"):
                         recoverable = post_decision.outcome == "escalate"
                         terminal_stop = StopReason(
@@ -422,15 +584,24 @@ class AgentRunner:
 
                     handoff = self._detect_handoff(results)
                     if handoff is not None:
-                        handoff_req, handoff_record = handoff
-                        tool_calls.append(handoff_record)
+                        handoff_req, _ = handoff
+                        # Preserve full audit trail: append every executed tool call (including
+                        # any non-handoff calls in the same batch) and emit their tool_result
+                        # events before terminating the run.
+                        for _, record in results:
+                            tool_calls.append(record)
+                            yield StreamEvent(type="tool_result", data=record)
                         yield StreamEvent(type="handoff", data=handoff_req)
                         terminal_stop = stop_success("Handoff to downstream agent.")
                         final_event = emitter.transition("completed", stop_reason=terminal_stop)
+                        if store is not None:
+                            _save_turn_checkpoint()
+                            _persist("stop", {"code": terminal_stop.code, "message": terminal_stop.message})
+                            store.update_status(run_id, "completed")
                         yield StreamEvent(
                             type="done",
                             data=RunResult(
-                                messages=conversation[len(seed_messages) :],
+                                messages=conversation[seed_len:],
                                 output=last_output or handoff_req.summary,
                                 tool_calls=tool_calls,
                                 token_usage=cumulative_usage,
@@ -438,11 +609,11 @@ class AgentRunner:
                                 handoff_request=handoff_req,
                                 terminal_phase=final_event.phase,
                                 stop_reason=terminal_stop,
-                                lifecycle_events=emitter.events,
+                                lifecycle_events=_all_lifecycle(),  # type: ignore[arg-type]
                                 context_manifests=list(context_manifests),
                                 verification_results=list(verification_results),
                                 gate_decisions=list(gate_decisions),
-                                retries=validation_retries + structured_retries + verification_retries,
+                                retries=base_retries + validation_retries + structured_retries + verification_retries,
                             ),
                         )
                         return
@@ -459,6 +630,11 @@ class AgentRunner:
                     if on_message:
                         on_message(tool_msg)
 
+                    if store is not None and durability is not None:
+                        store.touch_heartbeat(run_id)
+                        if turn_count % durability.checkpoint_every_turns == 0:
+                            _save_turn_checkpoint()
+
             if terminal_stop is None:
                 # Loop exited without an explicit reason: turn limit reached.
                 terminal_stop = stop_max_turns(self._turn_limit)
@@ -469,30 +645,48 @@ class AgentRunner:
                 emitter.transition("cancelled", stop_reason=cancel_stop)
             except Exception:  # noqa: BLE001
                 pass
+            if store is not None:
+                try:
+                    _save_turn_checkpoint()
+                    _persist("stop", {"code": cancel_stop.code, "message": cancel_stop.message})
+                    store.update_status(run_id, "cancelled")
+                except Exception:  # noqa: BLE001 - persistence must not mask cancellation
+                    pass
             yield StreamEvent(
                 type="done",
                 data=RunResult(
-                    messages=conversation[len(seed_messages) :],
+                    messages=conversation[seed_len:],
                     output=last_output or cancel_stop.message,
                     tool_calls=tool_calls,
                     token_usage=cumulative_usage,
                     turns=turn_count,
                     terminal_phase="cancelled",
                     stop_reason=cancel_stop,
-                    lifecycle_events=emitter.events,
+                    lifecycle_events=_all_lifecycle(),  # type: ignore[arg-type]
                     context_manifests=list(context_manifests),
                     verification_results=list(verification_results),
                     gate_decisions=list(gate_decisions),
-                    retries=validation_retries + structured_retries + verification_retries,
+                    retries=base_retries + validation_retries + structured_retries + verification_retries,
                 ),
             )
             raise
+        except ProviderUnavailableError as e:
+            # Transient-failure retries exhausted or circuit open: surface a
+            # structured, recoverable stop reason instead of a raw error event.
+            terminal_stop = stop_provider_unavailable(str(e))
         except Exception as e:
             failure_stop = StopReason(code="unknown", message=str(e), recoverable=False)
             try:
                 emitter.transition("failed", stop_reason=failure_stop)
             except Exception:  # noqa: BLE001 - never mask the real error
                 pass
+            if store is not None:
+                try:
+                    _save_turn_checkpoint()
+                    _persist("stop", {"code": failure_stop.code, "message": failure_stop.message})
+                    store.update_status(run_id, "failed")
+                except Exception:  # noqa: BLE001 - never mask the real error
+                    pass
             yield StreamEvent(type="error", data=e)
             return
 
@@ -524,21 +718,39 @@ class AgentRunner:
                 )
             )
 
+        if store is not None:
+            _save_turn_checkpoint()
+            _persist("stop", {"code": terminal_stop.code, "message": terminal_stop.message})
+            if terminal_stop.code == "provider_unavailable":
+                # Pause-not-die: the provider circuit is open. Park the run with
+                # a timed wake so a scheduler sweep resumes it after the
+                # provider has had time to recover.
+                store.pause_run(
+                    run_id,
+                    WakeCondition(
+                        kind="on_provider_recovery",
+                        wake_at=datetime.now(UTC) + timedelta(seconds=120),
+                        note=terminal_stop.message,
+                    ),
+                )
+            else:
+                store.update_status(run_id, "completed" if terminal_stop.code == "success" else "failed")
+
         yield StreamEvent(
             type="done",
             data=RunResult(
-                messages=conversation[len(seed_messages) :],
+                messages=conversation[seed_len:],
                 output=last_output,
                 tool_calls=tool_calls,
                 token_usage=cumulative_usage,
                 turns=turn_count,
                 terminal_phase=terminal_phase_name,
                 stop_reason=terminal_stop,
-                lifecycle_events=emitter.events,
+                lifecycle_events=_all_lifecycle(),  # type: ignore[arg-type]
                 context_manifests=list(context_manifests),
                 verification_results=list(verification_results),
                 gate_decisions=list(gate_decisions),
-                retries=validation_retries + structured_retries + verification_retries,
+                retries=base_retries + validation_retries + structured_retries + verification_retries,
             ),
         )
 
@@ -638,18 +850,22 @@ class AgentRunner:
     @staticmethod
     def _detect_handoff(results: list[tuple[ToolResultBlock, ToolCallRecord]]) -> tuple[HandoffRequest, ToolCallRecord] | None:
         """Scan tool results for a handoff sentinel. Returns (request, record) or None."""
+        from anycode.handoff.tool import decode_handoff_payload
+
         for _, record in results:
-            if record.tool_name == HANDOFF_TOOL_NAME and record.output.startswith("__HANDOFF__:"):
-                parts = record.output.split(":", 3)
-                if len(parts) >= 4:
-                    return (
-                        HandoffRequest(
-                            to_agent=parts[1],
-                            summary=parts[2],
-                            reason=parts[3],
-                        ),
-                        record,
-                    )
+            if record.tool_name != HANDOFF_TOOL_NAME:
+                continue
+            payload = decode_handoff_payload(record.output)
+            if payload is None:
+                continue
+            return (
+                HandoffRequest(
+                    to_agent=payload["to_agent"],
+                    summary=payload["summary"],
+                    reason=payload["reason"],
+                ),
+                record,
+            )
         return None
 
     def _build_context(self) -> ToolUseContext:

@@ -136,7 +136,7 @@ async def main() -> None:
         # Call a real tool if we have any
         if client.discovered_tools:
             result = await client.call_tool("list_commits", {"owner": "Quantlix", "repo": "anycode", "per_page": 2})
-            print(f"\n  list_commits(Quantlix/anycode, per_page=2):")
+            print("\n  list_commits(Quantlix/anycode, per_page=2):")
             for line in result["content"].split("\n")[:5]:
                 print(f"    {line[:100]}")
 

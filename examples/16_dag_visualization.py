@@ -1,4 +1,4 @@
-# Demo 16 — DAG Visualization (Phase 5.3)
+# Demo 16 — DAG Visualization
 # Execute: uv run python examples/16_dag_visualization.py
 #
 # Demonstrates rendering a task DAG in mermaid, dot, JSON, and ASCII,

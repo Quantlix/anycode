@@ -12,6 +12,8 @@ from anycode.cli.commands import inspect as inspect_cmd
 from anycode.cli.commands import run as run_cmd
 from anycode.cli.commands import version as version_cmd
 from anycode.cli.commands.eval import app as eval_app
+from anycode.cli.commands.harness import app as harness_app
+from anycode.cli.commands.runs import app as runs_app
 
 app = typer.Typer(
     name="anycode",
@@ -25,6 +27,8 @@ app.command("run", help="Run an AnyCode team or agent from a config file or flag
 app.command("inspect", help="Inspect built-in tools, providers, or a team config.")(inspect_cmd.command)
 app.command("version", help="Print the AnyCode version and runtime info.")(version_cmd.command)
 app.add_typer(eval_app, name="eval", help="Run and compare harness evaluation suites.")
+app.add_typer(harness_app, name="harness", help="Inspect and (experimentally) evolve the AnyCode harness.")
+app.add_typer(runs_app, name="runs", help="Inspect, audit, and sweep durable long-running agent runs.")
 
 
 def main() -> None:  # pragma: no cover - thin shim

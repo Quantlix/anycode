@@ -49,5 +49,9 @@ def doom_loop(pattern: str, repeats: int) -> StopReason:
     )
 
 
+def provider_unavailable(message: str) -> StopReason:
+    return StopReason(code="provider_unavailable", message=message, recoverable=True)
+
+
 def unknown(message: str = "Run ended for unknown reasons.") -> StopReason:
     return StopReason(code="unknown", message=message, recoverable=False)

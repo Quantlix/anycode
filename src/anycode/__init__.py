@@ -37,6 +37,7 @@ from anycode.core.orchestrator import AnyCode, TaskSpec
 from anycode.core.pool import AgentPool
 from anycode.core.runner import AgentRunner
 from anycode.core.scheduler import Scheduler
+from anycode.core.session_chain import SessionChain, contract_status_summary, load_contract, save_contract
 from anycode.cost import (
     DEFAULT_PRICING,
     CostTracker,
@@ -66,6 +67,20 @@ from anycode.guardrails.validators import (
 from anycode.handoff.executor import HandoffExecutor
 from anycode.handoff.protocol import build_handoff_system_prompt, build_handoff_user_message, trim_context
 from anycode.handoff.tool import HANDOFF_TOOL_DEF
+from anycode.harness import (
+    EvidenceCollector,
+    EvidenceStore,
+    HarnessRegistry,
+    build_default_registry,
+    build_manifest,
+    categorize_event,
+    categorize_run,
+    diff_manifests,
+    distill_evidence,
+    load_manifest,
+    save_manifest,
+    write_evidence_bundle,
+)
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
@@ -76,18 +91,31 @@ from anycode.mcp.bridge import mcp_tool_to_definition, schema_to_pydantic_model
 from anycode.mcp.client import MCPClient
 from anycode.mcp.config import validate_server_config as mcp_validate_server_config
 from anycode.memory.composite import CompositeMemory
-from anycode.memory.factory import create_memory_store
+from anycode.memory.factory import create_memory_store, create_vector_store
 from anycode.memory.indexer import RAGIndexer
+from anycode.memory.knowledge import KnowledgeEntry, KnowledgeStore, apply_retention, build_knowledge_tools
 from anycode.memory.rag import RAGRetriever
 from anycode.memory.vector_store import InMemoryVectorStore
+from anycode.plugins import (
+    PluginBase,
+    PluginRegistry,
+    discover_entry_point_plugins,
+    get_provider_factory,
+    list_registered_providers,
+    register_provider_factory,
+)
 from anycode.providers.adapter import create_adapter
 from anycode.providers.fake import FakeAdapter, FakeResponse
+from anycode.providers.resilience import ProviderUnavailableError, ResilientAdapter
 from anycode.reflection.critic import DEFAULT_CRITIC_PROMPT, LLMCritic
 from anycode.reflection.evaluator import parse_critic_json
 from anycode.reflection.loop import ReflectionLoop
 from anycode.routing.classifier import classify_task
 from anycode.routing.router import DefaultRouter
 from anycode.routing.rules import evaluate_rules, match_rule
+from anycode.runstore.store import FilesystemRunStore
+from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
+from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
     build_retry_prompt,
@@ -104,6 +132,7 @@ from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry, define_tool
 from anycode.types import (
+    AcceptanceThresholds,
     AgentConfig,
     AgentInfo,
     AgentRunResult,
@@ -112,6 +141,7 @@ from anycode.types import (
     ApprovalGate,
     ApprovalRequest,
     ApprovalResponse,
+    BudgetSnapshot,
     BudgetStatus,
     CheckpointConfig,
     CheckpointData,
@@ -120,23 +150,47 @@ from anycode.types import (
     ContentBlock,
     ContextArtifact,
     ContextManifest,
+    ContextMode,
     ContextPolicy,
     ContextPressure,
+    ContextSectionBudget,
+    ContextSectionInput,
+    ContextSectionKind,
+    ContextSectionUsage,
     ContextSource,
+    ContextUsageReport,
     CostBreakdown,
     CostConfig,
     CostReport,
+    CountingConfidence,
     Critic,
     CriticResult,
+    DurabilityConfig,
     EvalReport,
     EvalScenario,
     EvalScenarioResult,
+    EvidencePacket,
+    EvidenceSeverity,
+    EvolutionBlueprint,
     ExecutionPhase,
+    FailureCategory,
+    FailureMapEntry,
     GateOutcome,
+    GoalContract,
+    GoalCriterion,
     GuardrailConfig,
     Handoff,
     HandoffPolicy,
     HandoffRequest,
+    HarnessChangeEdit,
+    HarnessChangeManifest,
+    HarnessChangeOutcome,
+    HarnessChangePrediction,
+    HarnessChangeStatus,
+    HarnessComponent,
+    HarnessComponentKind,
+    HarnessComponentOwner,
+    HarnessManifest,
     ImageBlock,
     LifecycleEvent,
     LLMAdapter,
@@ -150,23 +204,37 @@ from anycode.types import (
     MemoryConfig,
     MemoryEntry,
     MemoryStore,
+    MetaHarnessReport,
+    ModelContextProfile,
     ModelPricing,
     OrchestratorConfig,
     OrchestratorEvent,
     OutputValidator,
+    Plugin,
+    PluginInstallation,
+    PluginManifest,
+    PluginSource,
     PoolStatus,
+    ProviderFactory,
+    ProviderResilienceConfig,
     QualityGateDecision,
     RAGConfig,
     RAGContext,
     RAGEntry,
     ReflectionConfig,
+    RetryPolicy,
     RouteDecision,
     Router,
     RoutingConfig,
     RoutingRule,
     RunnerOptions,
+    RunRecord,
     RunResult,
+    RunStatus,
+    RunSummary,
     SchedulingStrategy,
+    SectionOverflow,
+    SectionPriority,
     SensorPhase,
     SpanAttributes,
     StopReason,
@@ -180,6 +248,7 @@ from anycode.types import (
     TeamConfig,
     TeamRunResult,
     TextBlock,
+    TokenizerStrategy,
     TokenUsage,
     ToolCallRecord,
     ToolDefinition,
@@ -188,6 +257,10 @@ from anycode.types import (
     ToolUseBlock,
     ToolUseContext,
     TraceConfig,
+    TrajectoryEvent,
+    TrajectoryEvidence,
+    TranscriptEvent,
+    TurnCheckpoint,
     TurnHook,
     ValidationResult,
     VectorSearchResult,
@@ -196,6 +269,7 @@ from anycode.types import (
     VerificationResult,
     VerificationSensorConfig,
     VerificationSeverity,
+    WakeCondition,
 )
 from anycode.verification import (
     QualityGate,
@@ -281,6 +355,41 @@ __all__ = [
     "create_adapter",
     "FakeAdapter",
     "FakeResponse",
+    # Provider resilience
+    "ResilientAdapter",
+    "ProviderUnavailableError",
+    "ProviderResilienceConfig",
+    "RetryPolicy",
+    # Durable run store
+    "FilesystemRunStore",
+    "DurabilityConfig",
+    "RunRecord",
+    "RunStatus",
+    "TranscriptEvent",
+    "TurnCheckpoint",
+    "BudgetSnapshot",
+    # Session chaining
+    "SessionChain",
+    "GoalContract",
+    "GoalCriterion",
+    "load_contract",
+    "save_contract",
+    "contract_status_summary",
+    # Scheduling / watchdogs
+    "RunScheduler",
+    "SweepReport",
+    "sweep_once",
+    "ScheduledTask",
+    "ScheduledTaskResult",
+    "run_scheduled_task",
+    "WakeCondition",
+    # Tiered memory
+    "KnowledgeStore",
+    "KnowledgeEntry",
+    "build_knowledge_tools",
+    "apply_retention",
+    "create_memory_store",
+    "create_vector_store",
     # MCP
     "MCPClient",
     "mcp_discover_and_register",
@@ -400,6 +509,18 @@ __all__ = [
     "HandoffRequest",
     "Handoff",
     "HandoffPolicy",
+    # Plugin ecosystem
+    "Plugin",
+    "PluginBase",
+    "PluginInstallation",
+    "PluginManifest",
+    "PluginRegistry",
+    "PluginSource",
+    "ProviderFactory",
+    "discover_entry_point_plugins",
+    "get_provider_factory",
+    "list_registered_providers",
+    "register_provider_factory",
     "ComplexityLevel",
     "RoutingRule",
     "RoutingConfig",
@@ -425,6 +546,17 @@ __all__ = [
     "ContextPolicy",
     "ContextPressure",
     "ContextSource",
+    "ContextMode",
+    "ContextSectionBudget",
+    "ContextSectionInput",
+    "ContextSectionKind",
+    "ContextSectionUsage",
+    "ContextUsageReport",
+    "CountingConfidence",
+    "ModelContextProfile",
+    "SectionOverflow",
+    "SectionPriority",
+    "TokenizerStrategy",
     "StructuredOutputConfig",
     "StructuredRunResult",
     "StructuredAgentResult",
@@ -455,4 +587,36 @@ __all__ = [
     # Visualization
     "render_dag",
     "render_timeline",
+    # Harness
+    "AcceptanceThresholds",
+    "EvidencePacket",
+    "EvidenceSeverity",
+    "EvidenceCollector",
+    "EvidenceStore",
+    "EvolutionBlueprint",
+    "FailureCategory",
+    "FailureMapEntry",
+    "HarnessChangeEdit",
+    "HarnessChangeManifest",
+    "HarnessChangeOutcome",
+    "HarnessChangePrediction",
+    "HarnessChangeStatus",
+    "HarnessComponent",
+    "HarnessComponentKind",
+    "HarnessComponentOwner",
+    "HarnessManifest",
+    "HarnessRegistry",
+    "MetaHarnessReport",
+    "RunSummary",
+    "TrajectoryEvent",
+    "TrajectoryEvidence",
+    "build_default_registry",
+    "build_manifest",
+    "categorize_event",
+    "categorize_run",
+    "diff_manifests",
+    "distill_evidence",
+    "load_manifest",
+    "save_manifest",
+    "write_evidence_bundle",
 ]

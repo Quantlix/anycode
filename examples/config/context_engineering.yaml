@@ -1,0 +1,53 @@
+# Context engineering YAML example.
+#
+# Load with: anycode.config.load_config("examples/config/context_engineering.yaml")
+#
+# Highlights:
+#   * Global `context_engineering` block applies to every agent unless
+#     overridden by an agent-level `context_policy`.
+#   * Custom model profiles unlock huge-context (1M, 2M, 5M+) models without
+#     code changes.
+#   * Section budgets cap individual content kinds (tool results, RAG, etc.)
+#     even when the overall window has plenty of headroom.
+
+context_engineering:
+  enabled: true
+  mode: auto
+  window:
+    reserved_response_tokens: 8192
+  model_profiles:
+    - provider: anthropic
+      model: claude-future-giga
+      max_context_tokens: 5000000
+      max_output_tokens: 64000
+      supports_prompt_cache: true
+      tokenizer_strategy: provider
+  sections:
+    tool_results:
+      max_tokens: 40000
+      priority: medium
+      overflow: summarize
+    memory_rag:
+      max_tokens: 20000
+      priority: medium
+      overflow: trim
+    files:
+      max_tokens: 30000
+      priority: medium
+      overflow: offload
+
+agents:
+  - name: researcher
+    provider: anthropic
+    model: claude-sonnet-4-6
+    system_prompt: "You are a meticulous research assistant."
+  - name: planner
+    provider: openai
+    model: gpt-4.1
+    system_prompt: "You break down tasks into ordered steps."
+    # Per-agent override: planner uses a manual cap rather than auto mode.
+    context_policy:
+      enabled: true
+      mode: manual
+      max_context_tokens: 200000
+      reserved_response_tokens: 4096

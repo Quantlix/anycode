@@ -73,10 +73,11 @@ Key use cases include:
 | Safety and control | Guardrails, token and cost budgets, output validators, turn hooks, structured output, HITL approval gates |
 | Persistence | In-memory, SQLite, Redis, vector memory, ChromaDB support, checkpoint stores, and resume support |
 | Routing and handoff | Intelligent task routing, route decision reports, handoff requests, and context-preserving handoff execution |
-| Advanced runtime | Cost reports, self-reflection, critic loops, DAG visualization, RAG memory, lifecycle states, stop reasons |
+| Advanced runtime | Cost reports, self-reflection, critic loops, DAG visualization, RAG memory, lifecycle states, stop reasons, and context engineering reports |
 | Verification | Built-in `ruff`, `pyright`, `pytest`, `schema`, and `regex` sensors with quality gate decisions |
 | Evaluation | Scenario loading, deterministic fake responses, benchmark reports, markdown rendering, and report comparison |
 | Developer experience | CLI commands, YAML/TOML config, examples cookbook, CLI inspection, and deterministic eval reports |
+| Extension ecosystem | Typed `Plugin` bundles (tools, provider factories, sensors, hooks) registered via `engine.register_plugin()` or auto-discovered through the `anycode.plugins` entry-point group |
 
 ## Architecture At A Glance
 
@@ -384,7 +385,7 @@ Custom tools use Pydantic input models and are registered through `define_tool()
 
 ## Examples Cookbook
 
-The `examples/` directory contains 25 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
+The `examples/` directory contains 26 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
 
 | Examples | Theme |
 | --- | --- |
@@ -395,6 +396,8 @@ The `examples/` directory contains 25 runnable scripts. They are arranged from b
 | `13_cost_tracking.py` to `17_yaml_config.py` | Cost reports, reflection, RAG memory, DAG visualization, and YAML config |
 | `18_execution_lifecycle.py` to `21_eval_suite.py` | Lifecycle events, adaptive context, quality gates, and evaluation suites |
 | `22_deterministic_eval.py` to `25_runtime_cancellation.py` | Fake adapters, context pressure, verification gates, and cancellation telemetry |
+| `26_context_engineering.py` | Huge-context model profiles, section budgets, first-class section inputs, and usage reports |
+| `27_plugin_ecosystem.py` | Plugin bundles wiring custom tools, provider factories, and sensors into the engine |
 
 Run an example from the repository root:
 

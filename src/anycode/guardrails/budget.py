@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from anycode.types import BudgetStatus, GuardrailConfig, TokenUsage
+from anycode.types import BudgetSnapshot, BudgetStatus, GuardrailConfig, TokenUsage
 
 DEFAULT_COST_PER_1M: dict[str, dict[str, float]] = {
     "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
@@ -101,6 +101,22 @@ class BudgetTracker:
         if self._config.blocked_tools and tool_name in self._config.blocked_tools:
             return True
         return False
+
+    def snapshot(self) -> BudgetSnapshot:
+        """Capture cumulative counters for durable checkpoints."""
+        return BudgetSnapshot(
+            tokens_used=self._tokens_used,
+            cost_used=self._cost_used,
+            turns_used=self._turns_used,
+            tool_calls_used=self._tool_calls_used,
+        )
+
+    def restore(self, snapshot: BudgetSnapshot) -> None:
+        """Restore cumulative counters from a durable checkpoint."""
+        self._tokens_used = snapshot.tokens_used
+        self._cost_used = snapshot.cost_used
+        self._turns_used = snapshot.turns_used
+        self._tool_calls_used = snapshot.tool_calls_used
 
     def get_status(self) -> BudgetStatus:
         return BudgetStatus(

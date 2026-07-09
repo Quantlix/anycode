@@ -74,6 +74,14 @@ class LoopDetector:
     def reset(self) -> None:
         self._recent.clear()
 
+    def export_window(self) -> tuple[str, ...]:
+        """Capture the fingerprint window for durable checkpoints."""
+        return tuple(self._recent)
+
+    def restore_window(self, window: tuple[str, ...] | list[str]) -> None:
+        """Restore the fingerprint window from a durable checkpoint."""
+        self._recent = list(window)[-self._window :]
+
 
 LifecycleListener = Callable[[LifecycleEvent], None]
 

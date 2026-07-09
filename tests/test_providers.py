@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from anycode.providers._openai_compat import map_messages, map_stop_reason, map_tool_def, parse_json_safe
+from anycode.providers._openai_compat import map_messages, map_stop_reason, map_tool_def, parse_json_safe, parse_token_usage
 from anycode.providers.adapter import create_adapter
 from anycode.providers.azure import AzureOpenAIAdapter
 from anycode.providers.bedrock import BedrockAdapter
@@ -76,6 +76,19 @@ class TestOpenAICompat:
         assert parse_json_safe("not json") == {}
         assert parse_json_safe("") == {}
 
+    def test_parse_token_usage_splits_cached_prompt_tokens(self) -> None:
+        usage = parse_token_usage(
+            {
+                "prompt_tokens": 120,
+                "completion_tokens": 30,
+                "prompt_tokens_details": {"cached_tokens": 50, "cache_creation_tokens": 10},
+            }
+        )
+        assert usage.input_tokens == 60
+        assert usage.output_tokens == 30
+        assert usage.cache_creation_input_tokens == 10
+        assert usage.cache_read_input_tokens == 50
+
 
 # ---------------------------------------------------------------------------
 # Provider factory tests
@@ -140,6 +153,7 @@ class TestGeminiAdapter:
         mock_response.candidates = [mock_candidate]
         mock_response.usage_metadata.prompt_token_count = 10
         mock_response.usage_metadata.candidates_token_count = 20
+        mock_response.usage_metadata.cached_content_token_count = 0
 
         adapter._client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
@@ -206,6 +220,7 @@ class TestGeminiAdapter:
         mock_response.candidates = [mock_candidate]
         mock_response.usage_metadata.prompt_token_count = 10
         mock_response.usage_metadata.candidates_token_count = 20
+        mock_response.usage_metadata.cached_content_token_count = 0
 
         generate_mock = AsyncMock(return_value=mock_response)
         adapter._client.aio.models.generate_content = generate_mock

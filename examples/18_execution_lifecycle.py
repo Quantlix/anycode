@@ -18,7 +18,7 @@ import asyncio
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -56,7 +56,7 @@ PROVIDER, MODEL = _resolve_provider()
 
 
 def _persist(name: str, payload: dict[str, object]) -> Path:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     target = ARTIFACTS_DIR / f"{timestamp}_{name}.json"
     target.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     return target

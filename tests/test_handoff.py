@@ -9,7 +9,7 @@ import pytest
 
 from anycode.handoff.executor import HandoffExecutor
 from anycode.handoff.protocol import build_handoff_system_prompt, build_handoff_user_message, trim_context
-from anycode.handoff.tool import HANDOFF_TOOL_DEF, HandoffInput, _execute_handoff
+from anycode.handoff.tool import HANDOFF_TOOL_DEF, HandoffInput, _execute_handoff, decode_handoff_payload, encode_handoff_payload
 from anycode.types import AgentRunResult, Handoff, HandoffRequest, LLMMessage, TextBlock, TokenUsage, ToolUseContext
 
 # ---------------------------------------------------------------------------
@@ -31,20 +31,39 @@ class TestHandoffTool:
         ctx = MagicMock(spec=ToolUseContext)
         result = await _execute_handoff(inp, ctx)
         assert result.data.startswith("__HANDOFF__:")
-        assert "writer" in result.data
-        assert "Draft the report" in result.data
-        assert "Research complete" in result.data
+        decoded = decode_handoff_payload(result.data)
+        assert decoded == {"to_agent": "writer", "summary": "Draft the report", "reason": "Research complete"}
         assert result.is_error is False
 
     async def test_sentinel_format_parsable(self) -> None:
         inp = HandoffInput(to_agent="coder", summary="Implement feature", reason="Design done")
         ctx = MagicMock(spec=ToolUseContext)
         result = await _execute_handoff(inp, ctx)
-        parts = result.data.split(":", 3)
-        assert parts[0] == "__HANDOFF__"
-        assert parts[1] == "coder"
-        assert parts[2] == "Implement feature"
-        assert parts[3] == "Design done"
+        decoded = decode_handoff_payload(result.data)
+        assert decoded is not None
+        assert decoded["to_agent"] == "coder"
+        assert decoded["summary"] == "Implement feature"
+        assert decoded["reason"] == "Design done"
+
+    async def test_sentinel_round_trips_colons_and_unicode(self) -> None:
+        # Free-form summary/reason text containing ':' previously broke the colon-delimited
+        # encoding. The JSON-based encoding must round-trip these values losslessly.
+        summary = "Status: blocked on review (see ticket: ABC-123) — needs attention"
+        reason = "Stuck: can't access the API:port — escalate to platform team"
+        inp = HandoffInput(to_agent="ops", summary=summary, reason=reason)
+        ctx = MagicMock(spec=ToolUseContext)
+        result = await _execute_handoff(inp, ctx)
+        decoded = decode_handoff_payload(result.data)
+        assert decoded == {"to_agent": "ops", "summary": summary, "reason": reason}
+
+    def test_decode_rejects_non_sentinel(self) -> None:
+        assert decode_handoff_payload("plain text") is None
+        assert decode_handoff_payload("__HANDOFF__:not-json") is None
+        assert decode_handoff_payload(encode_handoff_payload("a", "b", "c")) == {
+            "to_agent": "a",
+            "summary": "b",
+            "reason": "c",
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -270,3 +289,92 @@ class TestHandoffExecutor:
         # Handoff is frozen
         with pytest.raises(Exception):
             handoff.from_agent = "x"
+
+    async def test_recursive_chain_follows_downstream_handoff(self) -> None:
+        """When the target agent emits its own handoff_request, the executor follows up to max_depth."""
+
+        class ChainResolver:
+            """First call returns a result that itself requests another handoff; second returns terminal."""
+
+            def __init__(self) -> None:
+                self.calls: list[str] = []
+
+            async def resolve_and_run(self, name: str, prompt: str, system_prompt_extra: str) -> AgentRunResult:
+                self.calls.append(name)
+                if name == "middle":
+                    return AgentRunResult(
+                        success=True,
+                        output="middle done, forwarding",
+                        messages=[LLMMessage(role="assistant", content=[TextBlock(text="middle output")])],
+                        token_usage=TokenUsage(input_tokens=5, output_tokens=5),
+                        tool_calls=[],
+                        handoff_request=HandoffRequest(to_agent="terminal", summary="middle→terminal", reason="next step"),
+                    )
+                return AgentRunResult(
+                    success=True,
+                    output="terminal complete",
+                    messages=[LLMMessage(role="assistant", content=[TextBlock(text="final")])],
+                    token_usage=TokenUsage(input_tokens=3, output_tokens=4),
+                    tool_calls=[],
+                )
+
+        executor = HandoffExecutor(max_depth=3)
+        request = HandoffRequest(to_agent="middle", summary="start→middle", reason="kickoff")
+        resolver = ChainResolver()
+        chain: list[Handoff] = []
+
+        result, first_record = await executor.execute(
+            request=request,
+            from_agent="start",
+            conversation=[LLMMessage(role="user", content=[TextBlock(text="initial")])],
+            agent_resolver=resolver,
+            chain=chain,
+        )
+
+        assert resolver.calls == ["middle", "terminal"]
+        assert result.success is True
+        assert result.output == "terminal complete"
+        # Token usage merges across both hops
+        assert result.token_usage.input_tokens == 8
+        assert result.token_usage.output_tokens == 9
+        assert len(chain) == 2
+        assert chain[0].from_agent == "start" and chain[0].to_agent == "middle"
+        assert chain[1].from_agent == "middle" and chain[1].to_agent == "terminal"
+        assert first_record.to_agent == "middle"
+
+    async def test_recursive_chain_halts_at_max_depth(self) -> None:
+        """A chain that keeps emitting handoffs must halt cleanly when depth is exhausted."""
+
+        class InfiniteResolver:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            async def resolve_and_run(self, name: str, prompt: str, system_prompt_extra: str) -> AgentRunResult:
+                self.calls += 1
+                return AgentRunResult(
+                    success=True,
+                    output=f"hop {self.calls}",
+                    messages=[],
+                    token_usage=TokenUsage(input_tokens=1, output_tokens=1),
+                    tool_calls=[],
+                    handoff_request=HandoffRequest(to_agent=f"agent_{self.calls + 1}", summary="next", reason="loop"),
+                )
+
+        executor = HandoffExecutor(max_depth=2)
+        request = HandoffRequest(to_agent="agent_1", summary="seed", reason="start")
+        resolver = InfiniteResolver()
+        chain: list[Handoff] = []
+
+        result, _ = await executor.execute(
+            request=request,
+            from_agent="root",
+            conversation=[],
+            agent_resolver=resolver,
+            chain=chain,
+        )
+
+        # max_depth=2 allows two hops then halts (the third would exceed). Depth=0 (agent_1) and
+        # depth=1 (agent_2) both run; depth=2 short-circuits with the limit error.
+        assert resolver.calls == 2
+        assert "depth limit" in result.output.lower()
+        assert len(chain) == 3  # two completed hops + the rejected attempt

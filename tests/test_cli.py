@@ -1,4 +1,4 @@
-"""Tests for the CLI (Phase 4.1)."""
+"""Tests for the CLI."""
 
 from __future__ import annotations
 

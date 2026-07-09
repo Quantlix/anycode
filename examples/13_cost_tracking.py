@@ -1,4 +1,4 @@
-# Demo 13 — Cost Tracking & Budget Enforcement (Phase 5.2)
+# Demo 13 — Cost Tracking & Budget Enforcement
 # Execute: uv run python examples/13_cost_tracking.py
 #
 # Demonstrates:
@@ -69,7 +69,7 @@ async def main() -> None:
 
     print(f"\nsuccess={result.success}")
     if result.cost_report:
-        print(f"\n=== Cost Report ===")
+        print("\n=== Cost Report ===")
         print(f"Total: ${result.cost_report.total_cost_usd:.6f}")
         print(f"Tokens: in={result.cost_report.total_input_tokens} out={result.cost_report.total_output_tokens}")
         for b in result.cost_report.by_agent:

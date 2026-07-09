@@ -1,4 +1,4 @@
-"""Tests for Phase 6 harness runtime reliability features.
+"""Tests for harness runtime reliability features.
 
 Uses the deterministic FakeAdapter so no LLM keys are required.
 """
@@ -78,7 +78,7 @@ def test_build_regex_sensor_from_config() -> None:
 
 def test_deterministic_eval_suite_runs_without_llm() -> None:
     scenarios = load_scenarios(DET_SUITE)
-    report = asyncio.run(run_suite(list(scenarios), suite_name="phase6", harness_variant="det"))
+    report = asyncio.run(run_suite(list(scenarios), suite_name="deterministic", harness_variant="det"))
     assert report.total_scenarios == 4
     by_name = {r.scenario_name: r for r in report.scenario_results}
     assert by_name["simple_tool_failure"].passed

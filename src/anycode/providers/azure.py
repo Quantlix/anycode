@@ -13,6 +13,7 @@ from anycode.providers._openai_compat import (
     map_tool_def,
     parse_chat_response,
     parse_json_safe,
+    parse_token_usage,
 )
 from anycode.types import (
     ContentBlock,
@@ -81,14 +82,14 @@ class AzureOpenAIAdapter:
             kwargs["response_format"] = response_format
 
         completion = await self._client.chat.completions.create(**kwargs)
-        content, stop, input_tokens, output_tokens = parse_chat_response(completion)
+        content, stop, usage = parse_chat_response(completion)
 
         return LLMResponse(
             id=completion.id,
             content=content,
             model=completion.model,
             stop_reason=stop,
-            usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
+            usage=usage,
         )
 
     async def stream(self, messages: list[LLMMessage], options: LLMStreamOptions) -> AsyncIterator[StreamEvent]:
@@ -104,8 +105,7 @@ class AzureOpenAIAdapter:
         completion_id = ""
         completion_model = ""
         last_stop = "stop"
-        prompt_tokens = 0
-        gen_tokens = 0
+        usage = TokenUsage(input_tokens=0, output_tokens=0)
         json_buffers: dict[int, dict[str, str]] = {}
         full_text = ""
 
@@ -116,8 +116,7 @@ class AzureOpenAIAdapter:
                 completion_model = chunk.model
 
                 if chunk.usage:
-                    prompt_tokens = chunk.usage.prompt_tokens
-                    gen_tokens = chunk.usage.completion_tokens
+                    usage = parse_token_usage(chunk.usage)
 
                 if not chunk.choices:
                     continue
@@ -161,7 +160,7 @@ class AzureOpenAIAdapter:
                     content=done_content,
                     model=completion_model,
                     stop_reason=map_stop_reason(last_stop),
-                    usage=TokenUsage(input_tokens=prompt_tokens, output_tokens=gen_tokens),
+                    usage=usage,
                 ),
             )
         except Exception as e:

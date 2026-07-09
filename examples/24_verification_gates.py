@@ -1,4 +1,4 @@
-"""Phase 6 — declarative quality gate via the verification sensor registry.
+"""Declarative quality gate via the verification sensor registry.
 
 Builds a regex sensor through ``build_sensors`` and runs it directly against a
 ``SensorContext`` so users can see how YAML ``verification:`` blocks

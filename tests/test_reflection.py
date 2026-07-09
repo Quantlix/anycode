@@ -1,4 +1,4 @@
-"""Tests for self-reflection (Phase 5.1)."""
+"""Tests for self-reflection."""
 
 from __future__ import annotations
 

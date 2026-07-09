@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterable, Awaitable, Callable
+from collections.abc import AsyncIterable, Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
+from enum import StrEnum
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # -- Content blocks --
 
@@ -62,6 +63,8 @@ class TokenUsage(BaseModel):
     model_config = ConfigDict(frozen=True)
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 
 # -- Execution lifecycle --
@@ -88,6 +91,7 @@ StopReasonCode = Literal[
     "blocked_dependency",
     "user_cancelled",
     "doom_loop",
+    "provider_unavailable",
     "unknown",
 ]
 
@@ -111,8 +115,8 @@ class LifecycleEvent(BaseModel):
 
 # -- Adaptive context lifecycle --
 
-ContextPressure = Literal["normal", "trim", "offload", "compact", "handoff"]
-ContextSourceKind = Literal["instructions", "working_memory", "task_state", "external_memory", "offloaded_artifact"]
+ContextPressure = Literal["normal", "trim", "mask", "offload", "compact", "handoff"]
+ContextSourceKind = Literal["instructions", "working_memory", "task_state", "external_memory", "files", "verification", "offloaded_artifact"]
 
 
 class ContextArtifact(BaseModel):
@@ -135,14 +139,89 @@ class ContextSource(BaseModel):
     preserved: bool = True
 
 
+# -- Context engineering --
+
+ContextSectionKind = Literal[
+    "reserved_response",
+    "system_instructions",
+    "tool_definitions",
+    "user_messages",
+    "files",
+    "tool_results",
+    "memory_rag",
+    "task_state",
+    "verification",
+    "offloaded_artifacts",
+]
+
+CountingConfidence = Literal["provider", "tokenizer", "heuristic"]
+TokenizerStrategy = Literal["provider", "tiktoken", "heuristic"]
+ContextMode = Literal["disabled", "manual", "auto"]
+SectionPriority = Literal["required", "high", "medium", "low"]
+SectionOverflow = Literal["trim", "summarize", "offload", "drop", "error"]
+
+
+class ModelContextProfile(BaseModel):
+    """Describes the effective context window and accounting hints for a model."""
+
+    model_config = ConfigDict(frozen=True)
+    provider: str
+    model: str
+    max_context_tokens: int | None = None
+    max_output_tokens: int | None = None
+    supports_prompt_cache: bool = False
+    tokenizer_strategy: TokenizerStrategy = "heuristic"
+
+
+class ContextSectionBudget(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    kind: ContextSectionKind
+    max_tokens: int | None = None
+    priority: SectionPriority = "medium"
+    overflow: SectionOverflow = "trim"
+
+
+class ContextSectionUsage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    kind: ContextSectionKind
+    estimated_tokens: int = 0
+    actual_tokens: int | None = None
+    included_tokens: int = 0
+    percentage_of_window: float = 0.0
+    strategy_applied: str | None = None
+
+
+class ContextSectionInput(BaseModel):
+    """First-class context payload supplied to the section-aware assembler."""
+
+    model_config = ConfigDict(frozen=True)
+    kind: ContextSectionKind
+    label: str
+    content: str
+    preserved: bool = True
+
+
+class ContextUsageReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    max_context_tokens: int | None = None
+    reserved_response_tokens: int = 0
+    used_tokens: int = 0
+    available_tokens: int | None = None
+    sections: tuple[ContextSectionUsage, ...] = ()
+    counting_confidence: CountingConfidence = "heuristic"
+    profile: ModelContextProfile | None = None
+
+
 class ContextPolicy(BaseModel):
     model_config = ConfigDict(frozen=True)
     enabled: bool = False
     max_context_tokens: int = 100_000
     trim_ratio: float = 0.65
+    mask_ratio: float = 0.70
     offload_ratio: float = 0.75
     compact_ratio: float = 0.85
     handoff_ratio: float = 0.95
+    auto_reset_on_handoff: bool = False
     keep_recent_messages: int = 6
     max_tool_output_tokens: int = 4000
     summary_target_tokens: int = 800
@@ -150,6 +229,12 @@ class ContextPolicy(BaseModel):
     preserved_task_state: dict[str, str] = {}
     preserved_verification_failures: tuple[str, ...] = ()
     provider_overrides: dict[str, ContextPolicy] = {}
+    # Context engineering extensions (all additive, backward compatible).
+    mode: Literal["disabled", "manual", "auto"] = "manual"
+    reserved_response_tokens: int = 0
+    sections: dict[ContextSectionKind, ContextSectionBudget] = {}
+    model_profile: ModelContextProfile | None = None
+    custom_profiles: tuple[ModelContextProfile, ...] = ()
 
     def for_provider(self, provider: str | None) -> ContextPolicy:
         if provider and provider in self.provider_overrides:
@@ -166,9 +251,14 @@ class ContextManifest(BaseModel):
     offloaded: list[ContextArtifact] = []
     compaction_summary: str | None = None
     handoff_path: str | None = None
+    archive_path: str | None = None
     preserved_task_state: dict[str, str] = {}
     preserved_verification_failures: tuple[str, ...] = ()
     provider: str | None = None
+    # Section-aware reporting.
+    usage_report: ContextUsageReport | None = None
+    actual_input_tokens: int | None = None
+    warnings: tuple[str, ...] = ()
 
 
 # -- Verification sensors and quality gates --
@@ -349,8 +439,8 @@ class AgentConfig(BaseModel):
 class AgentState(BaseModel):
     model_config = ConfigDict(frozen=True)
     status: Literal["idle", "running", "completed", "error"] = "idle"
-    messages: list[LLMMessage] = []
-    token_usage: TokenUsage = TokenUsage()
+    messages: list[LLMMessage] = Field(default_factory=list)
+    token_usage: TokenUsage = Field(default_factory=TokenUsage)
     error: str | None = None
 
 
@@ -489,10 +579,169 @@ class LLMChatOptions(BaseModel):
     max_tokens: int | None = None
     temperature: float | None = None
     system_prompt: str | None = None
+    enable_prompt_cache: bool = False
 
 
 class LLMStreamOptions(LLMChatOptions):
     pass
+
+
+class RetryPolicy(BaseModel):
+    """Backoff/retry behavior for transient provider failures."""
+
+    model_config = ConfigDict(frozen=True)
+    max_attempts: int = 6
+    base_delay_seconds: float = 1.0
+    max_delay_seconds: float = 60.0
+    jitter: bool = True
+    respect_retry_after: bool = True
+    call_timeout_seconds: float = 300.0
+
+
+class ProviderResilienceConfig(BaseModel):
+    """Retry, deadline, and circuit-breaker settings applied around any LLM adapter."""
+
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = True
+    retry: RetryPolicy = RetryPolicy()
+    circuit_failure_threshold: int = 5
+    circuit_reset_seconds: float = 120.0
+    enable_prompt_cache: bool = True
+
+
+# -- Durable run store --
+
+RunStatus = Literal["running", "paused", "interrupted", "completed", "failed", "cancelled"]
+
+TranscriptEventKind = Literal[
+    "message",
+    "tool_call",
+    "tool_result",
+    "lifecycle",
+    "gate_decision",
+    "approval_request",
+    "approval_response",
+    "compaction",
+    "checkpoint",
+    "pause",
+    "wake",
+    "retry",
+    "circuit_open",
+    "stall_warning",
+    "stop",
+]
+
+
+class DurabilityConfig(BaseModel):
+    """Opt-in durable persistence for a single agent run."""
+
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = False
+    run_root: str = ".anycode/runs"
+    checkpoint_every_turns: int = 5
+    keep_last_checkpoints: int = 3
+    heartbeat_seconds: float = 30.0
+
+
+WakeKind = Literal["at_time", "on_approval", "on_provider_recovery", "manual"]
+
+
+class WakeCondition(BaseModel):
+    """Why a paused run should resume, persisted so any process can wake it."""
+
+    model_config = ConfigDict(frozen=True)
+    kind: WakeKind
+    wake_at: datetime | None = None
+    approval_id: str | None = None
+    note: str = ""
+
+
+class RunRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    run_id: str
+    agent_name: str
+    model: str
+    status: RunStatus
+    created_at: datetime
+    updated_at: datetime
+    last_heartbeat: datetime
+    wake: WakeCondition | None = None
+    metadata: dict[str, str] = {}
+
+
+class TranscriptEvent(BaseModel):
+    """One append-only entry in a run's durable event log."""
+
+    model_config = ConfigDict(frozen=True)
+    seq: int
+    ts: datetime
+    kind: TranscriptEventKind
+    payload: dict[str, Any] = {}
+
+
+class BudgetSnapshot(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    tokens_used: int = 0
+    cost_used: float = 0.0
+    turns_used: int = 0
+    tool_calls_used: int = 0
+
+
+class GoalCriterion(BaseModel):
+    """One machine-checkable done-condition in a goal contract."""
+
+    model_config = ConfigDict(frozen=True)
+    id: str
+    description: str
+    steps: tuple[str, ...] = ()
+    passes: bool = False
+    evidence: str | None = None
+
+
+class GoalContract(BaseModel):
+    """Machine-readable done-conditions for a multi-session task.
+
+    Criteria may only flip to passing through external verification evidence —
+    never through the generating agent's own claim (self-grading is the
+    documented failure mode for long-running agents).
+    """
+
+    model_config = ConfigDict(frozen=True)
+    goal: str
+    criteria: tuple[GoalCriterion, ...]
+
+    @property
+    def complete(self) -> bool:
+        return all(c.passes for c in self.criteria)
+
+    def next_incomplete(self) -> GoalCriterion | None:
+        for criterion in self.criteria:
+            if not criterion.passes:
+                return criterion
+        return None
+
+    def mark_passed(self, criterion_id: str, evidence: str) -> GoalContract:
+        updated = tuple(c.model_copy(update={"passes": True, "evidence": evidence}) if c.id == criterion_id else c for c in self.criteria)
+        return self.model_copy(update={"criteria": updated})
+
+
+class TurnCheckpoint(BaseModel):
+    """Full resumable state of a single agent run at a turn boundary."""
+
+    model_config = ConfigDict(frozen=True)
+    run_id: str
+    turn: int
+    messages: list[LLMMessage]
+    token_usage: TokenUsage
+    budget: BudgetSnapshot = BudgetSnapshot()
+    loop_window: tuple[str, ...] = ()
+    last_output: str = ""
+    retries: int = 0
+    lifecycle_events: list[LifecycleEvent] = []
+    context_manifests: list[ContextManifest] = []
+    verification_results: list[VerificationResult] = []
+    gate_decisions: list[QualityGateDecision] = []
+    created_at: datetime
 
 
 @runtime_checkable
@@ -866,7 +1115,7 @@ class Router(Protocol):
     async def route(self, task: Task, agents: list[AgentConfig]) -> RouteDecision | None: ...
 
 
-# -- Cost engine (Phase 5.2) --
+# -- Cost engine --
 
 
 class ModelPricing(BaseModel):
@@ -893,8 +1142,11 @@ class CostBreakdown(BaseModel):
     model: str
     input_tokens: int
     output_tokens: int
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
     input_cost_usd: float
     output_cost_usd: float
+    cache_read_cost_usd: float = 0.0
     total_cost_usd: float
     calls: int
 
@@ -904,13 +1156,15 @@ class CostReport(BaseModel):
     total_cost_usd: float
     total_input_tokens: int
     total_output_tokens: int
+    total_cache_creation_input_tokens: int = 0
+    total_cache_read_input_tokens: int = 0
     by_agent: list[CostBreakdown]
     by_model: list[CostBreakdown]
     budget_usd: float | None = None
     budget_remaining_usd: float | None = None
 
 
-# -- Reflection (Phase 5.1) --
+# -- Reflection --
 
 
 class CriticResult(BaseModel):
@@ -940,7 +1194,7 @@ class ReflectionConfig(BaseModel):
     custom_critic: Critic | None = None
 
 
-# -- RAG memory (Phase 5.4) --
+# -- RAG memory --
 
 
 class RAGEntry(BaseModel):
@@ -963,6 +1217,282 @@ class RAGConfig(BaseModel):
     auto_index: bool = True
     top_k: int = 5
     min_relevance: float = 0.3
-    max_context_tokens: int = 2000
+    max_context_tokens: int | None = 2000
     index_tool_results: bool = True
     namespace: str = "default"
+
+
+# -- Harness component registry --
+
+HarnessComponentKind = Literal[
+    "prompt",
+    "tool",
+    "context_policy",
+    "routing_policy",
+    "verification",
+    "memory",
+    "provider",
+]
+
+HarnessComponentOwner = Literal["core", "config", "user", "plugin"]
+
+
+class HarnessComponent(BaseModel):
+    """Single editable or inspectable artifact of the agent harness."""
+
+    model_config = ConfigDict(frozen=True)
+    id: str
+    kind: HarnessComponentKind
+    source: str
+    editable: bool
+    owner: HarnessComponentOwner
+    checksum: str
+    description: str
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class HarnessManifest(BaseModel):
+    """Snapshot of every harness component for a configured run."""
+
+    model_config = ConfigDict(frozen=True)
+    manifest_version: str = "1"
+    components: tuple[HarnessComponent, ...]
+    created_at: datetime
+    checksum: str
+    notes: str | None = None
+
+
+# -- Trajectory evidence corpus --
+
+
+class FailureCategory(StrEnum):
+    TOOL_ARGUMENT_ERROR = "tool_argument_error"
+    TOOL_RUNTIME_ERROR = "tool_runtime_error"
+    CONTEXT_LOSS = "context_loss"
+    EARLY_STOPPING = "early_stopping"
+    VERIFICATION_FAILURE = "verification_failure"
+    BUDGET_EXCEEDED = "budget_exceeded"
+    POLICY_BLOCKED = "policy_blocked"
+    SECURITY_ANOMALY = "security_anomaly"
+    SUCCESS = "success"
+    UNKNOWN = "unknown"
+
+
+EvidenceSeverity = Literal["low", "medium", "high", "critical"]
+
+
+class EvidencePacket(BaseModel):
+    """A compact failure (or success) artifact tied to raw trace event IDs."""
+
+    model_config = ConfigDict(frozen=True)
+    id: str
+    category: FailureCategory
+    summary: str
+    event_ids: tuple[str, ...] = ()
+    severity: EvidenceSeverity = "medium"
+    suggested_component_ids: tuple[str, ...] = ()
+    evidence: dict[str, str] = Field(default_factory=dict)
+
+
+class TrajectoryEvent(BaseModel):
+    """One normalized event in a run's trajectory (lifecycle / tool / model)."""
+
+    model_config = ConfigDict(frozen=True)
+    id: str
+    kind: Literal["lifecycle", "tool_call", "model_turn", "verification", "error"]
+    name: str
+    timestamp: float
+    attributes: dict[str, str | int | float | bool] = Field(default_factory=dict)
+
+
+class RunSummary(BaseModel):
+    """Top-level outcome summary for a single run."""
+
+    model_config = ConfigDict(frozen=True)
+    run_id: str
+    task: str
+    outcome: Literal["pass", "fail", "error"]
+    stop_reason: str | None = None
+    cost_usd: float = 0.0
+    runtime_seconds: float = 0.0
+    turns: int = 0
+    quality_gate: Literal["pass", "warn", "fail", "unknown"] = "unknown"
+    verification_failures: int = 0
+
+
+class FailureMapEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    category: FailureCategory
+    count: int
+    representative_event_ids: tuple[str, ...] = ()
+
+
+class TrajectoryEvidence(BaseModel):
+    """All distilled artifacts for one run."""
+
+    model_config = ConfigDict(frozen=True)
+    run_summary: RunSummary
+    failure_map: tuple[FailureMapEntry, ...] = ()
+    decision_timeline: tuple[TrajectoryEvent, ...] = ()
+    evidence_packets: tuple[EvidencePacket, ...] = ()
+    raw_trace_path: str | None = None
+    manifest_checksum: str | None = None
+
+
+# -- Controlled evolution loop --
+
+
+class HarnessChangePrediction(BaseModel):
+    """Falsifiable forecast about a candidate harness change."""
+
+    model_config = ConfigDict(frozen=True)
+    metric: str
+    expected_direction: Literal["increase", "decrease", "unchanged"]
+    expected_delta: float | None = None
+    rationale: str
+
+
+HarnessChangeStatus = Literal[
+    "proposed",
+    "applied",
+    "evaluated",
+    "accepted",
+    "rejected",
+    "rolled_back",
+]
+
+
+class HarnessChangeEdit(BaseModel):
+    """One concrete edit to a single component, captured as a reviewable diff."""
+
+    model_config = ConfigDict(frozen=True)
+    component_id: str
+    before_checksum: str
+    after_checksum: str
+    diff: str
+    note: str = ""
+
+
+class HarnessChangeManifest(BaseModel):
+    """Predicted, falsifiable change to one or more harness components."""
+
+    model_config = ConfigDict(frozen=True)
+    id: str
+    component_ids: tuple[str, ...]
+    evidence_packet_ids: tuple[str, ...] = ()
+    summary: str
+    predictions: tuple[HarnessChangePrediction, ...]
+    rollback_plan: str
+    safety_review_required: bool = True
+    edits: tuple[HarnessChangeEdit, ...] = ()
+    created_at: datetime | None = None
+
+
+class AcceptanceThresholds(BaseModel):
+    """Hard policy floors that no blueprint optimization may relax."""
+
+    model_config = ConfigDict(frozen=True)
+    min_pass_delta: int = 0
+    max_regressions: int = 0
+    max_runtime_delta_seconds: float | None = None
+    max_cost_delta_usd: float | None = None
+    block_on_safety_regression: bool = True
+
+
+class HarnessChangeOutcome(BaseModel):
+    """Result of measuring a candidate manifest against baseline + thresholds."""
+
+    model_config = ConfigDict(frozen=True)
+    manifest_id: str
+    status: HarnessChangeStatus
+    baseline_passed: int
+    candidate_passed: int
+    regressions: tuple[str, ...] = ()
+    improvements: tuple[str, ...] = ()
+    predicted_vs_measured: tuple[dict[str, str | float | bool | None], ...] = ()
+    reasons: tuple[str, ...] = ()
+    patch_path: str | None = None
+
+
+# -- Meta-harness optimization --
+
+
+class EvolutionBlueprint(BaseModel):
+    """Versioned blueprint that describes the evolution loop itself."""
+
+    model_config = ConfigDict(frozen=True)
+    id: str
+    worker_seed: str
+    evaluator_prompt_id: str
+    evolution_prompt_id: str
+    evidence_policy_id: str
+    max_iterations: int = 3
+    acceptance_policy_id: str = "default"
+    description: str = ""
+    safety_floors: AcceptanceThresholds = Field(default_factory=AcceptanceThresholds)
+
+
+class MetaHarnessReport(BaseModel):
+    """Summary of running one or more blueprints across train + held-out suites."""
+
+    model_config = ConfigDict(frozen=True)
+    blueprint_id: str
+    train_scores: tuple[float, ...] = ()
+    heldout_scores: tuple[float, ...] = ()
+    convergence_iterations: tuple[int, ...] = ()
+    accepted_changes: int = 0
+    rejected_changes: int = 0
+    total_cost_usd: float = 0.0
+    regression_rate: float = 0.0
+    notes: str = ""
+
+
+# -- Plugin / extension ecosystem --
+
+PluginSource = Literal["manual", "entry_point", "builtin"]
+
+
+class PluginManifest(BaseModel):
+    """Static metadata for a plugin — name, version, and a short human description."""
+
+    model_config = ConfigDict(frozen=True)
+    name: str
+    version: str = "0.0.0"
+    description: str = ""
+    homepage: str | None = None
+    source: PluginSource = "manual"
+
+
+ProviderFactory = Callable[..., Awaitable["LLMAdapter"]]
+
+
+@runtime_checkable
+class Plugin(Protocol):
+    """A single extension bundle wiring tools, providers, sensors, and hooks into AnyCode.
+
+    Every accessor is optional — return an empty sequence/mapping when the plugin does not
+    contribute that kind of extension. The manifest is required and is the only piece used
+    for inspection and duplicate detection.
+    """
+
+    @property
+    def manifest(self) -> PluginManifest: ...
+
+    def tools(self) -> Sequence[ToolDefinition]: ...
+
+    def provider_factories(self) -> Mapping[str, ProviderFactory]: ...
+
+    def sensors(self) -> Sequence[VerificationSensorConfig]: ...
+
+    def turn_hooks(self) -> Sequence[TurnHook]: ...
+
+
+class PluginInstallation(BaseModel):
+    """Records what a plugin contributed when installed into a `PluginRegistry`."""
+
+    model_config = ConfigDict(frozen=True)
+    manifest: PluginManifest
+    tool_names: tuple[str, ...] = ()
+    provider_names: tuple[str, ...] = ()
+    sensor_names: tuple[str, ...] = ()
+    turn_hook_count: int = 0

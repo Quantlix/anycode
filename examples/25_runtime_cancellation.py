@@ -1,8 +1,8 @@
-"""Phase 6 — runtime cancellation and terminal lifecycle telemetry.
+"""Runtime cancellation and terminal lifecycle telemetry.
 
 Cancels an in-flight ``AgentRunner.stream`` and inspects the final
 ``RunResult`` to confirm the runner emits a ``cancelled`` terminal phase with
-the ``user_cancelled`` stop reason — both new behaviours wired in Phase 6.
+the ``user_cancelled`` stop reason.
 
 Run::
 

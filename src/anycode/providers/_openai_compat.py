@@ -23,6 +23,7 @@ from anycode.types import (
     LLMMessage,
     LLMToolDef,
     TextBlock,
+    TokenUsage,
     ToolUseBlock,
 )
 
@@ -112,8 +113,38 @@ def parse_json_safe(s: str) -> dict[str, Any]:
     return {}
 
 
-def parse_chat_response(completion: Any) -> tuple[list[ContentBlock], str, int, int]:
-    """Parse an OpenAI chat completion into (content_blocks, stop_reason, input_tokens, output_tokens)."""
+def _get_usage_int(value: Any, name: str) -> int:
+    if value is None:
+        return 0
+    raw = value.get(name, 0) if isinstance(value, dict) else getattr(value, name, 0)
+    if isinstance(raw, int | float):
+        return int(raw)
+    if isinstance(raw, str) and raw.isdigit():
+        return int(raw)
+    return 0
+
+
+def parse_token_usage(usage: Any) -> TokenUsage:
+    """Parse OpenAI-compatible usage details into AnyCode's split cache model."""
+    if usage is None:
+        return TokenUsage(input_tokens=0, output_tokens=0)
+
+    prompt_tokens = _get_usage_int(usage, "prompt_tokens")
+    output_tokens = _get_usage_int(usage, "completion_tokens")
+    prompt_details = usage.get("prompt_tokens_details") if isinstance(usage, dict) else getattr(usage, "prompt_tokens_details", None)
+    cached_tokens = _get_usage_int(prompt_details, "cached_tokens")
+    cache_creation_tokens = _get_usage_int(prompt_details, "cache_creation_tokens") or _get_usage_int(prompt_details, "cache_creation_input_tokens")
+    fresh_input_tokens = max(prompt_tokens - cached_tokens - cache_creation_tokens, 0)
+    return TokenUsage(
+        input_tokens=fresh_input_tokens,
+        output_tokens=output_tokens,
+        cache_creation_input_tokens=cache_creation_tokens,
+        cache_read_input_tokens=cached_tokens,
+    )
+
+
+def parse_chat_response(completion: Any) -> tuple[list[ContentBlock], str, TokenUsage]:
+    """Parse an OpenAI chat completion into content blocks, stop reason, and usage."""
     choice = completion.choices[0]
     content: list[ContentBlock] = []
 
@@ -123,6 +154,5 @@ def parse_chat_response(completion: Any) -> tuple[list[ContentBlock], str, int, 
         content.append(ToolUseBlock(id=tc.id, name=tc.function.name, input=parse_json_safe(tc.function.arguments)))
 
     stop = map_stop_reason(choice.finish_reason)
-    input_tokens = completion.usage.prompt_tokens if completion.usage else 0
-    output_tokens = completion.usage.completion_tokens if completion.usage else 0
-    return content, stop, input_tokens, output_tokens
+    usage = parse_token_usage(completion.usage)
+    return content, stop, usage

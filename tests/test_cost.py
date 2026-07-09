@@ -1,4 +1,4 @@
-"""Tests for cost tracking (Phase 5.2)."""
+"""Tests for cost tracking."""
 
 from __future__ import annotations
 
@@ -43,6 +43,13 @@ def test_calculate_cost_unknown_model_returns_zero() -> None:
     assert calculate_cost(usage, "missing", []) == 0.0
 
 
+def test_calculate_cost_uses_cached_input_rate() -> None:
+    pricing = [ModelPricing(model="m", provider="x", input_cost_per_1k=0.010, output_cost_per_1k=0.020, cached_input_cost_per_1k=0.001)]
+    usage = TokenUsage(input_tokens=1000, output_tokens=500, cache_creation_input_tokens=250, cache_read_input_tokens=2000)
+    cost = calculate_cost(usage, "m", pricing)
+    assert cost == pytest.approx(0.0125 + 0.002 + 0.010)
+
+
 def test_cost_tracker_records_and_aggregates() -> None:
     config = CostConfig(budget_usd=1.0, on_budget_exceeded="warn")
     tracker = CostTracker(config=config)
@@ -80,3 +87,16 @@ def test_build_cost_report() -> None:
     assert report.total_cost_usd > 0
     agents = {b.agent for b in report.by_agent if b.agent}
     assert agents == {"alpha", "beta"}
+
+
+def test_cost_report_includes_cache_tokens() -> None:
+    pricing = [ModelPricing(model="m", provider="x", input_cost_per_1k=0.010, output_cost_per_1k=0.020, cached_input_cost_per_1k=0.001)]
+    tracker = CostTracker(config=CostConfig(), pricing=pricing)
+    tracker.record("alpha", "m", TokenUsage(input_tokens=100, output_tokens=50, cache_creation_input_tokens=25, cache_read_input_tokens=200))
+
+    report = build_cost_report(tracker)
+    assert report.total_cache_creation_input_tokens == 25
+    assert report.total_cache_read_input_tokens == 200
+    assert report.by_agent[0].cache_creation_input_tokens == 25
+    assert report.by_agent[0].cache_read_input_tokens == 200
+    assert report.by_agent[0].cache_read_cost_usd == pytest.approx(0.0002)

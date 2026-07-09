@@ -1,9 +1,9 @@
-"""Phase 6 — deterministic evaluation suite (no LLM key required).
+"""Deterministic evaluation suite (no LLM key required).
 
 Runs the deterministic harness-runtime-reliability fixture using the
 ``FakeAdapter`` so the scenarios never call a real provider. Produces JSON +
 Markdown reports next to the fixture so users can inspect cost/retry/
-verification-failure aggregates introduced in Phase 6.
+verification-failure aggregates.
 
 Run::
 
@@ -26,7 +26,7 @@ async def main() -> None:
     scenarios = list(load_scenarios(FIXTURE))
     print(f"Loaded {len(scenarios)} deterministic scenarios from {FIXTURE.name}")
 
-    report = await run_suite(scenarios, suite_name="phase6", harness_variant="deterministic")
+    report = await run_suite(scenarios, suite_name="deterministic", harness_variant="deterministic")
 
     print("\n=== Aggregate metrics ===")
     print(f"  passed:                     {report.passed}/{report.total_scenarios}")
@@ -35,9 +35,9 @@ async def main() -> None:
     print(f"  total_retries:              {report.total_retries}")
     print(f"  total_verification_failures:{report.total_verification_failures}")
 
-    out_dir = Path(tempfile.mkdtemp(prefix="anycode-phase6-"))
-    json_path = out_dir / "phase6_eval.json"
-    md_path = out_dir / "phase6_eval.md"
+    out_dir = Path(tempfile.mkdtemp(prefix="anycode-eval-"))
+    json_path = out_dir / "deterministic_eval.json"
+    md_path = out_dir / "deterministic_eval.md"
     write_report(report, json_path)
     md_path.write_text(render_markdown(report), encoding="utf-8")
     print(f"\nReports written to {out_dir}")

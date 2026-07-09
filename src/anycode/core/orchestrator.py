@@ -33,9 +33,11 @@ from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.hitl.approval import ApprovalManager
 from anycode.mcp.bridge import discover_and_register
 from anycode.mcp.client import MCPClient
+from anycode.memory.factory import create_vector_store
 from anycode.memory.indexer import RAGIndexer
 from anycode.memory.rag import RAGRetriever
-from anycode.memory.vector_store import InMemoryVectorStore
+from anycode.plugins.discovery import discover_entry_point_plugins
+from anycode.plugins.registry import PluginRegistry
 from anycode.reflection.loop import ReflectionLoop
 from anycode.routing.router import DefaultRouter
 from anycode.tasks.queue import TaskQueue
@@ -54,6 +56,8 @@ from anycode.types import (
     OrchestratorConfig,
     OrchestratorEvent,
     OutputValidator,
+    Plugin,
+    PluginInstallation,
     QualityGateDecision,
     RouteDecision,
     RunResult,
@@ -102,6 +106,9 @@ class AnyCode:
         self._mcp_clients: dict[str, Any] = {}
         self._mcp_tool_registry: ToolRegistry = ToolRegistry()
 
+        # Plugin / extension ecosystem
+        self._plugin_registry = PluginRegistry()
+
         # Agent-to-agent handoff orchestration
         self._handoff_executor = HandoffExecutor(max_depth=self._config.max_handoff_depth)
 
@@ -120,12 +127,13 @@ class AnyCode:
         if self._config.reflection and self._config.reflection.enabled:
             self._reflection = ReflectionLoop(self._config.reflection)
 
-        # RAG memory
+        # RAG memory — the vector backend honors MemoryConfig.vector_backend so
+        # long-term memory can survive process restarts (e.g. chromadb).
         self._rag_store: VectorStore | None = None
         self._rag_retriever: RAGRetriever | None = None
         self._rag_indexer: RAGIndexer | None = None
         if self._config.rag and self._config.rag.enabled:
-            self._rag_store = InMemoryVectorStore()
+            self._rag_store = create_vector_store(self._config.memory)
             self._rag_retriever = RAGRetriever(self._rag_store, self._config.rag)
             self._rag_indexer = RAGIndexer(self._rag_store, self._config.rag)
 
@@ -215,6 +223,11 @@ class AnyCode:
             if not registry.has(HANDOFF_TOOL_DEF.name):
                 registry.register(HANDOFF_TOOL_DEF)
 
+        # Register plugin-contributed tools (every agent gets them)
+        for plugin_tool in self._plugin_registry.tool_registry.list():
+            if not registry.has(plugin_tool.name):
+                registry.register(plugin_tool)
+
         # Register MCP tools for this agent
         if self._mcp_clients:
             mcp_filter = set(typed_config.mcp_servers) if typed_config.mcp_servers else None
@@ -227,6 +240,11 @@ class AnyCode:
                 if not registry.has(tool.name):
                     registry.register(tool)
 
+        plugin_hooks = self._plugin_registry.turn_hooks()
+        merged_hooks: list[TurnHook] | None = None
+        if self._hooks or plugin_hooks:
+            merged_hooks = [*(self._hooks or []), *plugin_hooks]
+
         executor = ToolExecutor(registry)
         return Agent(
             typed_config,
@@ -234,10 +252,22 @@ class AnyCode:
             executor,
             tracer=self._tracer,
             guardrail_config=self._guardrail_config,
-            hooks=self._hooks,
+            hooks=merged_hooks,
             output_validators=self._output_validators,
             output_schema=output_schema,
         )
+
+    def register_plugin(self, plugin: Plugin) -> PluginInstallation:
+        """Install a plugin and return the resulting installation record."""
+        return self._plugin_registry.install(plugin)
+
+    def load_installed_plugins(self) -> list[PluginInstallation]:
+        """Discover and install every plugin published under the `anycode.plugins` entry-point group."""
+        plugins = discover_entry_point_plugins()
+        return self._plugin_registry.install_many(plugins)
+
+    def list_plugins(self) -> list[PluginInstallation]:
+        return self._plugin_registry.installations()
 
     def create_team(self, name: str, config: TeamConfig) -> Team:
         """Instantiate a team and enrol its agents into the shared pool."""
@@ -363,8 +393,12 @@ class AnyCode:
             if wave_idx < start_wave:
                 continue
 
-            outcomes = await asyncio.gather(*[self._run_wave_task(t, queue, team, route_decisions.get(t.id), handoffs) for t in wave])
-            for outcome in outcomes:
+            # Tasks already completed in a restored checkpoint are never re-run;
+            # their results were loaded alongside the checkpoint.
+            pending_tasks = [t for t in wave if t.status != "completed"]
+
+            for pending in asyncio.as_completed([self._run_wave_task(t, queue, team, route_decisions.get(t.id), handoffs) for t in pending_tasks]):
+                outcome = await pending
                 if outcome is None:
                     all_succeeded = False
                     continue
@@ -379,6 +413,18 @@ class AnyCode:
                     gate_decisions.extend(result.gate_decisions)
                 if not result.success:
                     all_succeeded = False
+
+                # Task-level checkpoint: a crash mid-wave resumes at the first
+                # incomplete task of this wave (statuses in `tasks` mark which
+                # are done) instead of re-running the whole wave.
+                if self._checkpoint_manager:
+                    await self._checkpoint_manager.auto_save(
+                        workflow_id=workflow_id,
+                        tasks=queue.list(),
+                        agent_results=agent_results,
+                        wave_index=wave_idx - 1,
+                        total_usage=total_usage,
+                    )
 
             # Save checkpoint after each wave
             if self._checkpoint_manager:
@@ -556,14 +602,16 @@ class AnyCode:
                     return (assignee, failed)
 
                 resolver = _OrchestratorAgentResolver(self, team)
-                ho_result, ho_record = await self._handoff_executor.execute(
+                chain: list[Handoff] = []
+                ho_result, _ho_record = await self._handoff_executor.execute(
                     handoff_request,
                     from_agent=assignee,
                     conversation=result.messages,
                     agent_resolver=resolver,
+                    chain=chain,
                 )
                 if handoffs is not None:
-                    handoffs.append(ho_record)
+                    handoffs.extend(chain)
                 merged_usage = merge_usage(result.token_usage, ho_result.token_usage)
                 merged = AgentRunResult(
                     success=ho_result.success and result.success,

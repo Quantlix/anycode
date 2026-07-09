@@ -1,4 +1,4 @@
-"""Tests for YAML/TOML config loader (Phase 4.2)."""
+"""Tests for YAML/TOML config loader."""
 
 from __future__ import annotations
 

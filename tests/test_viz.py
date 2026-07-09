@@ -1,4 +1,4 @@
-"""Tests for DAG and timeline visualization (Phase 5.3)."""
+"""Tests for DAG and timeline visualization."""
 
 from __future__ import annotations
 

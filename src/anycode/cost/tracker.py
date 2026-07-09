@@ -14,8 +14,11 @@ class _AgentCost:
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
     input_cost_usd: float = 0.0
     output_cost_usd: float = 0.0
+    cache_read_cost_usd: float = 0.0
     calls: int = 0
 
 
@@ -39,23 +42,33 @@ class CostTracker:
         agent_entry.model = model
         agent_entry.input_tokens += usage.input_tokens
         agent_entry.output_tokens += usage.output_tokens
+        agent_entry.cache_creation_input_tokens += usage.cache_creation_input_tokens
+        agent_entry.cache_read_input_tokens += usage.cache_read_input_tokens
         agent_entry.calls += 1
 
         model_entry = self._by_model.setdefault(model, _AgentCost(agent="", model=model))
         model_entry.input_tokens += usage.input_tokens
         model_entry.output_tokens += usage.output_tokens
+        model_entry.cache_creation_input_tokens += usage.cache_creation_input_tokens
+        model_entry.cache_read_input_tokens += usage.cache_read_input_tokens
         model_entry.calls += 1
 
         from anycode.cost.pricing import find_pricing
 
         price = find_pricing(model, pricing)
         if price is not None:
-            agent_input = (usage.input_tokens / 1000) * price.input_cost_per_1k
+            cache_read_rate = price.cached_input_cost_per_1k if price.cached_input_cost_per_1k is not None else price.input_cost_per_1k
+            fresh_input = usage.input_tokens + usage.cache_creation_input_tokens
+            agent_input = (fresh_input / 1000) * price.input_cost_per_1k
+            cache_read_cost = (usage.cache_read_input_tokens / 1000) * cache_read_rate
+            agent_input += cache_read_cost
             agent_output = (usage.output_tokens / 1000) * price.output_cost_per_1k
             agent_entry.input_cost_usd += agent_input
             agent_entry.output_cost_usd += agent_output
+            agent_entry.cache_read_cost_usd += cache_read_cost
             model_entry.input_cost_usd += agent_input
             model_entry.output_cost_usd += agent_output
+            model_entry.cache_read_cost_usd += cache_read_cost
 
         return cost
 
@@ -70,6 +83,14 @@ class CostTracker:
     @property
     def total_output_tokens(self) -> int:
         return sum(c.output_tokens for c in self._by_agent.values())
+
+    @property
+    def total_cache_creation_input_tokens(self) -> int:
+        return sum(c.cache_creation_input_tokens for c in self._by_agent.values())
+
+    @property
+    def total_cache_read_input_tokens(self) -> int:
+        return sum(c.cache_read_input_tokens for c in self._by_agent.values())
 
     def is_budget_exhausted(self) -> bool:
         if self.config is None or self.config.budget_usd is None:

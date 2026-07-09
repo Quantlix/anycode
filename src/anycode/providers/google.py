@@ -98,6 +98,15 @@ def _map_stop_reason(reason: Any) -> str:
     return STOP_REASON_END_TURN
 
 
+def _metadata_int(value: Any, name: str) -> int:
+    raw = getattr(value, name, 0)
+    if isinstance(raw, int | float):
+        return int(raw)
+    if isinstance(raw, str) and raw.isdigit():
+        return int(raw)
+    return 0
+
+
 def _parse_response_parts(parts: Any) -> list[ContentBlock]:
     """Parse Gemini response parts into AnyCode ContentBlocks."""
     blocks: list[ContentBlock] = []
@@ -175,17 +184,20 @@ class GeminiAdapter:
 
         input_tokens = 0
         output_tokens = 0
+        cache_read_tokens = 0
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             meta = response.usage_metadata
-            input_tokens = getattr(meta, "prompt_token_count", 0) or 0
-            output_tokens = getattr(meta, "candidates_token_count", 0) or 0
+            prompt_tokens = _metadata_int(meta, "prompt_token_count")
+            output_tokens = _metadata_int(meta, "candidates_token_count")
+            cache_read_tokens = _metadata_int(meta, "cached_content_token_count")
+            input_tokens = max(prompt_tokens - cache_read_tokens, 0)
 
         return LLMResponse(
             id=f"gemini-{uuid.uuid4().hex[:12]}",
             content=content_blocks,
             model=options.model,
             stop_reason=stop_reason,
-            usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
+            usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens, cache_read_input_tokens=cache_read_tokens),
         )
 
     async def stream(self, messages: list[LLMMessage], options: LLMStreamOptions) -> AsyncIterator[StreamEvent]:
@@ -212,12 +224,15 @@ class GeminiAdapter:
             all_blocks: list[ContentBlock] = []
             input_tokens = 0
             output_tokens = 0
+            cache_read_tokens = 0
 
             async for chunk in response_stream:
                 if hasattr(chunk, "usage_metadata") and chunk.usage_metadata:
                     meta = chunk.usage_metadata
-                    input_tokens = getattr(meta, "prompt_token_count", 0) or 0
-                    output_tokens = getattr(meta, "candidates_token_count", 0) or 0
+                    prompt_tokens = _metadata_int(meta, "prompt_token_count")
+                    output_tokens = _metadata_int(meta, "candidates_token_count")
+                    cache_read_tokens = _metadata_int(meta, "cached_content_token_count")
+                    input_tokens = max(prompt_tokens - cache_read_tokens, 0)
 
                 if not chunk.candidates:
                     continue
@@ -245,7 +260,7 @@ class GeminiAdapter:
                     content=done_content,
                     model=options.model,
                     stop_reason=STOP_REASON_END_TURN,
-                    usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
+                    usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens, cache_read_input_tokens=cache_read_tokens),
                 ),
             )
         except Exception as e:

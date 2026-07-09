@@ -1,4 +1,4 @@
-# Demo 15 — RAG Memory (Phase 5.4)
+# Demo 15 — RAG Memory
 # Execute: uv run python examples/15_rag_memory.py
 #
 # Demonstrates indexing an agent's output into a vector store, then retrieving

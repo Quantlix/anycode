@@ -6,10 +6,6 @@ import os
 from pathlib import Path
 
 from anycode.config.loader import load_config
-from anycode.tools.built_in import BUILT_IN_TOOLS
-
-_BUILT_IN_NAMES = {t.name for t in BUILT_IN_TOOLS}
-_BUILT_IN_NAMES.add("handoff")
 
 
 def validate_config(path: str | os.PathLike[str]) -> list[str]:
@@ -27,16 +23,12 @@ def validate_config(path: str | os.PathLike[str]) -> list[str]:
 
     agent_names = {a.name for a in loaded.team.agents}
 
-    # Validate agent tools — only flag obviously unknown built-ins; user-defined and MCP tools
-    # are resolved at runtime and cannot be checked here.
-    for agent in loaded.team.agents:
-        if agent.tools:
-            for tool in agent.tools:
-                if tool not in _BUILT_IN_NAMES and not tool.startswith("mcp_"):
-                    # Permit unknown tool names (might be user-defined). Warn instead of erroring.
-                    pass
-        if not agent.system_prompt:
-            errors.append(f"Agent '{agent.name}' has no system_prompt (recommended for production).")
+    # Tool names referenced by agents are resolved at runtime (built-ins, MCP tools, and
+    # user-defined tools registered via `ToolRegistry`). We cannot reliably check unknown
+    # names here, so tool validation is intentionally skipped.
+    #
+    # Missing `system_prompt` is a recommendation (not a hard error) and is therefore not
+    # reported by this validator. Use `anycode inspect team <path>` to surface advisories.
 
     if loaded.tasks:
         defined_titles = {t.title for t in loaded.tasks}

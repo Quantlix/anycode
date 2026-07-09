@@ -51,10 +51,20 @@ def find_pricing(model: str, pricing: list[ModelPricing] | None = None) -> Model
 
 
 def calculate_cost(usage: TokenUsage, model: str, pricing: list[ModelPricing] | None = None) -> float:
-    """Return total USD cost for a given token usage and model."""
+    """Return total USD cost for a given token usage and model.
+
+    When the model's pricing entry exposes `cached_input_cost_per_1k`, cache-read
+    tokens are billed at the cached rate (cheaper) and cache-creation tokens are
+    billed at the regular input rate. Otherwise all input tokens fall back to the
+    standard input rate.
+    """
     price = find_pricing(model, pricing)
     if price is None:
         return 0.0
-    input_cost = (usage.input_tokens / TOKENS_PER_PRICING_UNIT) * price.input_cost_per_1k
+    cache_read_rate = price.cached_input_cost_per_1k if price.cached_input_cost_per_1k is not None else price.input_cost_per_1k
+    fresh_input_tokens = usage.input_tokens + usage.cache_creation_input_tokens
+    cache_read_tokens = usage.cache_read_input_tokens
+    input_cost = (fresh_input_tokens / TOKENS_PER_PRICING_UNIT) * price.input_cost_per_1k
+    input_cost += (cache_read_tokens / TOKENS_PER_PRICING_UNIT) * cache_read_rate
     output_cost = (usage.output_tokens / TOKENS_PER_PRICING_UNIT) * price.output_cost_per_1k
     return input_cost + output_cost

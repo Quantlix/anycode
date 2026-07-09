@@ -1,0 +1,95 @@
+# Context block 00000
+block=00000 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00000 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00000 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00000 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00000 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00000 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00001
+block=00001 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00001 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00001 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00001 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00001 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00001 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00002
+block=00002 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00002 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00002 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00002 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00002 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00002 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00003
+block=00003 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00003 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00003 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00003 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00003 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00003 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00004
+block=00004 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00004 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00004 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00004 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00004 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00004 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00005
+block=00005 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00005 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00005 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00005 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00005 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00005 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00006
+block=00006 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00006 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00006 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00006 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00006 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00006 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00007
+block=00007 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00007 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00007 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00007 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00007 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00007 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00008
+block=00008 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00008 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00008 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00008 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00008 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00008 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00009
+block=00009 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00009 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00009 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00009 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00009 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00009 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00010
+block=00010 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00010 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00010 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00010 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00010 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00010 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+
+# Context block 00011
+block=00011 line=000 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00011 line=001 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00011 line=002 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00011 line=003 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00011 line=004 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details
+block=00011 line=005 topic=context-engineering signal=deterministic-fixture instruction=preserve-important-head-and-tail-details

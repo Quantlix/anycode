@@ -55,6 +55,19 @@ def _map_tool_defs(tools: list[LLMToolDef]) -> list[dict[str, Any]]:
     return [{"name": t.name, "description": t.description, "input_schema": {"type": "object", **t.input_schema}} for t in tools]
 
 
+def _apply_cache_control(kwargs: dict[str, Any]) -> None:
+    """Place prompt-cache breakpoints on the stable prefix (tools -> system).
+
+    Render order is tools -> system -> messages, so a single breakpoint on the
+    last system block caches tools and system together. When there is no system
+    prompt, the breakpoint goes on the last tool definition instead.
+    """
+    if kwargs.get("system"):
+        kwargs["system"] = [{"type": "text", "text": kwargs["system"], "cache_control": {"type": "ephemeral"}}]
+    elif kwargs.get("tools"):
+        kwargs["tools"][-1]["cache_control"] = {"type": "ephemeral"}
+
+
 def _parse_block(block: Any) -> ContentBlock:
     if block.type == BLOCK_TYPE_TEXT:
         return TextBlock(text=block.text)
@@ -97,6 +110,8 @@ class AnthropicAdapter:
             kwargs["tools"] = _map_tool_defs([structured_tool])
         if options.temperature is not None:
             kwargs["temperature"] = options.temperature
+        if options.enable_prompt_cache:
+            _apply_cache_control(kwargs)
 
         # Force structured output tool when provided
         if structured_tool:
@@ -109,7 +124,12 @@ class AnthropicAdapter:
             content=[_parse_block(b) for b in response.content],
             model=response.model,
             stop_reason=response.stop_reason or STOP_REASON_END_TURN,
-            usage=TokenUsage(input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens),
+            usage=TokenUsage(
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                cache_creation_input_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+                cache_read_input_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+            ),
         )
 
     async def stream(self, messages: list[LLMMessage], options: LLMStreamOptions) -> AsyncIterator[StreamEvent]:
@@ -125,6 +145,8 @@ class AnthropicAdapter:
             kwargs["tools"] = _map_tool_defs(options.tools)
         if options.temperature is not None:
             kwargs["temperature"] = options.temperature
+        if options.enable_prompt_cache:
+            _apply_cache_control(kwargs)
 
         json_buffers: dict[int, dict[str, str]] = {}
 
@@ -166,7 +188,12 @@ class AnthropicAdapter:
                         content=[_parse_block(b) for b in final.content],
                         model=final.model,
                         stop_reason=final.stop_reason or "end_turn",
-                        usage=TokenUsage(input_tokens=final.usage.input_tokens, output_tokens=final.usage.output_tokens),
+                        usage=TokenUsage(
+                            input_tokens=final.usage.input_tokens,
+                            output_tokens=final.usage.output_tokens,
+                            cache_creation_input_tokens=getattr(final.usage, "cache_creation_input_tokens", 0) or 0,
+                            cache_read_input_tokens=getattr(final.usage, "cache_read_input_tokens", 0) or 0,
+                        ),
                     ),
                 )
         except Exception as e:

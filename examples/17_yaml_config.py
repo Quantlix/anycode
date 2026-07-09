@@ -1,4 +1,4 @@
-# Demo 17 — YAML Config + CLI loading (Phase 4.2)
+# Demo 17 — YAML Config + CLI loading
 # Execute: uv run python examples/17_yaml_config.py
 #
 # Demonstrates building an AnyCode engine from a YAML config file.

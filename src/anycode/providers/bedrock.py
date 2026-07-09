@@ -157,6 +157,8 @@ class BedrockAdapter:
             current_tool: dict[str, Any] = {}
             input_tokens = 0
             output_tokens = 0
+            cache_creation_input_tokens = 0
+            cache_read_input_tokens = 0
 
             for event in response["body"]:
                 chunk = json.loads(event["chunk"]["bytes"])
@@ -165,6 +167,8 @@ class BedrockAdapter:
                 if event_type == "message_start":
                     usage = chunk.get("message", {}).get("usage", {})
                     input_tokens = usage.get("input_tokens", 0)
+                    cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
+                    cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
 
                 elif event_type == "content_block_start":
                     block = chunk.get("content_block", {})
@@ -199,6 +203,8 @@ class BedrockAdapter:
                 elif event_type == "message_delta":
                     usage = chunk.get("usage", {})
                     output_tokens = usage.get("output_tokens", output_tokens)
+                    cache_creation_input_tokens = usage.get("cache_creation_input_tokens", cache_creation_input_tokens)
+                    cache_read_input_tokens = usage.get("cache_read_input_tokens", cache_read_input_tokens)
 
             done_content: list[ContentBlock] = []
             if full_text:
@@ -212,7 +218,12 @@ class BedrockAdapter:
                     content=done_content,
                     model=model_id,
                     stop_reason=STOP_REASON_TOOL_USE if tool_blocks else STOP_REASON_END_TURN,
-                    usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
+                    usage=TokenUsage(
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cache_creation_input_tokens=cache_creation_input_tokens,
+                        cache_read_input_tokens=cache_read_input_tokens,
+                    ),
                 ),
             )
         except Exception as e:
@@ -247,5 +258,7 @@ class BedrockAdapter:
             usage=TokenUsage(
                 input_tokens=usage.get("input_tokens", 0),
                 output_tokens=usage.get("output_tokens", 0),
+                cache_creation_input_tokens=usage.get("cache_creation_input_tokens", 0),
+                cache_read_input_tokens=usage.get("cache_read_input_tokens", 0),
             ),
         )

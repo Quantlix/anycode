@@ -38,6 +38,8 @@ class FakeResponse:
     tool_calls: tuple[tuple[str, dict[str, object]], ...] = ()
     input_tokens: int = 5
     output_tokens: int = 5
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 
 @dataclass
@@ -86,7 +88,12 @@ class FakeAdapter:
             content=blocks,
             model=options.model,
             stop_reason="tool_use" if scripted.tool_calls else "end_turn",
-            usage=TokenUsage(input_tokens=scripted.input_tokens, output_tokens=scripted.output_tokens),
+            usage=TokenUsage(
+                input_tokens=scripted.input_tokens,
+                output_tokens=scripted.output_tokens,
+                cache_creation_input_tokens=scripted.cache_creation_input_tokens,
+                cache_read_input_tokens=scripted.cache_read_input_tokens,
+            ),
         )
 
     def stream(self, messages: list[LLMMessage], options: LLMStreamOptions) -> AsyncIterable[StreamEvent]:

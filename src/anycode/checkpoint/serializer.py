@@ -16,15 +16,20 @@ from anycode.types import (
     AgentRunResult,
     CheckpointData,
     ContentBlock,
+    ContextManifest,
     ImageBlock,
     ImageSource,
+    LifecycleEvent,
     LLMMessage,
+    QualityGateDecision,
+    StopReason,
     Task,
     TextBlock,
     TokenUsage,
     ToolCallRecord,
     ToolResultBlock,
     ToolUseBlock,
+    VerificationResult,
 )
 
 
@@ -73,16 +78,31 @@ def _serialize_agent_result(result: AgentRunResult) -> dict[str, Any]:
         "token_usage": result.token_usage.model_dump(mode="json"),
         "tool_calls": [tc.model_dump(mode="json") for tc in result.tool_calls],
         "messages": [_serialize_message(m) for m in result.messages],
+        "terminal_phase": result.terminal_phase,
+        "stop_reason": result.stop_reason.model_dump(mode="json") if result.stop_reason else None,
+        "retries": result.retries,
+        "lifecycle_events": [e.model_dump(mode="json") for e in result.lifecycle_events],
+        "context_manifests": [m.model_dump(mode="json") for m in result.context_manifests],
+        "verification_results": [v.model_dump(mode="json") for v in result.verification_results],
+        "gate_decisions": [g.model_dump(mode="json") for g in result.gate_decisions],
     }
 
 
 def _deserialize_agent_result(data: dict[str, Any]) -> AgentRunResult:
+    stop_reason_data = data.get("stop_reason")
     return AgentRunResult(
         success=data["success"],
         output=data["output"],
         token_usage=TokenUsage(**data["token_usage"]),
         tool_calls=[ToolCallRecord(**tc) for tc in data.get("tool_calls", [])],
         messages=[_deserialize_message(m) for m in data.get("messages", [])],
+        terminal_phase=data.get("terminal_phase"),
+        stop_reason=StopReason.model_validate(stop_reason_data) if stop_reason_data else None,
+        retries=data.get("retries", 0),
+        lifecycle_events=[LifecycleEvent.model_validate(e) for e in data.get("lifecycle_events", [])],
+        context_manifests=[ContextManifest.model_validate(m) for m in data.get("context_manifests", [])],
+        verification_results=[VerificationResult.model_validate(v) for v in data.get("verification_results", [])],
+        gate_decisions=[QualityGateDecision.model_validate(g) for g in data.get("gate_decisions", [])],
     )
 
 

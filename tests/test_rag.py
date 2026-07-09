@@ -1,4 +1,4 @@
-"""Tests for RAG retrieval + indexing (Phase 5.4)."""
+"""Tests for RAG retrieval + indexing."""
 
 from __future__ import annotations
 
@@ -70,6 +70,22 @@ async def test_retriever_disabled_returns_empty() -> None:
     retriever = RAGRetriever(store, RAGConfig(enabled=False))
     ctx = await retriever.retrieve("q")
     assert ctx.entries == []
+
+
+@pytest.mark.asyncio
+async def test_retriever_accepts_dynamic_token_budget() -> None:
+    store = _StubStore([_result("a", "x" * 80, 0.9), _result("b", "y" * 80, 0.9)])
+    retriever = RAGRetriever(store, RAGConfig(enabled=True, min_relevance=0.0, max_context_tokens=1000))
+    ctx = await retriever.retrieve("q", token_budget=25)
+    assert [entry.text for entry in ctx.entries] == ["x" * 80]
+
+
+@pytest.mark.asyncio
+async def test_retriever_allows_unlimited_context_budget() -> None:
+    store = _StubStore([_result("a", "x" * 80, 0.9), _result("b", "y" * 80, 0.9)])
+    retriever = RAGRetriever(store, RAGConfig(enabled=True, min_relevance=0.0, max_context_tokens=None))
+    ctx = await retriever.retrieve("q")
+    assert len(ctx.entries) == 2
 
 
 def test_format_context_renders_block() -> None:

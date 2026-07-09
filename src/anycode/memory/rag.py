@@ -21,8 +21,12 @@ class RAGRetriever:
         self._config = config
         self._seen_ids: set[str] = set()
 
-    async def retrieve(self, query: str) -> RAGContext:
+    async def retrieve(self, query: str, *, token_budget: int | None = None) -> RAGContext:
         if not self._config.enabled:
+            return RAGContext(entries=[], total_tokens=0)
+
+        max_context_tokens = self._config.max_context_tokens if token_budget is None else token_budget
+        if max_context_tokens is not None and max_context_tokens <= 0:
             return RAGContext(entries=[], total_tokens=0)
 
         results = await self._store.search(query, top_k=self._config.top_k)
@@ -34,14 +38,15 @@ class RAGRetriever:
                 continue
             if r.id in self._seen_ids:
                 continue
-            text_tokens = _estimate_tokens(r.text)
-            if total_tokens + text_tokens > self._config.max_context_tokens:
-                break
 
             metadata = r.metadata or {}
             namespace = metadata.get("namespace")
             if namespace and namespace != self._config.namespace:
                 continue
+
+            text_tokens = _estimate_tokens(r.text)
+            if max_context_tokens is not None and total_tokens + text_tokens > max_context_tokens:
+                break
 
             self._seen_ids.add(r.id)
             entries.append(

@@ -112,7 +112,10 @@ EXIT_CODE_NOT_FOUND = 127
 # Checkpoint
 # ---------------------------------------------------------------------------
 
-CHECKPOINT_FORMAT_VERSION = 1
+# v2 adds lifecycle events, context manifests, verification results, gate
+# decisions, terminal phase, stop reason, and retries to serialized agent
+# results. v1 files still deserialize (the added fields default to empty).
+CHECKPOINT_FORMAT_VERSION = 2
 
 # ---------------------------------------------------------------------------
 # Encoding
@@ -199,6 +202,7 @@ HANDOFF_CONTEXT_MAX_MESSAGES = 20
 HANDOFF_MESSAGE_TRUNCATE_LENGTH = 500
 HANDOFF_MESSAGE_TRUNCATE_SUFFIX_AT = 497
 HANDOFF_TOOL_NAME = "handoff"
+HANDOFF_SENTINEL_PREFIX = "__HANDOFF__:"
 
 # ---------------------------------------------------------------------------
 # Intelligent routing

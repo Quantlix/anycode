@@ -13,8 +13,12 @@ from pydantic import BaseModel, ConfigDict
 
 from anycode.types import (
     AgentConfig,
+    ContextPolicy,
+    ContextSectionBudget,
+    ContextSectionKind,
     CostConfig,
     GuardrailConfig,
+    ModelContextProfile,
     OrchestratorConfig,
     RAGConfig,
     ReflectionConfig,
@@ -46,8 +50,20 @@ class LoadedConfig:
     reflection: ReflectionConfig | None = None
     rag: RAGConfig | None = None
     verification: tuple[VerificationSensorConfig, ...] = ()
+    context_policy: ContextPolicy | None = None
+    max_handoff_depth: int | None = None
 
     def to_orchestrator_config(self) -> OrchestratorConfig:
+        if self.max_handoff_depth is not None:
+            return OrchestratorConfig(
+                max_concurrency=self.team.max_concurrency,
+                routing=self.routing,
+                cost=self.cost,
+                reflection=self.reflection,
+                rag=self.rag,
+                verification=self.verification,
+                max_handoff_depth=self.max_handoff_depth,
+            )
         return OrchestratorConfig(
             max_concurrency=self.team.max_concurrency,
             routing=self.routing,
@@ -80,7 +96,7 @@ def _read_raw(path: Path) -> dict[str, Any]:
         try:
             import yaml
         except ImportError as e:
-            raise ImportError("PyYAML is required for YAML config files. Install with: pip install anycode[cli]") from e
+            raise ImportError('PyYAML is required for YAML config files. Install it with: pip install "anycode-py[cli]"') from e
         with path.open("r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
     elif suffix == ".toml":
@@ -91,6 +107,50 @@ def _read_raw(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Config file {path} must contain a top-level mapping.")
     return data
+
+
+def _parse_context_policy(raw: dict[str, Any]) -> ContextPolicy | None:
+    """Parse an optional top-level `context_engineering` block into a `ContextPolicy`."""
+    block = raw.get("context_engineering")
+    if not block:
+        return None
+    if not isinstance(block, dict):
+        raise ValueError("`context_engineering` must be a mapping.")
+
+    enabled_raw = block.get("enabled", True)
+    if isinstance(enabled_raw, str) and enabled_raw == "auto":
+        enabled = True
+        mode = "auto"
+    elif isinstance(enabled_raw, bool):
+        enabled = enabled_raw
+        mode = block.get("mode") or ("manual" if enabled else "disabled")
+    else:
+        enabled = bool(enabled_raw)
+        mode = block.get("mode", "manual")
+
+    window = block.get("window") or {}
+    reserved = int(window.get("reserved_response_tokens", block.get("reserved_response_tokens", 0)))
+    if mode == "auto" and "mode" not in block:
+        mode = "auto"
+
+    sections_raw = block.get("sections") or {}
+    sections: dict[ContextSectionKind, ContextSectionBudget] = {}
+    for kind, payload in sections_raw.items():
+        if not isinstance(payload, dict):
+            raise ValueError(f"`context_engineering.sections.{kind}` must be a mapping.")
+        sections[kind] = ContextSectionBudget(kind=kind, **payload)
+
+    profiles_raw = block.get("model_profiles") or []
+    custom_profiles = tuple(ModelContextProfile.model_validate(p) for p in profiles_raw)
+
+    return ContextPolicy(
+        enabled=enabled,
+        mode=mode,  # type: ignore[arg-type]
+        reserved_response_tokens=reserved,
+        sections=sections,
+        custom_profiles=custom_profiles,
+        max_context_tokens=int(block.get("max_context_tokens", 100_000)),
+    )
 
 
 def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
@@ -112,10 +172,13 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
             raise ValueError("Top-level 'verification' must be a list of sensor configs.")
         global_sensors = tuple(VerificationSensorConfig.model_validate(item) for item in global_verification)
 
+    global_context_policy = _parse_context_policy(raw)
+
     typed_agents: list[AgentConfig] = []
     for raw_agent in agents_raw:
         agent_data = dict(raw_agent)
         agent_verification_raw = agent_data.pop("verification", None)
+        agent_context_raw = agent_data.pop("context_policy", None)
         agent = AgentConfig.model_validate(agent_data)
         sensors: tuple[VerificationSensorConfig, ...] = global_sensors
         if agent_verification_raw is not None:
@@ -125,6 +188,12 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
             sensors = agent_sensors if agent_sensors else global_sensors
         if sensors:
             agent = agent.model_copy(update={"verification": sensors})
+        if agent_context_raw is not None:
+            if not isinstance(agent_context_raw, dict):
+                raise ValueError(f"Agent '{agent.name}' context_policy must be a mapping.")
+            agent = agent.model_copy(update={"context_policy": ContextPolicy.model_validate(agent_context_raw)})
+        elif global_context_policy is not None and agent.context_policy is None:
+            agent = agent.model_copy(update={"context_policy": global_context_policy})
         typed_agents.append(agent)
     agents = typed_agents
 
@@ -144,6 +213,10 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
     reflection = ReflectionConfig.model_validate(raw["reflection"]) if "reflection" in raw else None
     rag = RAGConfig.model_validate(raw["rag"]) if "rag" in raw else None
 
+    raw_handoff_depth = raw.get("max_handoff_depth")
+    if raw_handoff_depth is not None and not isinstance(raw_handoff_depth, int):
+        raise ValueError("Top-level 'max_handoff_depth' must be an integer.")
+
     return LoadedConfig(
         team=team,
         tasks=tasks,
@@ -153,4 +226,6 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
         reflection=reflection,
         rag=rag,
         verification=global_sensors,
+        context_policy=global_context_policy,
+        max_handoff_depth=raw_handoff_depth,
     )

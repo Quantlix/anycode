@@ -1,4 +1,4 @@
-"""Phase 6 — context lifecycle with provider overrides and preserved state.
+"""Context lifecycle with provider overrides and preserved state.
 
 Demonstrates ``ContextPolicy.provider_overrides``, ``preserved_task_state``,
 and ``preserved_verification_failures``. Builds two ContextManagers — one for

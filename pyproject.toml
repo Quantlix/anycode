@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anycode-py"
-version = "0.5.0"
+version = "0.6.0"
 description = "Orchestrate autonomous AI agent teams with dependency-aware task scheduling, inter-agent messaging, and provider-agnostic LLM integration."
 readme = "README.md"
 license = "MIT"
@@ -42,7 +42,7 @@ dependencies = [
 Homepage = "https://github.com/Quantlix/anycode"
 Repository = "https://github.com/Quantlix/anycode"
 Issues = "https://github.com/Quantlix/anycode/issues"
-Changelog = "https://github.com/Quantlix/anycode/blob/main/anycode-python/CHANGELOG.md"
+Changelog = "https://github.com/Quantlix/anycode/blob/main/CHANGELOG.md"
 
 [project.scripts]
 anycode = "anycode.cli.main:app"
@@ -58,6 +58,9 @@ persistence = [
 ]
 redis = [
     "redis[hiredis]>=5.0",
+]
+tokens = [
+    "tiktoken>=0.8",
 ]
 vector = [
     "chromadb>=0.5",
@@ -107,6 +110,15 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/anycode"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/anycode",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 150
@@ -128,4 +140,5 @@ markers = [
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
-exclude = ["docs/"]
+include = ["src"]
+exclude = ["docs/", "build", "dist", "build_out", "**/__pycache__", ".venv"]
