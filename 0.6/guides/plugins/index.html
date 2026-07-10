@@ -2974,26 +2974,41 @@
 <div class="language-toml highlight"><span class="filename">pyproject.toml</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[project.entry-points.</span><span class="s2">&quot;anycode.plugins&quot;</span><span class="k">]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">acme</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;acme_bundle:AcmePlugin&quot;</span>
 </span></code></pre></div>
-<p>Then any process can load every installed plugin at once:</p>
+<p>Development processes can load every installed plugin at once:</p>
 <div class="language-python highlight"><span class="filename">discover.py</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">AnyCode</span><span class="p">()</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">engine</span><span class="o">.</span><span class="n">load_installed_plugins</span><span class="p">()</span>   <span class="c1"># discovers + installs all entry-point plugins</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">engine</span><span class="o">.</span><span class="n">list_plugins</span><span class="p">())</span>
+</span></code></pre></div>
+<p>Production processes should allowlist entry points or distribution names before import. Filtering happens before <code>EntryPoint.load()</code>, so untrusted plugin code is never executed:</p>
+<div class="language-python highlight"><span class="filename">trusted_plugins.py</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnyCode</span><span class="p">,</span> <span class="n">PluginTrustPolicy</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">AnyCode</span><span class="p">()</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">engine</span><span class="o">.</span><span class="n">load_installed_plugins</span><span class="p">(</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">PluginTrustPolicy</span><span class="p">(</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="n">allowed_distributions</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;quantlix-anycode-approved&quot;</span><span class="p">,),</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">allowed_entry_points</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;internal-tools&quot;</span><span class="p">,),</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">)</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Broken plugins fail quietly</p>
 <p>Entry-point discovery logs and skips a plugin that fails to import, so one bad third-party package can't stop your process from starting. Check <code>list_plugins()</code> to confirm what actually loaded.</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Plugins execute trusted Python code</p>
+<p>A plugin can register tools, hooks, sensors, and provider factories inside the host process. Allowlists establish which installed packages may load, but they do not sandbox approved plugins. Pin and review plugin distributions with the same care as runtime dependencies.</p>
+</div>
 <h2 id="register-a-provider-without-a-full-plugin">Register a provider without a full plugin<a class="headerlink" href="#register-a-provider-without-a-full-plugin" title="Permanent link">&para;</a></h2>
 <p>If all you need is a new provider name, use the standalone registry directly. It's a process-global table that <code>create_adapter</code> consults for any name it doesn't recognize.</p>
-<div class="language-python highlight"><span class="filename">register_provider.py</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_provider_factory</span><span class="p">,</span> <span class="n">list_registered_providers</span><span class="p">,</span> <span class="n">create_adapter</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_build_myvendor</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="o">...</span>  <span class="c1"># return an LLMAdapter</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">register_provider_factory</span><span class="p">(</span><span class="s2">&quot;myvendor&quot;</span><span class="p">,</span> <span class="n">_build_myvendor</span><span class="p">)</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">list_registered_providers</span><span class="p">())</span>          <span class="c1"># [&#39;myvendor&#39;]</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">adapter</span> <span class="o">=</span> <span class="k">await</span> <span class="n">create_adapter</span><span class="p">(</span><span class="s2">&quot;myvendor&quot;</span><span class="p">)</span>  <span class="c1"># resolves through the registry</span>
+<div class="language-python highlight"><span class="filename">register_provider.py</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_provider_factory</span><span class="p">,</span> <span class="n">list_registered_providers</span><span class="p">,</span> <span class="n">create_adapter</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_build_myvendor</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="o">...</span>  <span class="c1"># return an LLMAdapter</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">register_provider_factory</span><span class="p">(</span><span class="s2">&quot;myvendor&quot;</span><span class="p">,</span> <span class="n">_build_myvendor</span><span class="p">)</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">list_registered_providers</span><span class="p">())</span>          <span class="c1"># [&#39;myvendor&#39;]</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">adapter</span> <span class="o">=</span> <span class="k">await</span> <span class="n">create_adapter</span><span class="p">(</span><span class="s2">&quot;myvendor&quot;</span><span class="p">)</span>  <span class="c1"># resolves through the registry</span>
 </span></code></pre></div>
 <p>Re-registering the same name with a <em>different</em> factory raises <code>ValueError</code>; registering the identical factory again is a no-op.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>

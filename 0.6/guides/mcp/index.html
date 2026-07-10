@@ -2080,6 +2080,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#restrict-transport-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restrict transport trust
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#register-with-the-engine" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2709,6 +2720,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#restrict-transport-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restrict transport trust
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#register-with-the-engine" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2905,6 +2927,12 @@
 <td><code>30.0</code></td>
 <td>all — applied to connect, initialize, discovery, and each tool call</td>
 </tr>
+<tr>
+<td><code>trust</code></td>
+<td><code>MCPTrustPolicy</code></td>
+<td>secure transport defaults</td>
+<td>all — stdio permission, HTTPS, private-network, and host controls</td>
+</tr>
 </tbody>
 </table>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="stdio" name="__tabbed_1" type="radio" /><input id="streamable-http-with-auth" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="stdio">stdio</label><label for="streamable-http-with-auth">streamable-http with auth</label></div>
@@ -2939,32 +2967,48 @@
 <p><code>auth_token_env</code> stores the <em>name</em> of an environment variable. The token value is read from <code>os.environ</code> at connect time and sent as <code>Authorization: Bearer &lt;token&gt;</code> — it is never stored on the config object, and never appears in prompts or logs. Static <code>headers</code> are merged with the resolved auth header.</p>
 </div>
 <p>Configs are validated on construction: <code>stdio</code> requires <code>command</code>, the HTTP transports require <code>url</code>, <code>timeout</code> must be positive, and an invalid config raises <code>ValueError</code>.</p>
+<h2 id="restrict-transport-trust">Restrict transport trust<a class="headerlink" href="#restrict-transport-trust" title="Permanent link">&para;</a></h2>
+<p>Remote MCP uses HTTPS by default. Plaintext HTTP is accepted only for loopback development endpoints unless <code>allow_insecure_http=True</code> is explicit. Private IP literals are rejected unless allowed, and <code>allowed_hosts</code> can reduce remote access to a fixed set.</p>
+<div class="language-python highlight"><span class="filename">trusted_mcp.py</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPServerConfig</span><span class="p">,</span> <span class="n">MCPTrustPolicy</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">MCPServerConfig</span><span class="p">(</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;internal-search&quot;</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">transport</span><span class="o">=</span><span class="s2">&quot;streamable-http&quot;</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://mcp.example.com/mcp&quot;</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">auth_token_env</span><span class="o">=</span><span class="s2">&quot;MCP_API_TOKEN&quot;</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">trust</span><span class="o">=</span><span class="n">MCPTrustPolicy</span><span class="p">(</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="n">allow_stdio</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">allowed_hosts</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;mcp.example.com&quot;</span><span class="p">,),</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="p">),</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>For stdio servers, set <code>allow_stdio=False</code> in environments where spawning a local subprocess is outside the deployment's trust model. Host allowlisting also reduces server-side request forgery exposure, but DNS and network egress controls still belong at the container or network layer.</p>
 <h2 id="register-with-the-engine">Register with the engine<a class="headerlink" href="#register-with-the-engine" title="Permanent link">&para;</a></h2>
 <p>Pass servers on the engine config; agents opt in by server name:</p>
-<div class="language-python highlight"><span class="filename">engine_with_mcp.py</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnyCode</span><span class="p">,</span> <span class="n">AgentConfig</span><span class="p">,</span> <span class="n">MCPServerConfig</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">AnyCode</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="s2">&quot;mcp_servers&quot;</span><span class="p">:</span> <span class="p">[</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="n">MCPServerConfig</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;files&quot;</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="s2">&quot;stdio&quot;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s2">&quot;npx&quot;</span><span class="p">,</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>                        <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;-y&quot;</span><span class="p">,</span> <span class="s2">&quot;@modelcontextprotocol/server-filesystem&quot;</span><span class="p">,</span> <span class="s2">&quot;/data&quot;</span><span class="p">]),</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="p">],</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">})</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">AgentConfig</span><span class="p">(</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;reader&quot;</span><span class="p">,</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">provider</span><span class="o">=</span><span class="s2">&quot;anthropic&quot;</span><span class="p">,</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">mcp_servers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;files&quot;</span><span class="p">],</span>   <span class="c1"># only this server&#39;s tools are visible to this agent</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">engine_with_mcp.py</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnyCode</span><span class="p">,</span> <span class="n">AgentConfig</span><span class="p">,</span> <span class="n">MCPServerConfig</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">AnyCode</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">&quot;mcp_servers&quot;</span><span class="p">:</span> <span class="p">[</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="n">MCPServerConfig</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;files&quot;</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="s2">&quot;stdio&quot;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="s2">&quot;npx&quot;</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>                        <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;-y&quot;</span><span class="p">,</span> <span class="s2">&quot;@modelcontextprotocol/server-filesystem&quot;</span><span class="p">,</span> <span class="s2">&quot;/data&quot;</span><span class="p">]),</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="p">],</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">})</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">AgentConfig</span><span class="p">(</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;reader&quot;</span><span class="p">,</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="n">provider</span><span class="o">=</span><span class="s2">&quot;anthropic&quot;</span><span class="p">,</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">mcp_servers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;files&quot;</span><span class="p">],</span>   <span class="c1"># only this server&#39;s tools are visible to this agent</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Discovered tools are registered under the name <code>mcp_&lt;server&gt;_&lt;tool&gt;</code> (dashes and dots in the server name become underscores). An agent's <code>mcp_servers</code> list filters which servers' tools it can see; omit it to expose none.</p>
 <h2 id="use-the-client-directly">Use the client directly<a class="headerlink" href="#use-the-client-directly" title="Permanent link">&para;</a></h2>
 <p>For scripting or debugging, <code>MCPClient</code> is an async context manager:</p>
-<div class="language-python highlight"><span class="filename">mcp_client.py</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">discover_tools</span><span class="p">()</span>      <span class="c1"># list[MCPToolInfo]</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;search&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;agents&quot;</span><span class="p">})</span>
+<div class="language-python highlight"><span class="filename">mcp_client.py</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">discover_tools</span><span class="p">()</span>      <span class="c1"># list[MCPToolInfo]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;search&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;agents&quot;</span><span class="p">})</span>
 </span></code></pre></div>
 <p>Behavior worth knowing:</p>
 <ul>

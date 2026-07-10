@@ -1276,6 +1276,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#enforce-a-workspace-security-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enforce a workspace security policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tool-design-checklist" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2775,6 +2786,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#enforce-a-workspace-security-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enforce a workspace security policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tool-design-checklist" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3029,6 +3051,37 @@
 </span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>The <code>tools</code> allowlist still governs access: this agent registered the built-in tools but can only call <code>count_words</code>, because that is the single name in its config.</p>
+<h2 id="enforce-a-workspace-security-policy">Enforce a workspace security policy<a class="headerlink" href="#enforce-a-workspace-security-policy" title="Permanent link">&para;</a></h2>
+<p><code>ToolSecurityPolicy</code> adds a second, runtime-enforced boundary around every tool call. The executor applies tool allowlists and denylists to built-in, custom, and MCP tools. Filesystem tools resolve paths and symlinks before checking that the target remains inside an allowed root.</p>
+<div class="language-python highlight"><span class="filename">secure_agent.py</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentConfig</span><span class="p">,</span> <span class="n">ToolSecurityPolicy</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ToolSecurityPolicy</span><span class="p">(</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">allowed_tools</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;file_read&quot;</span><span class="p">,</span> <span class="s2">&quot;grep&quot;</span><span class="p">),</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">workspace_root</span><span class="o">=</span><span class="s2">&quot;/srv/anycode/workspaces/review-42&quot;</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">allow_shell</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">inherit_environment</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">AgentConfig</span><span class="p">(</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;reviewer&quot;</span><span class="p">,</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="n">provider</span><span class="o">=</span><span class="s2">&quot;anthropic&quot;</span><span class="p">,</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;file_read&quot;</span><span class="p">,</span> <span class="s2">&quot;grep&quot;</span><span class="p">],</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">tool_security</span><span class="o">=</span><span class="n">policy</span><span class="p">,</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Important controls:</p>
+<ul>
+<li><code>workspace_root</code> and <code>allowed_path_roots</code> constrain <code>file_read</code>, <code>file_write</code>, <code>file_edit</code>, <code>grep</code>, <code>list_files</code>, and the shell working directory.</li>
+<li><code>allow_shell=False</code> blocks <code>bash</code> even when the tool was registered accidentally.</li>
+<li><code>allowed_shell_commands</code> permits only one executable per call and rejects shell control operators such as <code>&amp;&amp;</code>, <code>|</code>, and <code>;</code>.</li>
+<li><code>inherit_environment=False</code> starts child commands without the parent environment. Add only required names to <code>allowed_environment_variables</code>.</li>
+<li><code>allowed_tools</code> and <code>denied_tools</code> are enforced centrally by <code>ToolExecutor</code>, including for custom tools.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Policy enforcement is not an operating-system sandbox</p>
+<p>The policy constrains AnyCode's built-in execution paths. A custom Python tool still runs inside the host process and can use normal Python APIs. Run untrusted workloads in a container, VM, or another operating-system isolation boundary, and keep credentials outside that boundary.</p>
+</div>
 <h2 id="tool-design-checklist">Tool design checklist<a class="headerlink" href="#tool-design-checklist" title="Permanent link">&para;</a></h2>
 <p>Well-shaped tools make agents more reliable and easier to audit. Keep each of these in view when you add one:</p>
 <ul>
@@ -3041,7 +3094,7 @@
 <h2 id="scope-tools-to-the-least-privilege-they-need">Scope tools to the least privilege they need<a class="headerlink" href="#scope-tools-to-the-least-privilege-they-need" title="Permanent link">&para;</a></h2>
 <div class="admonition danger">
 <p class="admonition-title">A tool-enabled agent is a privileged process</p>
-<p>Tools that read files, write files, or run shell commands turn an agent into an automation process with real reach. While AnyCode is alpha, run tool-enabled agents in a disposable workspace, grant the minimum set of tools per agent, and add human approval gates before irreversible or sensitive actions. See <a href="../production-controls/">Production Controls</a> for gates, budgets, and checkpoints.</p>
+<p>Tools that read files, write files, or run shell commands turn an agent into an automation process with real reach. Run tool-enabled agents in an isolated workspace, apply <code>ToolSecurityPolicy</code>, grant the minimum set of tools, and add human approval gates before irreversible or sensitive actions. See <a href="../production-controls/">Production Controls</a> for gates, budgets, and checkpoints.</p>
 </div>
 <p>See <code>examples/04_hybrid_tooling.py</code> for a complete agent that combines built-in and custom tools.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
