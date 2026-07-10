@@ -11,7 +11,7 @@ from anycode.mcp.bridge import _build_tool_name, discover_and_register, mcp_tool
 from anycode.mcp.client import MCPClient
 from anycode.mcp.config import validate_server_config
 from anycode.tools.registry import ToolRegistry, define_tool
-from anycode.types import MCPServerConfig, MCPToolInfo, ToolResult
+from anycode.types import MCPServerConfig, MCPToolInfo, MCPTrustPolicy, ToolResult
 
 # ---------------------------------------------------------------------------
 # Config validation
@@ -50,6 +50,32 @@ class TestValidateServerConfig:
         cfg = MCPServerConfig(name="test", transport="stdio", command="node", timeout=-1)
         errors = validate_server_config(cfg)
         assert any("timeout" in e for e in errors)
+
+    def test_remote_plaintext_http_is_rejected(self) -> None:
+        cfg = MCPServerConfig(name="remote", transport="streamable-http", url="http://example.com/mcp")
+        assert any("requires HTTPS" in error for error in validate_server_config(cfg))
+
+    def test_http_host_allowlist_is_enforced(self) -> None:
+        cfg = MCPServerConfig(
+            name="remote",
+            transport="streamable-http",
+            url="https://example.com/mcp",
+            trust=MCPTrustPolicy(allowed_hosts=("trusted.example",)),
+        )
+        assert any("allowlist" in error for error in validate_server_config(cfg))
+
+    def test_private_network_literal_is_rejected(self) -> None:
+        cfg = MCPServerConfig(name="remote", transport="streamable-http", url="https://10.0.0.8/mcp")
+        assert any("private-network" in error for error in validate_server_config(cfg))
+
+    def test_stdio_can_be_disabled(self) -> None:
+        cfg = MCPServerConfig(
+            name="local",
+            transport="stdio",
+            command="node",
+            trust=MCPTrustPolicy(allow_stdio=False),
+        )
+        assert any("stdio transport is disabled" in error for error in validate_server_config(cfg))
 
 
 # ---------------------------------------------------------------------------

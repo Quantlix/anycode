@@ -17,6 +17,7 @@ from anycode import (
     TurnHook,
     VerificationSensorConfig,
 )
+from anycode.plugins import discovery
 from anycode.plugins.discovery import discover_entry_point_plugins
 from anycode.plugins.registry import (
     _PROVIDER_FACTORIES,
@@ -26,7 +27,7 @@ from anycode.plugins.registry import (
 )
 from anycode.providers.adapter import create_adapter
 from anycode.providers.fake import FakeAdapter
-from anycode.types import ProviderFactory
+from anycode.types import PluginTrustPolicy, ProviderFactory
 
 
 class EchoInput(BaseModel):
@@ -194,3 +195,26 @@ class TestEntryPointDiscovery:
         # — the call must not raise.
         result = discover_entry_point_plugins()
         assert isinstance(result, list)
+
+    def test_policy_filters_entry_points_before_loading(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class P(PluginBase):
+            manifest = PluginManifest(name="trusted", version="1.0.0")
+
+        class Distribution:
+            name = "acme-plugins"
+
+        class EntryPoint:
+            name = "trusted"
+            dist = Distribution()
+
+            @staticmethod
+            def load():  # type: ignore[no-untyped-def]
+                return P
+
+        monkeypatch.setattr(discovery, "entry_points", lambda **_kwargs: [EntryPoint()])
+
+        blocked = discover_entry_point_plugins(PluginTrustPolicy())
+        allowed = discover_entry_point_plugins(PluginTrustPolicy(allowed_entry_points=("trusted",)))
+
+        assert blocked == []
+        assert len(allowed) == 1

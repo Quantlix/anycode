@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import time
 from pathlib import Path
 
@@ -14,10 +15,31 @@ from anycode.tools.file_write import FileWriteInput, file_write_tool
 from anycode.tools.grep import GrepInput, grep_tool
 from anycode.tools.list_files import ListFilesInput, list_files_tool
 from anycode.tools.registry import ToolRegistry, define_tool
-from anycode.types import AgentInfo, ToolResult, ToolUseContext
+from anycode.types import AgentInfo, ToolResult, ToolSecurityPolicy, ToolUseContext
 
 CTX = ToolUseContext(agent=AgentInfo(name="t", role="assistant", model="m"))
 PY = "python"
+
+
+async def test_executor_enforces_security_policy_for_custom_tools() -> None:
+    registry = ToolRegistry()
+
+    from pydantic import BaseModel
+
+    class _Input(BaseModel):
+        pass
+
+    async def _execute(_input: object, _context: ToolUseContext) -> ToolResult:
+        return ToolResult(data="should not run")
+
+    registry.register(define_tool(name="custom", description="custom", input_model=_Input, execute=_execute))
+    executor = ToolExecutor(registry)
+    context = CTX.model_copy(update={"security_policy": ToolSecurityPolicy(allowed_tools=("other",))})
+
+    result = await executor.execute("custom", {}, context)
+
+    assert result.is_error is True
+    assert "allowlist" in result.data
 
 
 # -- file tools -------------------------------------------------------------
@@ -48,6 +70,21 @@ async def test_file_edit_replaces_and_reads_back(tmp_path: Path) -> None:
     assert "a = 42" in read.data
 
 
+async def test_file_tools_reject_paths_outside_workspace(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "secret.txt"
+    outside.write_text("secret", encoding="utf-8")
+    context = CTX.model_copy(update={"security_policy": ToolSecurityPolicy(workspace_root=str(workspace))})
+
+    read = await file_read_tool.execute(FileReadInput(path=str(outside)), context)
+    write = await file_write_tool.execute(FileWriteInput(path="../escape.txt", content="no"), context)
+
+    assert read.is_error is True and "outside" in read.data
+    assert write.is_error is True and "outside" in write.data
+    assert not (tmp_path / "escape.txt").exists()
+
+
 # -- bash --------------------------------------------------------------------
 
 
@@ -74,6 +111,44 @@ async def test_bash_timeout_reports_and_cleans_up() -> None:
     )
     assert result.is_error is True
     assert "timed out" in result.data.lower()
+
+
+async def test_bash_can_be_disabled_by_security_policy(tmp_path: Path) -> None:
+    context = CTX.model_copy(update={"security_policy": ToolSecurityPolicy(workspace_root=str(tmp_path), allow_shell=False)})
+    result = await bash_tool.execute(BashInput(command=f"{PY} -c \"print('no')\""), context)
+    assert result.is_error is True
+    assert "disabled" in result.data
+
+
+async def test_bash_filters_parent_environment(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("ANYCODE_TEST_SECRET", "must-not-leak")
+    context = CTX.model_copy(
+        update={
+            "security_policy": ToolSecurityPolicy(
+                workspace_root=str(tmp_path),
+                inherit_environment=False,
+            )
+        }
+    )
+    command = f"\"{sys.executable}\" -c \"import os; print(os.getenv('ANYCODE_TEST_SECRET', 'absent'))\""
+    result = await bash_tool.execute(BashInput(command=command), context)
+    assert result.is_error is False
+    assert "absent" in result.data
+    assert "must-not-leak" not in result.data
+
+
+async def test_bash_allowlist_rejects_shell_chaining(tmp_path: Path) -> None:
+    context = CTX.model_copy(
+        update={
+            "security_policy": ToolSecurityPolicy(
+                workspace_root=str(tmp_path),
+                allowed_shell_commands=("python",),
+            )
+        }
+    )
+    result = await bash_tool.execute(BashInput(command="python --version && echo bypass"), context)
+    assert result.is_error is True
+    assert "control operators" in result.data
 
 
 # -- grep --------------------------------------------------------------------

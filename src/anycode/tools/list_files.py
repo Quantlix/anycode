@@ -23,6 +23,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from anycode.constants import DEFAULT_ENCODING, GREP_IGNORED_DIRS, LIST_FILES_CEILING, LIST_FILES_TIMEOUT_S
+from anycode.security.policy import ToolSecurityError, resolve_tool_path
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -34,7 +35,10 @@ class ListFilesInput(BaseModel):
 
 
 async def _execute(input: ListFilesInput, context: ToolUseContext) -> ToolResult:
-    root = Path(input.path or os.getcwd())
+    try:
+        root = resolve_tool_path(input.path, context)
+    except ToolSecurityError as error:
+        return ToolResult(data=str(error), is_error=True)
     if not root.exists():
         return ToolResult(data=f'Path does not exist: "{root}".', is_error=True)
 

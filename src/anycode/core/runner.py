@@ -922,7 +922,7 @@ class AgentRunner:
         return None
 
     def _build_context(self) -> ToolUseContext:
-        return ToolUseContext(agent=self._build_agent_info())
+        return ToolUseContext(agent=self._build_agent_info(), security_policy=self._options.tool_security)
 
     def _build_agent_info(self) -> AgentInfo:
         return AgentInfo(

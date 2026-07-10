@@ -12,6 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from anycode.constants import DEFAULT_ENCODING, GREP_IGNORED_DIRS, GREP_MATCH_CEILING
+from anycode.security.policy import ToolSecurityError, resolve_tool_path
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -24,7 +25,10 @@ class GrepInput(BaseModel):
 
 
 async def _execute(input: GrepInput, context: ToolUseContext) -> ToolResult:
-    search_path = input.path or os.getcwd()
+    try:
+        search_path = str(resolve_tool_path(input.path, context))
+    except ToolSecurityError as error:
+        return ToolResult(data=str(error), is_error=True)
     cap = input.max_results
 
     if _has_ripgrep():

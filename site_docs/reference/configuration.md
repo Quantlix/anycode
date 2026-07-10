@@ -71,6 +71,7 @@ Tracing and guardrails are supplied via `AnyCode.configure(trace=TraceConfig(...
 | `mcp_servers` | `list[str] \| None` | `None` | Which MCP servers' tools this agent sees |
 | `context_policy` | `ContextPolicy \| None` | `None` | Per-agent context management |
 | `verification` | `tuple[VerificationSensorConfig, ...]` | `()` | Per-agent quality sensors |
+| `tool_security` | `ToolSecurityPolicy \| None` | `None` | Runtime tool, path, shell, and environment restrictions |
 
 !!! note "Reasoning options live on `RunnerOptions`, not `AgentConfig`"
     `reasoning_effort` and `thinking_budget_tokens` are runner/chat options — see [Use reasoning models](../guides/reasoning-models.md).

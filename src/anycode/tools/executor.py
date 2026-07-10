@@ -8,6 +8,7 @@ from typing import Any
 from anycode.constants import DEFAULT_TOOL_CONCURRENCY
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.hitl.approval import ApprovalManager
+from anycode.security.policy import ToolSecurityError, check_tool_access
 from anycode.telemetry.tracer import Tracer
 from anycode.tools.registry import ToolRegistry
 from anycode.types import BatchToolCall, SpanAttributes, ToolDefinition, ToolResult, ToolUseContext
@@ -32,6 +33,11 @@ class ToolExecutor:
         tool = self._registry.get(tool_name)
         if tool is None:
             return _failure(f'Tool "{tool_name}" is not registered in the current registry.')
+
+        try:
+            check_tool_access(tool_name, context.security_policy)
+        except ToolSecurityError as error:
+            return _failure(str(error))
 
         # HITL: tool-level approval
         if self._approval_manager is not None:

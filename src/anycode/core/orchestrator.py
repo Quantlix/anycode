@@ -58,6 +58,7 @@ from anycode.types import (
     OutputValidator,
     Plugin,
     PluginInstallation,
+    PluginTrustPolicy,
     QualityGateDecision,
     RouteDecision,
     RunResult,
@@ -261,9 +262,9 @@ class AnyCode:
         """Install a plugin and return the resulting installation record."""
         return self._plugin_registry.install(plugin)
 
-    def load_installed_plugins(self) -> list[PluginInstallation]:
-        """Discover and install every plugin published under the `anycode.plugins` entry-point group."""
-        plugins = discover_entry_point_plugins()
+    def load_installed_plugins(self, policy: PluginTrustPolicy | None = None) -> list[PluginInstallation]:
+        """Discover and install entry-point plugins permitted by ``policy``."""
+        plugins = discover_entry_point_plugins(policy)
         return self._plugin_registry.install_many(plugins)
 
     def list_plugins(self) -> list[PluginInstallation]:

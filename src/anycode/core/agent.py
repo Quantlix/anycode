@@ -79,6 +79,7 @@ class Agent:
             agent_name=self.name,
             agent_role=(self.config.system_prompt or "assistant")[:AGENT_ROLE_MAX_LENGTH],
             verification=self.config.verification,
+            tool_security=self.config.tool_security,
         )
         self._runner = AgentRunner(
             adapter,
@@ -213,5 +214,6 @@ class Agent:
                 name=self.name,
                 role=(self.config.system_prompt or "assistant")[:TOOL_CONTEXT_ROLE_MAX_LENGTH],
                 model=self.config.model,
-            )
+            ),
+            security_policy=self.config.tool_security,
         )

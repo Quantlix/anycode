@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from anycode.constants import DEFAULT_ENCODING
+from anycode.security.policy import ToolSecurityError, resolve_tool_path
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -20,7 +20,10 @@ class FileReadInput(BaseModel):
 
 async def _execute(input: FileReadInput, context: ToolUseContext) -> ToolResult:
     try:
-        raw = await asyncio.to_thread(Path(input.path).read_text, encoding=DEFAULT_ENCODING)
+        target = resolve_tool_path(input.path, context)
+        raw = await asyncio.to_thread(target.read_text, encoding=DEFAULT_ENCODING)
+    except ToolSecurityError as error:
+        return ToolResult(data=str(error), is_error=True)
     except Exception as e:
         return ToolResult(data=f'Unable to read "{input.path}": {e}', is_error=True)
 

@@ -17,6 +17,7 @@ from anycode.constants import (
     EXIT_CODE_NOT_FOUND,
     EXIT_CODE_TIMEOUT,
 )
+from anycode.security.policy import ToolSecurityError, build_subprocess_environment, resolve_tool_path, validate_shell_command
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -33,7 +34,13 @@ class BashInput(BaseModel):
 async def _execute(input: BashInput, context: ToolUseContext) -> ToolResult:
     limit = input.timeout or BASH_TIMEOUT_LIMIT_S
     cap = input.max_output_bytes if input.max_output_bytes is not None else BASH_MAX_OUTPUT_BYTES
-    stdout, stderr, exit_code = await _exec_command(input.command, cwd=input.cwd, timeout=limit, cap=cap)
+    try:
+        validate_shell_command(input.command, context)
+        cwd = str(resolve_tool_path(input.cwd, context)) if input.cwd is not None or context.security_policy is not None else None
+        env = build_subprocess_environment(context)
+    except ToolSecurityError as error:
+        return ToolResult(data=str(error), is_error=True)
+    stdout, stderr, exit_code = await _exec_command(input.command, cwd=cwd, timeout=limit, cap=cap, env=env)
     return ToolResult(data=_compose_result(stdout, stderr, exit_code), is_error=exit_code != 0)
 
 
@@ -94,13 +101,14 @@ async def _terminate(proc: asyncio.subprocess.Process) -> None:
     await proc.wait()
 
 
-async def _exec_command(command: str, cwd: str | None, timeout: float, cap: int) -> tuple[str, str, int]:
+async def _exec_command(command: str, cwd: str | None, timeout: float, cap: int, env: dict[str, str] | None = None) -> tuple[str, str, int]:
     try:
         proc = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
+            env=env,
             **_spawn_kwargs(),  # type: ignore[arg-type]
         )
     except Exception as e:

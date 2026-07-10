@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from anycode.constants import DEFAULT_ENCODING
+from anycode.security.policy import ToolSecurityError, resolve_tool_path
 from anycode.tools._fsutil import atomic_write_text
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
@@ -19,7 +19,10 @@ class FileWriteInput(BaseModel):
 
 
 async def _execute(input: FileWriteInput, context: ToolUseContext) -> ToolResult:
-    target = Path(input.path)
+    try:
+        target = resolve_tool_path(input.path, context)
+    except ToolSecurityError as error:
+        return ToolResult(data=str(error), is_error=True)
     existed = target.exists()
 
     try:

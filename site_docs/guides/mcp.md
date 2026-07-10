@@ -28,6 +28,7 @@ pip install "anycode-py[mcp]"
 | `headers` | `dict[str, str]` | `None` | HTTP — static headers on every request |
 | `auth_token_env` | `str` | `None` | HTTP — env var **name** resolved to `Authorization: Bearer <token>` |
 | `timeout` | `float` | `30.0` | all — applied to connect, initialize, discovery, and each tool call |
+| `trust` | `MCPTrustPolicy` | secure transport defaults | all — stdio permission, HTTPS, private-network, and host controls |
 
 === "stdio"
 
@@ -60,6 +61,27 @@ pip install "anycode-py[mcp]"
     `auth_token_env` stores the *name* of an environment variable. The token value is read from `os.environ` at connect time and sent as `Authorization: Bearer <token>` — it is never stored on the config object, and never appears in prompts or logs. Static `headers` are merged with the resolved auth header.
 
 Configs are validated on construction: `stdio` requires `command`, the HTTP transports require `url`, `timeout` must be positive, and an invalid config raises `ValueError`.
+
+## Restrict transport trust
+
+Remote MCP uses HTTPS by default. Plaintext HTTP is accepted only for loopback development endpoints unless `allow_insecure_http=True` is explicit. Private IP literals are rejected unless allowed, and `allowed_hosts` can reduce remote access to a fixed set.
+
+```python title="trusted_mcp.py"
+from anycode import MCPServerConfig, MCPTrustPolicy
+
+config = MCPServerConfig(
+    name="internal-search",
+    transport="streamable-http",
+    url="https://mcp.example.com/mcp",
+    auth_token_env="MCP_API_TOKEN",
+    trust=MCPTrustPolicy(
+        allow_stdio=False,
+        allowed_hosts=("mcp.example.com",),
+    ),
+)
+```
+
+For stdio servers, set `allow_stdio=False` in environments where spawning a local subprocess is outside the deployment's trust model. Host allowlisting also reduces server-side request forgery exposure, but DNS and network egress controls still belong at the container or network layer.
 
 ## Register with the engine
 

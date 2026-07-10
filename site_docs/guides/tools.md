@@ -118,6 +118,40 @@ agent = Agent(
 
 The `tools` allowlist still governs access: this agent registered the built-in tools but can only call `count_words`, because that is the single name in its config.
 
+## Enforce a workspace security policy
+
+`ToolSecurityPolicy` adds a second, runtime-enforced boundary around every tool call. The executor applies tool allowlists and denylists to built-in, custom, and MCP tools. Filesystem tools resolve paths and symlinks before checking that the target remains inside an allowed root.
+
+```python title="secure_agent.py"
+from anycode import AgentConfig, ToolSecurityPolicy
+
+policy = ToolSecurityPolicy(
+    allowed_tools=("file_read", "grep"),
+    workspace_root="/srv/anycode/workspaces/review-42",
+    allow_shell=False,
+    inherit_environment=False,
+)
+
+agent = AgentConfig(
+    name="reviewer",
+    provider="anthropic",
+    model="claude-haiku-4-5",
+    tools=["file_read", "grep"],
+    tool_security=policy,
+)
+```
+
+Important controls:
+
+- `workspace_root` and `allowed_path_roots` constrain `file_read`, `file_write`, `file_edit`, `grep`, `list_files`, and the shell working directory.
+- `allow_shell=False` blocks `bash` even when the tool was registered accidentally.
+- `allowed_shell_commands` permits only one executable per call and rejects shell control operators such as `&&`, `|`, and `;`.
+- `inherit_environment=False` starts child commands without the parent environment. Add only required names to `allowed_environment_variables`.
+- `allowed_tools` and `denied_tools` are enforced centrally by `ToolExecutor`, including for custom tools.
+
+!!! warning "Policy enforcement is not an operating-system sandbox"
+    The policy constrains AnyCode's built-in execution paths. A custom Python tool still runs inside the host process and can use normal Python APIs. Run untrusted workloads in a container, VM, or another operating-system isolation boundary, and keep credentials outside that boundary.
+
 ## Tool design checklist
 
 Well-shaped tools make agents more reliable and easier to audit. Keep each of these in view when you add one:
@@ -131,7 +165,7 @@ Well-shaped tools make agents more reliable and easier to audit. Keep each of th
 ## Scope tools to the least privilege they need
 
 !!! danger "A tool-enabled agent is a privileged process"
-    Tools that read files, write files, or run shell commands turn an agent into an automation process with real reach. While AnyCode is alpha, run tool-enabled agents in a disposable workspace, grant the minimum set of tools per agent, and add human approval gates before irreversible or sensitive actions. See [Production Controls](production-controls.md) for gates, budgets, and checkpoints.
+    Tools that read files, write files, or run shell commands turn an agent into an automation process with real reach. Run tool-enabled agents in an isolated workspace, apply `ToolSecurityPolicy`, grant the minimum set of tools, and add human approval gates before irreversible or sensitive actions. See [Production Controls](production-controls.md) for gates, budgets, and checkpoints.
 
 See `examples/04_hybrid_tooling.py` for a complete agent that combines built-in and custom tools.
 

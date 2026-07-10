@@ -83,7 +83,7 @@ To ship a plugin as a package, expose it under the `anycode.plugins` entry-point
 acme = "acme_bundle:AcmePlugin"
 ```
 
-Then any process can load every installed plugin at once:
+Development processes can load every installed plugin at once:
 
 ```python title="discover.py"
 engine = AnyCode()
@@ -91,8 +91,25 @@ engine.load_installed_plugins()   # discovers + installs all entry-point plugins
 print(engine.list_plugins())
 ```
 
+Production processes should allowlist entry points or distribution names before import. Filtering happens before `EntryPoint.load()`, so untrusted plugin code is never executed:
+
+```python title="trusted_plugins.py"
+from anycode import AnyCode, PluginTrustPolicy
+
+engine = AnyCode()
+engine.load_installed_plugins(
+    PluginTrustPolicy(
+        allowed_distributions=("quantlix-anycode-approved",),
+        allowed_entry_points=("internal-tools",),
+    )
+)
+```
+
 !!! tip "Broken plugins fail quietly"
     Entry-point discovery logs and skips a plugin that fails to import, so one bad third-party package can't stop your process from starting. Check `list_plugins()` to confirm what actually loaded.
+
+!!! warning "Plugins execute trusted Python code"
+    A plugin can register tools, hooks, sensors, and provider factories inside the host process. Allowlists establish which installed packages may load, but they do not sandbox approved plugins. Pin and review plugin distributions with the same care as runtime dependencies.
 
 ## Register a provider without a full plugin
 

@@ -421,12 +421,32 @@ class TeamInfo(BaseModel):
     agents: list[str]
 
 
+class ToolSecurityPolicy(BaseModel):
+    """Least-privilege controls applied to every tool invocation.
+
+    Empty allowlists preserve existing behavior. Set ``workspace_root`` to
+    constrain filesystem tools, disable ``allow_shell`` for untrusted agents,
+    and disable ``inherit_environment`` to avoid exposing process secrets.
+    """
+
+    model_config = ConfigDict(frozen=True)
+    allowed_tools: tuple[str, ...] = ()
+    denied_tools: tuple[str, ...] = ()
+    workspace_root: str | None = None
+    allowed_path_roots: tuple[str, ...] = ()
+    allow_shell: bool = True
+    allowed_shell_commands: tuple[str, ...] = ()
+    inherit_environment: bool = True
+    allowed_environment_variables: tuple[str, ...] = ()
+
+
 class ToolUseContext(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
     agent: AgentInfo
     team: TeamInfo | None = None
     cwd: str | None = None
     metadata: dict[str, Any] | None = None
+    security_policy: ToolSecurityPolicy | None = None
 
 
 class ToolDefinition(BaseModel):
@@ -455,6 +475,7 @@ class AgentConfig(BaseModel):
     mcp_servers: list[str] | None = None
     context_policy: ContextPolicy | None = None
     verification: tuple[VerificationSensorConfig, ...] = ()
+    tool_security: ToolSecurityPolicy | None = None
 
 
 class AgentState(BaseModel):
@@ -813,6 +834,7 @@ class RunnerOptions(BaseModel):
     reasoning_effort: ReasoningEffort | None = None
     thinking_budget_tokens: int | None = None
     streaming: RunnerStreamingConfig | None = None
+    tool_security: ToolSecurityPolicy | None = None
 
 
 class RunResult(BaseModel):
@@ -1073,6 +1095,16 @@ class ApprovalConfig(BaseModel):
 # -- MCP (Model Context Protocol) --
 
 
+class MCPTrustPolicy(BaseModel):
+    """Trust boundary for MCP subprocess and HTTP transports."""
+
+    model_config = ConfigDict(frozen=True)
+    allow_stdio: bool = True
+    allow_insecure_http: bool = False
+    allow_private_networks: bool = False
+    allowed_hosts: tuple[str, ...] = ()
+
+
 class MCPServerConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     name: str
@@ -1086,6 +1118,7 @@ class MCPServerConfig(BaseModel):
     # Bearer token. Secrets are resolved here, never surfaced into model context.
     headers: dict[str, str] | None = None
     auth_token_env: str | None = None
+    trust: MCPTrustPolicy = MCPTrustPolicy()
 
 
 class MCPToolInfo(BaseModel):
@@ -1499,6 +1532,15 @@ class MetaHarnessReport(BaseModel):
 # -- Plugin / extension ecosystem --
 
 PluginSource = Literal["manual", "entry_point", "builtin"]
+
+
+class PluginTrustPolicy(BaseModel):
+    """Allowlist applied before third-party entry points are imported."""
+
+    model_config = ConfigDict(frozen=True)
+    allowed_entry_points: tuple[str, ...] = ()
+    allowed_distributions: tuple[str, ...] = ()
+    allow_unlisted: bool = False
 
 
 class PluginManifest(BaseModel):
