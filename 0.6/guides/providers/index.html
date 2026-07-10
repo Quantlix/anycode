@@ -2901,13 +2901,13 @@
 <td><code>anthropic</code></td>
 <td><code>claude-haiku-4-5</code>, <code>claude-sonnet-5</code></td>
 <td><code>ANTHROPIC_API_KEY</code></td>
-<td>core (always installed)</td>
+<td><code>anycode-py[anthropic]</code></td>
 </tr>
 <tr>
 <td><code>openai</code></td>
 <td><code>gpt-4o-mini</code>, <code>gpt-5</code></td>
 <td><code>OPENAI_API_KEY</code></td>
-<td>core (always installed)</td>
+<td><code>anycode-py[openai]</code></td>
 </tr>
 <tr>
 <td><code>google</code></td>
@@ -2935,7 +2935,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>anthropic</code> and <code>openai</code> ship as core dependencies. The other four pull optional SDKs — if the extra is missing, the adapter raises an <code>ImportError</code> at construction with the exact <code>pip install "anycode-py[...]"</code> hint.</p>
+<p>Every provider SDK is optional and lazy-loaded. If an extra is missing, the adapter raises an <code>ImportError</code> at construction with the exact <code>pip install "anycode-py[...]"</code> hint. Use <code>anycode-py[providers]</code> to install every built-in provider SDK.</p>
 <div class="admonition note">
 <p class="admonition-title">FakeAdapter for tests</p>
 <p><code>FakeAdapter</code> is a seventh, offline provider used for deterministic tests and CI. It returns scripted responses with zero network calls. See <a href="../streaming/">Stream agent output</a> and <a href="../multi-agent-team/">Run a multi-agent team</a> for how it slots in.</p>

@@ -2939,6 +2939,7 @@
 </div>
 </div>
 </div>
+<p>The core install contains orchestration, offline evaluation, and <code>FakeAdapter</code>, but no provider SDK. Add one provider extra for live calls, for example <code>anycode-py[anthropic]</code> or <code>anycode-py[openai]</code>.</p>
 <p>Add the <code>cli</code> extra when you want to scaffold and run workflows from YAML/TOML config files, with rich terminal output:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="uv_1" name="__tabbed_2" type="radio" /><input id="pip_1" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="uv_1">uv</label><label for="pip_1">pip</label></div>
 <div class="tabbed-content">
@@ -2966,6 +2967,14 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>anthropic</code></td>
+<td>Anthropic Claude provider support</td>
+</tr>
+<tr>
+<td><code>openai</code></td>
+<td>OpenAI provider support</td>
+</tr>
 <tr>
 <td><code>cli</code></td>
 <td><code>anycode</code> command, YAML/TOML config, rich terminal output</td>
@@ -3010,21 +3019,29 @@
 <td><code>tokens</code></td>
 <td>Token counting through <code>tiktoken</code></td>
 </tr>
+<tr>
+<td><code>providers</code></td>
+<td>All built-in provider SDKs</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>Every optional provider and framework integration</td>
+</tr>
 </tbody>
 </table>
 <div class="admonition note">
-<p class="admonition-title">Anthropic and OpenAI need no extra</p>
-<p>The Anthropic and OpenAI providers work with the core install. Add a provider extra only for Google Gemini (<code>google</code>), Ollama (<code>ollama</code>), AWS Bedrock (<code>bedrock</code>), or Azure OpenAI (<code>azure</code>).</p>
+<p class="admonition-title">Install only what the workload uses</p>
+<p>Provider modules are lazy-loaded. A core-only process can run deterministic evaluations without installing any provider SDK, while a live deployment can select only its required extras.</p>
 </div>
 <p>For a broad local playground with every optional feature enabled:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="uv_2" name="__tabbed_3" type="radio" /><input id="pip_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="uv_2">uv</label><label for="pip_2">pip</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;anycode-py[cli,telemetry,persistence,redis,vector,mcp,google,ollama,bedrock,azure,tokens]&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;anycode-py[all]&quot;</span>
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;anycode-py[cli,telemetry,persistence,redis,vector,mcp,google,ollama,bedrock,azure,tokens]&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;anycode-py[all]&quot;</span>
 </span></code></pre></div>
 </div>
 </div>
