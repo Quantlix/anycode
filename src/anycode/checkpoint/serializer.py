@@ -7,7 +7,9 @@ from typing import Any
 
 from anycode.constants import (
     BLOCK_TYPE_IMAGE,
+    BLOCK_TYPE_REDACTED_THINKING,
     BLOCK_TYPE_TEXT,
+    BLOCK_TYPE_THINKING,
     BLOCK_TYPE_TOOL_RESULT,
     BLOCK_TYPE_TOOL_USE,
     CHECKPOINT_FORMAT_VERSION,
@@ -22,9 +24,11 @@ from anycode.types import (
     LifecycleEvent,
     LLMMessage,
     QualityGateDecision,
+    RedactedThinkingBlock,
     StopReason,
     Task,
     TextBlock,
+    ThinkingBlock,
     TokenUsage,
     ToolCallRecord,
     ToolResultBlock,
@@ -134,4 +138,8 @@ def _deserialize_content_block(data: dict[str, Any]) -> ContentBlock:
         return ToolResultBlock(**data)
     if block_type == BLOCK_TYPE_IMAGE:
         return ImageBlock(type=BLOCK_TYPE_IMAGE, source=ImageSource(**data["source"]))
+    if block_type == BLOCK_TYPE_THINKING:
+        return ThinkingBlock(**data)
+    if block_type == BLOCK_TYPE_REDACTED_THINKING:
+        return RedactedThinkingBlock(**data)
     raise ValueError(f"Unknown content block type: {block_type!r}")

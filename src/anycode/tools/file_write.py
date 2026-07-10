@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from anycode.constants import DEFAULT_ENCODING
+from anycode.tools._fsutil import atomic_write_text
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -21,12 +23,7 @@ async def _execute(input: FileWriteInput, context: ToolUseContext) -> ToolResult
     existed = target.exists()
 
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        return ToolResult(data=f'Could not create parent directory "{target.parent}": {e}', is_error=True)
-
-    try:
-        target.write_text(input.content, encoding=DEFAULT_ENCODING)
+        await asyncio.to_thread(atomic_write_text, target, input.content)
     except Exception as e:
         return ToolResult(data=f'Could not write file "{input.path}": {e}', is_error=True)
 

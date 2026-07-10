@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
 import re
 import shutil
@@ -26,14 +27,14 @@ async def _execute(input: GrepInput, context: ToolUseContext) -> ToolResult:
     search_path = input.path or os.getcwd()
     cap = input.max_results
 
+    if _has_ripgrep():
+        return await _ripgrep_search(input.pattern, search_path, glob=input.glob, max_results=cap)
+
     try:
         regex = re.compile(input.pattern)
     except re.error:
         return ToolResult(data=f'Invalid regex pattern: "{input.pattern}"', is_error=True)
-
-    if _has_ripgrep():
-        return await _ripgrep_search(input.pattern, search_path, glob=input.glob, max_results=cap)
-    return await _python_search(regex, search_path, glob=input.glob, max_results=cap)
+    return await asyncio.to_thread(_python_search, regex, search_path, glob=input.glob, max_results=cap)
 
 
 async def _ripgrep_search(pattern: str, search_path: str, *, glob: str | None, max_results: int) -> ToolResult:
@@ -53,7 +54,7 @@ async def _ripgrep_search(pattern: str, search_path: str, *, glob: str | None, m
         return ToolResult(data=f"ripgrep error: {e}", is_error=True)
 
 
-async def _python_search(regex: re.Pattern[str], search_path: str, *, glob: str | None, max_results: int) -> ToolResult:
+def _python_search(regex: re.Pattern[str], search_path: str, *, glob: str | None, max_results: int) -> ToolResult:
     target = Path(search_path)
     try:
         files = [target] if target.is_file() else list(_gather_files(target, glob))
@@ -107,6 +108,7 @@ def _glob_match(filename: str, glob_pattern: str) -> bool:
     return bool(re.match(f"^{regex_src}$", filename, re.IGNORECASE))
 
 
+@functools.lru_cache(maxsize=1)
 def _has_ripgrep() -> bool:
     return shutil.which("rg") is not None
 

@@ -13,6 +13,7 @@ message which terminates the agent loop with `success`.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterable, Iterable
 from dataclasses import dataclass, field
@@ -40,6 +41,10 @@ class FakeResponse:
     output_tokens: int = 5
     cache_creation_input_tokens: int = 0
     cache_read_input_tokens: int = 0
+    # Optional per-chunk delay (seconds) so latency tests can prove that a first
+    # text event is emitted before the final `done` response is available.
+    stream_delay_seconds: float = 0.0
+    text_chunks: int = 1
 
 
 @dataclass
@@ -97,12 +102,28 @@ class FakeAdapter:
         )
 
     def stream(self, messages: list[LLMMessage], options: LLMStreamOptions) -> AsyncIterable[StreamEvent]:
+        # Capture the scripted delay before `chat()` advances the cursor.
+        scripted = self.responses[self._cursor] if self._cursor < len(self.responses) else None
+        delay = scripted.stream_delay_seconds if scripted else 0.0
+        chunks = max(1, scripted.text_chunks if scripted else 1)
+
         async def _gen() -> AsyncIterable[StreamEvent]:
             response = await self.chat(messages, options)
             for block in response.content:
                 if isinstance(block, TextBlock) and block.text:
-                    yield StreamEvent(type="text", data=block.text)
+                    for piece in _split_evenly(block.text, chunks):
+                        if delay:
+                            await asyncio.sleep(delay)
+                        yield StreamEvent(type="text", data=piece)
                 elif isinstance(block, ToolUseBlock):
                     yield StreamEvent(type="tool_use", data=block)
+            yield StreamEvent(type="done", data=response)
 
         return _gen()
+
+
+def _split_evenly(text: str, parts: int) -> list[str]:
+    if parts <= 1 or len(text) <= 1:
+        return [text]
+    size = max(1, (len(text) + parts - 1) // parts)
+    return [text[i : i + size] for i in range(0, len(text), size)]

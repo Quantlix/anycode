@@ -59,6 +59,8 @@ BLOCK_TYPE_TOOL_USE = "tool_use"
 BLOCK_TYPE_TOOL_RESULT = "tool_result"
 BLOCK_TYPE_IMAGE = "image"
 BLOCK_TYPE_BASE64 = "base64"
+BLOCK_TYPE_THINKING = "thinking"
+BLOCK_TYPE_REDACTED_THINKING = "redacted_thinking"
 
 # ---------------------------------------------------------------------------
 # LLM stop reasons
@@ -155,6 +157,8 @@ CHROMADB_DEFAULT_PORT = 8000
 # ---------------------------------------------------------------------------
 
 GREP_MATCH_CEILING = 100
+LIST_FILES_CEILING = 1000
+LIST_FILES_TIMEOUT_S = 15.0
 GREP_IGNORED_DIRS = frozenset(
     {
         ".git",
@@ -174,6 +178,8 @@ GREP_IGNORED_DIRS = frozenset(
 # ---------------------------------------------------------------------------
 
 BASH_TIMEOUT_LIMIT_S = 30
+BASH_MAX_OUTPUT_BYTES = 200_000
+BASH_READ_CHUNK_BYTES = 65_536
 
 # ---------------------------------------------------------------------------
 # Provider defaults

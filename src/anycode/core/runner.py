@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from pydantic import BaseModel
 
 from anycode.checkpoint.serializer import _serialize_message
-from anycode.constants import DEFAULT_TURN_LIMIT, HANDOFF_TOOL_NAME, MAX_VALIDATION_RETRIES, MS_PER_SECOND
+from anycode.constants import DEFAULT_TOOL_CONCURRENCY, DEFAULT_TURN_LIMIT, HANDOFF_TOOL_NAME, MAX_VALIDATION_RETRIES, MS_PER_SECOND
 from anycode.context.profiles import resolve_profile
 from anycode.core.context_manager import ContextManager
 from anycode.core.lifecycle import LifecycleEmitter, LifecycleEvent, LifecycleListener, LoopDetector, fingerprint_call
@@ -33,9 +33,11 @@ from anycode.core.stop_reason import (
 from anycode.core.stop_reason import (
     unknown as stop_unknown,
 )
+from anycode.core.streaming import StreamAccumulator, StreamStartupError
 from anycode.guardrails.budget import BudgetTracker
 from anycode.guardrails.hooks import HookRunner
 from anycode.guardrails.validators import run_validators
+from anycode.helpers.concurrency_gate import Semaphore
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
 from anycode.providers.resilience import ProviderUnavailableError
@@ -58,11 +60,12 @@ from anycode.types import (
     GuardrailConfig,
     HandoffRequest,
     LLMAdapter,
-    LLMChatOptions,
     LLMMessage,
+    LLMStreamOptions,
     OutputValidator,
     QualityGateDecision,
     RunnerOptions,
+    RunnerStreamingConfig,
     RunResult,
     SpanAttributes,
     StopReason,
@@ -118,6 +121,7 @@ class AgentRunner:
         self._registry = tool_registry
         self._executor = tool_executor
         self._options = options
+        self._streaming = options.streaming or RunnerStreamingConfig()
         self._turn_limit = options.max_turns or DEFAULT_TURN_LIMIT
         self._tracer = tracer or Tracer()
         self._budget = BudgetTracker(guardrail_config, model=options.model)
@@ -252,13 +256,15 @@ class AgentRunner:
             active_defs = list(active_defs) + [structured_tool] if active_defs else [structured_tool]
 
         cache_profile, _ = resolve_profile(provider=self._adapter.name, model=self._options.model)
-        chat_params = LLMChatOptions(
+        chat_params = LLMStreamOptions(
             model=self._options.model,
             tools=active_defs if active_defs else None,
             max_tokens=self._options.max_tokens,
             temperature=self._options.temperature,
             system_prompt=self._options.system_prompt,
             enable_prompt_cache=cache_profile.supports_prompt_cache,
+            reasoning_effort=self._options.reasoning_effort,
+            thinking_budget_tokens=self._options.thinking_budget_tokens,
         )
 
         try:
@@ -310,8 +316,44 @@ class AgentRunner:
                     else:
                         prepared_messages = conversation
                         manifest = None
+                    streamed_text = False
                     async with self._tracer.async_span("anycode.llm.chat", parent=turn_span) as llm_span:
-                        response = await self._adapter.chat(prepared_messages, chat_params)
+                        response = None
+                        if self._streaming.enabled:
+                            accumulator = StreamAccumulator()
+                            first_token_ms: float | None = None
+                            try:
+                                async for stream_event in self._adapter.stream(prepared_messages, chat_params):
+                                    if stream_event.type in ("text", "thinking"):
+                                        if first_token_ms is None:
+                                            first_token_ms = (time.monotonic() - llm_start) * MS_PER_SECOND
+                                            llm_span.set_attribute("llm_first_token_ms", first_token_ms)
+                                        if stream_event.type == "text":
+                                            streamed_text = True
+                                        yield StreamEvent(type=stream_event.type, data=stream_event.data)
+                                    accumulator.observe(stream_event)
+                                response = accumulator.build_response(self._options.model)
+                                llm_span.set_attribute("stream_event_count", accumulator.event_count)
+                            except ProviderUnavailableError:
+                                # Resilience already exhausted retries; do not
+                                # re-attempt via chat and multiply provider load.
+                                raise
+                            except StreamStartupError as stream_error:
+                                # A terminal provider `error` event: the resilient
+                                # layer has already retried. Surface as a provider
+                                # outage instead of re-issuing the turn via chat.
+                                raise ProviderUnavailableError(self._adapter.name, str(stream_error)) from stream_error
+                            except Exception as stream_error:
+                                # The stream itself failed (e.g. an adapter that
+                                # cannot stream safely). Fall back to a single
+                                # chat() call only when nothing was emitted yet.
+                                if not (self._streaming.fallback_to_chat and not accumulator.emitted_output):
+                                    raise
+                                llm_span.set_attribute("stream_fallback", str(stream_error) or "stream_error")
+                                streamed_text = False
+                                response = None
+                        if response is None:
+                            response = await self._adapter.chat(prepared_messages, chat_params)
                         llm_span.set_attributes(
                             SpanAttributes(
                                 model=self._options.model,
@@ -380,7 +422,9 @@ class AgentRunner:
                     _persist("message", _serialize_message(assistant_msg))
 
                     turn_text = _pull_text(response.content)
-                    if turn_text:
+                    if turn_text and not streamed_text:
+                        # Streaming already emitted the text incrementally; only
+                        # emit here when the response came from the chat path.
                         yield StreamEvent(type="text", data=turn_text)
 
                     tool_blocks = _filter_tool_calls(response.content)
@@ -810,42 +854,51 @@ class AgentRunner:
         turn_span: Span,
         ctx: ToolUseContext,
     ) -> list[tuple[ToolResultBlock, ToolCallRecord]]:
-        """Execute a batch of tool calls, respecting budget guardrails."""
-        results: list[tuple[ToolResultBlock, ToolCallRecord]] = []
-        for block in blocks:
+        """Execute a batch of tool calls concurrently, respecting budget guardrails.
+
+        Independent tool calls in one turn run in parallel behind a bounded
+        semaphore, but results are returned in the original block order so the
+        emitted ``tool_result`` blocks stay aligned with their ``tool_use`` ids.
+        """
+        if not blocks:
+            return []
+
+        gate = Semaphore(min(DEFAULT_TOOL_CONCURRENCY, len(blocks)))
+
+        async def _run(block: ToolUseBlock) -> tuple[ToolResultBlock, ToolCallRecord]:
             if self._budget.is_tool_blocked(block.name):
-                result = ToolResult(data=f'Tool "{block.name}" is blocked by guardrail policy.', is_error=True)
-                result_block = ToolResultBlock(tool_use_id=block.id, content=result.data, is_error=True)
-                record = ToolCallRecord(tool_name=block.name, input=block.input, output=result.data, duration=0.0)
-                results.append((result_block, record))
-                continue
+                message = f'Tool "{block.name}" is blocked by guardrail policy.'
+                return (
+                    ToolResultBlock(tool_use_id=block.id, content=message, is_error=True),
+                    ToolCallRecord(tool_name=block.name, input=block.input, output=message, duration=0.0),
+                )
+            return await gate.run(lambda: self._run_single_tool_block(block, turn_span, ctx))
 
-            began = time.monotonic()
-            async with self._tracer.async_span(f"anycode.tool.{block.name}", parent=turn_span) as tool_span:
-                try:
-                    result = await self._executor.execute(block.name, block.input, ctx)
-                except Exception as e:
-                    result = ToolResult(data=str(e), is_error=True)
-                    tool_span.set_error(str(e))
+        return list(await asyncio.gather(*[_run(block) for block in blocks]))
 
-                duration = time.monotonic() - began
-                tool_span.set_attributes(SpanAttributes(tool_name=block.name))
-                tool_span.set_attribute("duration_ms", duration * MS_PER_SECOND)
-                tool_span.set_attribute("is_error", bool(result.is_error))
+    async def _run_single_tool_block(
+        self,
+        block: ToolUseBlock,
+        turn_span: Span,
+        ctx: ToolUseContext,
+    ) -> tuple[ToolResultBlock, ToolCallRecord]:
+        began = time.monotonic()
+        async with self._tracer.async_span(f"anycode.tool.{block.name}", parent=turn_span) as tool_span:
+            try:
+                result = await self._executor.execute(block.name, block.input, ctx)
+            except Exception as e:
+                result = ToolResult(data=str(e), is_error=True)
+                tool_span.set_error(str(e))
 
-            result_block = ToolResultBlock(
-                tool_use_id=block.id,
-                content=result.data,
-                is_error=result.is_error,
-            )
-            record = ToolCallRecord(
-                tool_name=block.name,
-                input=block.input,
-                output=result.data,
-                duration=duration,
-            )
-            results.append((result_block, record))
-        return results
+            duration = time.monotonic() - began
+            tool_span.set_attributes(SpanAttributes(tool_name=block.name))
+            tool_span.set_attribute("duration_ms", duration * MS_PER_SECOND)
+            tool_span.set_attribute("is_error", bool(result.is_error))
+
+        return (
+            ToolResultBlock(tool_use_id=block.id, content=result.data, is_error=result.is_error),
+            ToolCallRecord(tool_name=block.name, input=block.input, output=result.data, duration=duration),
+        )
 
     @staticmethod
     def _detect_handoff(results: list[tuple[ToolResultBlock, ToolCallRecord]]) -> tuple[HandoffRequest, ToolCallRecord] | None:

@@ -47,7 +47,28 @@ class ImageBlock(BaseModel):
     source: ImageSource
 
 
-ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ImageBlock
+class ThinkingBlock(BaseModel):
+    """Extended-thinking reasoning block.
+
+    The ``signature`` must be preserved and returned verbatim on the next
+    request or the provider rejects a thinking-enabled tool-use turn.
+    """
+
+    model_config = ConfigDict(frozen=True)
+    type: Literal["thinking"] = "thinking"
+    thinking: str
+    signature: str = ""
+
+
+class RedactedThinkingBlock(BaseModel):
+    """Encrypted reasoning the provider chose to redact; opaque, pass back as-is."""
+
+    model_config = ConfigDict(frozen=True)
+    type: Literal["redacted_thinking"] = "redacted_thinking"
+    data: str
+
+
+ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ImageBlock | ThinkingBlock | RedactedThinkingBlock
 
 
 # -- Conversation messages --
@@ -367,7 +388,7 @@ class LLMResponse(BaseModel):
 
 class StreamEvent(BaseModel):
     model_config = ConfigDict(frozen=True)
-    type: Literal["text", "tool_use", "tool_result", "done", "error", "handoff"]
+    type: Literal["text", "thinking", "tool_use", "tool_result", "done", "error", "handoff"]
     data: Any
 
 
@@ -572,6 +593,9 @@ class MemoryStore(Protocol):
 # -- LLM adapter --
 
 
+ReasoningEffort = Literal["minimal", "low", "medium", "high"]
+
+
 class LLMChatOptions(BaseModel):
     model_config = ConfigDict(frozen=True)
     model: str
@@ -580,6 +604,10 @@ class LLMChatOptions(BaseModel):
     temperature: float | None = None
     system_prompt: str | None = None
     enable_prompt_cache: bool = False
+    # Reasoning-model controls. `reasoning_effort` maps to OpenAI's field and to
+    # a token budget on providers that express thinking as a budget instead.
+    reasoning_effort: ReasoningEffort | None = None
+    thinking_budget_tokens: int | None = None
 
 
 class LLMStreamOptions(LLMChatOptions):
@@ -757,6 +785,20 @@ class LLMAdapter(Protocol):
 # -- Runner types --
 
 
+class RunnerStreamingConfig(BaseModel):
+    """Controls whether a turn consumes the provider stream incrementally.
+
+    When enabled, the runner emits ``text``/``thinking`` events as the provider
+    produces them and assembles the same final ``LLMResponse`` the non-streaming
+    path returns. ``fallback_to_chat`` retries the turn via ``chat()`` if the
+    stream fails before any output or tool side effect is emitted.
+    """
+
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = True
+    fallback_to_chat: bool = True
+
+
 class RunnerOptions(BaseModel):
     model_config = ConfigDict(frozen=True)
     model: str
@@ -768,6 +810,9 @@ class RunnerOptions(BaseModel):
     agent_name: str | None = None
     agent_role: str | None = None
     verification: tuple[VerificationSensorConfig, ...] = ()
+    reasoning_effort: ReasoningEffort | None = None
+    thinking_budget_tokens: int | None = None
+    streaming: RunnerStreamingConfig | None = None
 
 
 class RunResult(BaseModel):
@@ -1037,6 +1082,10 @@ class MCPServerConfig(BaseModel):
     url: str | None = None
     env: dict[str, str] | None = None
     timeout: float = 30.0
+    # HTTP auth: static headers plus an optional env var whose value is sent as a
+    # Bearer token. Secrets are resolved here, never surfaced into model context.
+    headers: dict[str, str] | None = None
+    auth_token_env: str | None = None
 
 
 class MCPToolInfo(BaseModel):

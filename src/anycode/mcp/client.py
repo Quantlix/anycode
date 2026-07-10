@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 from anycode.constants import MCP_TRANSPORT_SSE, MCP_TRANSPORT_STDIO, MCP_TRANSPORT_STREAMABLE_HTTP
@@ -17,13 +18,33 @@ try:
         from mcp import sse_client  # type: ignore[attr-defined]
     except ImportError:
         sse_client: Any = None
+
+    try:
+        from mcp.client.streamable_http import streamablehttp_client  # type: ignore[attr-defined]
+    except ImportError:
+        streamablehttp_client: Any = None
 except ImportError:
     ClientSession: Any = None
     StdioServerParameters: Any = None
     sse_client: Any = None
+    streamablehttp_client: Any = None
     stdio_client: Any = None
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_auth_headers(config: MCPServerConfig) -> dict[str, str] | None:
+    """Merge static headers with a Bearer token read from the environment.
+
+    Token values come from the environment at call time so secrets never enter
+    prompts, tool output, or audit logs.
+    """
+    headers: dict[str, str] = dict(config.headers) if config.headers else {}
+    if config.auth_token_env:
+        token = os.environ.get(config.auth_token_env)
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+    return headers or None
 
 
 class MCPClient:
@@ -96,20 +117,30 @@ class MCPClient:
         self._session_cm = session_cm
 
     async def _connect_http(self, session_cls: type) -> None:
-        """Connect via SSE or streamable-http transport."""
+        """Connect via streamable-HTTP (preferred) or legacy SSE transport."""
         if not self._config.url:
             raise ValueError(f"MCP server '{self._config.name}': HTTP transport requires a 'url'.")
-        if sse_client is None:
-            raise ImportError(
-                f"MCP server '{self._config.name}': SSE/HTTP transport requires the 'mcp' package with SSE support. "
-                'Install it with: pip install "anycode-py[mcp]"'
-            )
 
-        transport_cm = sse_client(self._config.url)
-        read_stream, write_stream = await asyncio.wait_for(
-            transport_cm.__aenter__(),
-            timeout=self._config.timeout,
-        )
+        headers = resolve_auth_headers(self._config)
+
+        if self._config.transport == MCP_TRANSPORT_STREAMABLE_HTTP:
+            if streamablehttp_client is None:
+                raise ImportError(
+                    f"MCP server '{self._config.name}': streamable-HTTP transport requires a recent 'mcp' package. "
+                    'Install it with: pip install "anycode-py[mcp]"'
+                )
+            transport_cm = streamablehttp_client(self._config.url, headers=headers)
+        else:
+            if sse_client is None:
+                raise ImportError(
+                    f"MCP server '{self._config.name}': SSE transport requires the 'mcp' package with SSE support. "
+                    'Install it with: pip install "anycode-py[mcp]"'
+                )
+            transport_cm = sse_client(self._config.url, headers=headers)
+
+        streams = await asyncio.wait_for(transport_cm.__aenter__(), timeout=self._config.timeout)
+        # streamable-HTTP yields a third session-id callback; SSE yields two.
+        read_stream, write_stream = streams[0], streams[1]
         self._transport_cm = transport_cm
         self._read_stream = read_stream
         self._write_stream = write_stream

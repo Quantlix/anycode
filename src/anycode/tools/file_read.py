@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -19,7 +20,7 @@ class FileReadInput(BaseModel):
 
 async def _execute(input: FileReadInput, context: ToolUseContext) -> ToolResult:
     try:
-        raw = Path(input.path).read_text(encoding=DEFAULT_ENCODING)
+        raw = await asyncio.to_thread(Path(input.path).read_text, encoding=DEFAULT_ENCODING)
     except Exception as e:
         return ToolResult(data=f'Unable to read "{input.path}": {e}', is_error=True)
 

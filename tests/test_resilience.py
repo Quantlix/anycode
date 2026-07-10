@@ -61,7 +61,17 @@ class _FlakyAdapter:
         return await self._inner.chat(messages, options)
 
     def stream(self, messages, options):  # type: ignore[no-untyped-def]
-        return self._inner.stream(messages, options)
+        error = self._error
+        inner_stream = self._inner.stream
+
+        async def _gen():  # type: ignore[no-untyped-def]
+            self.calls += 1
+            if self.calls <= self._fail_times:
+                raise error
+            async for event in inner_stream(messages, options):
+                yield event
+
+        return _gen()
 
 
 def _wrap(inner, retry=FAST_RETRY, threshold=5):  # type: ignore[no-untyped-def]
@@ -230,9 +240,7 @@ async def test_anthropic_cache_control_on_system_and_tools() -> None:
             content=[],
             model=kwargs["model"],
             stop_reason="end_turn",
-            usage=SimpleNamespace(
-                input_tokens=1, output_tokens=1, cache_creation_input_tokens=0, cache_read_input_tokens=0
-            ),
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1, cache_creation_input_tokens=0, cache_read_input_tokens=0),
         )
 
     adapter._client.messages.create = _fake_create  # type: ignore[method-assign]
@@ -293,7 +301,5 @@ async def test_create_adapter_wraps_by_default() -> None:
     adapter = await create_adapter("anthropic", api_key="test-key")
     assert isinstance(adapter, ResilientAdapter)
 
-    raw = await create_adapter(
-        "anthropic", api_key="test-key", resilience=ProviderResilienceConfig(enabled=False)
-    )
+    raw = await create_adapter("anthropic", api_key="test-key", resilience=ProviderResilienceConfig(enabled=False))
     assert not isinstance(raw, ResilientAdapter)

@@ -12,7 +12,9 @@ import anthropic
 from anycode.constants import (
     BLOCK_TYPE_BASE64,
     BLOCK_TYPE_IMAGE,
+    BLOCK_TYPE_REDACTED_THINKING,
     BLOCK_TYPE_TEXT,
+    BLOCK_TYPE_THINKING,
     BLOCK_TYPE_TOOL_RESULT,
     BLOCK_TYPE_TOOL_USE,
     DEFAULT_MAX_TOKENS,
@@ -25,11 +27,46 @@ from anycode.types import (
     LLMResponse,
     LLMStreamOptions,
     LLMToolDef,
+    RedactedThinkingBlock,
     StreamEvent,
     TextBlock,
+    ThinkingBlock,
     TokenUsage,
     ToolUseBlock,
 )
+
+# Extended-thinking budget floor (Anthropic requires >= 1024) and the token
+# budget each reasoning-effort tier maps to when no explicit budget is given.
+_MIN_THINKING_BUDGET = 1024
+_EFFORT_BUDGET_TOKENS = {
+    "minimal": 1024,
+    "low": 2048,
+    "medium": 8192,
+    "high": 16384,
+}
+
+
+def _resolve_thinking_budget(options: LLMChatOptions) -> int | None:
+    if options.thinking_budget_tokens is not None:
+        return max(options.thinking_budget_tokens, _MIN_THINKING_BUDGET)
+    if options.reasoning_effort is not None:
+        return _EFFORT_BUDGET_TOKENS.get(options.reasoning_effort)
+    return None
+
+
+def _apply_thinking(kwargs: dict[str, Any], options: LLMChatOptions) -> None:
+    """Enable extended thinking when requested.
+
+    With thinking on, the sampling temperature must be unset and ``max_tokens``
+    must exceed the thinking budget, so both are reconciled here.
+    """
+    budget = _resolve_thinking_budget(options)
+    if budget is None:
+        return
+    kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
+    kwargs.pop("temperature", None)
+    if kwargs.get("max_tokens", 0) <= budget:
+        kwargs["max_tokens"] = budget + DEFAULT_MAX_TOKENS
 
 
 def _map_content_block(block: ContentBlock) -> dict[str, Any]:
@@ -44,6 +81,10 @@ def _map_content_block(block: ContentBlock) -> dict[str, Any]:
         return result
     elif block.type == BLOCK_TYPE_IMAGE:
         return {"type": BLOCK_TYPE_IMAGE, "source": {"type": BLOCK_TYPE_BASE64, "media_type": block.source.media_type, "data": block.source.data}}
+    elif block.type == BLOCK_TYPE_THINKING:
+        return {"type": BLOCK_TYPE_THINKING, "thinking": block.thinking, "signature": block.signature}
+    elif block.type == BLOCK_TYPE_REDACTED_THINKING:
+        return {"type": BLOCK_TYPE_REDACTED_THINKING, "data": block.data}
     raise ValueError(f"Unexpected block type: {block.type}")
 
 
@@ -73,6 +114,10 @@ def _parse_block(block: Any) -> ContentBlock:
         return TextBlock(text=block.text)
     elif block.type == BLOCK_TYPE_TOOL_USE:
         return ToolUseBlock(id=block.id, name=block.name, input=block.input if isinstance(block.input, dict) else {})
+    elif block.type == BLOCK_TYPE_THINKING:
+        return ThinkingBlock(thinking=getattr(block, "thinking", ""), signature=getattr(block, "signature", "") or "")
+    elif block.type == BLOCK_TYPE_REDACTED_THINKING:
+        return RedactedThinkingBlock(data=getattr(block, "data", ""))
     return TextBlock(text=f"[unrecognized block: {block.type}]")
 
 
@@ -110,6 +155,7 @@ class AnthropicAdapter:
             kwargs["tools"] = _map_tool_defs([structured_tool])
         if options.temperature is not None:
             kwargs["temperature"] = options.temperature
+        _apply_thinking(kwargs, options)
         if options.enable_prompt_cache:
             _apply_cache_control(kwargs)
 
@@ -145,6 +191,7 @@ class AnthropicAdapter:
             kwargs["tools"] = _map_tool_defs(options.tools)
         if options.temperature is not None:
             kwargs["temperature"] = options.temperature
+        _apply_thinking(kwargs, options)
         if options.enable_prompt_cache:
             _apply_cache_control(kwargs)
 
@@ -161,6 +208,8 @@ class AnthropicAdapter:
                         delta = event.delta
                         if delta.type == "text_delta":
                             yield StreamEvent(type="text", data=delta.text)
+                        elif delta.type == "thinking_delta":
+                            yield StreamEvent(type="thinking", data=delta.thinking)
                         elif delta.type == "input_json_delta":
                             buf = json_buffers.get(event.index)
                             if buf is not None:

@@ -27,6 +27,39 @@ from anycode.types import (
     ToolUseBlock,
 )
 
+# Reasoning models reject `max_tokens` and non-default `temperature`; they use
+# `max_completion_tokens` and an optional `reasoning_effort`. Matching on the
+# leaf model name tolerates OpenRouter-style "openai/o3" and dated suffixes.
+_REASONING_MODEL_PREFIXES = ("o1", "o3", "o4", "gpt-5")
+
+
+def is_reasoning_model(model: str) -> bool:
+    """True when the model is an OpenAI-family reasoning model."""
+    leaf = model.split("/")[-1].strip().lower()
+    return leaf.startswith(_REASONING_MODEL_PREFIXES)
+
+
+def apply_model_params(
+    kwargs: dict[str, Any],
+    model: str,
+    *,
+    max_tokens: int | None,
+    temperature: float | None,
+    reasoning_effort: str | None,
+) -> None:
+    """Populate token-limit / sampling params in the shape the model accepts."""
+    if is_reasoning_model(model):
+        if max_tokens:
+            kwargs["max_completion_tokens"] = max_tokens
+        if reasoning_effort:
+            kwargs["reasoning_effort"] = reasoning_effort
+        # Non-default temperature is rejected by reasoning models; omit it.
+    else:
+        if max_tokens:
+            kwargs["max_tokens"] = max_tokens
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+
 
 def map_tool_def(tool: LLMToolDef) -> dict[str, Any]:
     """Convert a unified LLMToolDef to OpenAI function-calling format."""

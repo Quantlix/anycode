@@ -95,7 +95,8 @@ async def test_concurrent_sweeps_never_double_resume(tmp_path: Path) -> None:
 
 async def test_sweep_marks_crashed_and_warns_stalled(tmp_path: Path) -> None:
     store = FilesystemRunStore(tmp_path)
-    store.create_run("crashed", agent_name="a", model="m")  # stale heartbeat, running
+    record = store.create_run("crashed", agent_name="a", model="m")
+    store._write_record(record.model_copy(update={"last_heartbeat": datetime.now(UTC) - timedelta(minutes=1)}))
 
     report = await sweep_once(store, stale_after_seconds=0.0, stall_after_seconds=999999)
     assert report.interrupted == ("crashed",)

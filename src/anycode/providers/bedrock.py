@@ -10,7 +10,9 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from anycode.constants import (
+    BLOCK_TYPE_REDACTED_THINKING,
     BLOCK_TYPE_TEXT,
+    BLOCK_TYPE_THINKING,
     BLOCK_TYPE_TOOL_USE,
     DEFAULT_MAX_TOKENS,
     STOP_REASON_END_TURN,
@@ -24,8 +26,10 @@ from anycode.types import (
     LLMResponse,
     LLMStreamOptions,
     LLMToolDef,
+    RedactedThinkingBlock,
     StreamEvent,
     TextBlock,
+    ThinkingBlock,
     TokenUsage,
     ToolUseBlock,
 )
@@ -54,6 +58,10 @@ def _map_content_block(block: ContentBlock) -> dict[str, Any]:
         return result
     elif block.type == "image":
         return {"type": "image", "source": {"type": "base64", "media_type": block.source.media_type, "data": block.source.data}}
+    elif block.type == BLOCK_TYPE_THINKING:
+        return {"type": BLOCK_TYPE_THINKING, "thinking": block.thinking, "signature": block.signature}
+    elif block.type == BLOCK_TYPE_REDACTED_THINKING:
+        return {"type": BLOCK_TYPE_REDACTED_THINKING, "data": block.data}
     raise ValueError(f"Unexpected block type: {block.type}")
 
 
@@ -78,6 +86,10 @@ def _parse_block(block: dict[str, Any]) -> ContentBlock:
             name=block.get("name", ""),
             input=block.get("input", {}),
         )
+    elif block_type == BLOCK_TYPE_THINKING:
+        return ThinkingBlock(thinking=block.get("thinking", ""), signature=block.get("signature", "") or "")
+    elif block_type == BLOCK_TYPE_REDACTED_THINKING:
+        return RedactedThinkingBlock(data=block.get("data", ""))
     return TextBlock(text=f"[unrecognized block: {block_type}]")
 
 

@@ -9,6 +9,7 @@ from typing import Any
 import openai
 
 from anycode.providers._openai_compat import (
+    apply_model_params,
     map_messages,
     map_stop_reason,
     map_tool_def,
@@ -48,10 +49,13 @@ class OpenAIAdapter:
     ) -> LLMResponse:
         oai_msgs = map_messages(messages, options.system_prompt)
         kwargs: dict[str, Any] = {"model": options.model, "messages": oai_msgs}
-        if options.max_tokens:
-            kwargs["max_tokens"] = options.max_tokens
-        if options.temperature is not None:
-            kwargs["temperature"] = options.temperature
+        apply_model_params(
+            kwargs,
+            options.model,
+            max_tokens=options.max_tokens,
+            temperature=options.temperature,
+            reasoning_effort=options.reasoning_effort,
+        )
         if options.tools:
             kwargs["tools"] = [map_tool_def(t) for t in options.tools]
 
@@ -72,10 +76,13 @@ class OpenAIAdapter:
     async def stream(self, messages: list[LLMMessage], options: LLMStreamOptions) -> AsyncIterator[StreamEvent]:
         oai_msgs = map_messages(messages, options.system_prompt)
         kwargs: dict[str, Any] = {"model": options.model, "messages": oai_msgs, "stream": True, "stream_options": {"include_usage": True}}
-        if options.max_tokens:
-            kwargs["max_tokens"] = options.max_tokens
-        if options.temperature is not None:
-            kwargs["temperature"] = options.temperature
+        apply_model_params(
+            kwargs,
+            options.model,
+            max_tokens=options.max_tokens,
+            temperature=options.temperature,
+            reasoning_effort=options.reasoning_effort,
+        )
         if options.tools:
             kwargs["tools"] = [map_tool_def(t) for t in options.tools]
 
