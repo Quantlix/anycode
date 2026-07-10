@@ -12,14 +12,14 @@ AnyCode is provider-agnostic: every agent names a `provider` and a `model`, and 
 
 | `provider` | Models (examples) | Required env vars | Install extra |
 | --- | --- | --- | --- |
-| `anthropic` | `claude-haiku-4-5`, `claude-sonnet-5` | `ANTHROPIC_API_KEY` | core (always installed) |
-| `openai` | `gpt-4o-mini`, `gpt-5` | `OPENAI_API_KEY` | core (always installed) |
+| `anthropic` | `claude-haiku-4-5`, `claude-sonnet-5` | `ANTHROPIC_API_KEY` | `anycode-py[anthropic]` |
+| `openai` | `gpt-4o-mini`, `gpt-5` | `OPENAI_API_KEY` | `anycode-py[openai]` |
 | `google` | `gemini-2.5-flash` | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | `anycode-py[google]` |
 | `ollama` | any local model (e.g. `llama3.1`) | none (local server) | `anycode-py[ollama]` |
 | `bedrock` | AWS-hosted model IDs | AWS creds + `AWS_DEFAULT_REGION` | `anycode-py[bedrock]` |
 | `azure` | your deployment name | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY` | `anycode-py[azure]` |
 
-`anthropic` and `openai` ship as core dependencies. The other four pull optional SDKs — if the extra is missing, the adapter raises an `ImportError` at construction with the exact `pip install "anycode-py[...]"` hint.
+Every provider SDK is optional and lazy-loaded. If an extra is missing, the adapter raises an `ImportError` at construction with the exact `pip install "anycode-py[...]"` hint. Use `anycode-py[providers]` to install every built-in provider SDK.
 
 !!! note "FakeAdapter for tests"
     `FakeAdapter` is a seventh, offline provider used for deterministic tests and CI. It returns scripted responses with zero network calls. See [Stream agent output](streaming.md) and [Run a multi-agent team](multi-agent-team.md) for how it slots in.

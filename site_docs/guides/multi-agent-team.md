@@ -11,7 +11,7 @@ Run a multi-agent team in AnyCode by creating an engine, defining role-scoped ag
 A single agent is enough for a one-shot task. Reach for a team when the work has distinct roles, when one step must finish before the next begins, or when you want each stage to be auditable on its own. AnyCode schedules the tasks as a directed graph, runs independent work concurrently up to a concurrency limit, and collects every agent's output into a single `TeamRunResult`.
 
 !!! note "Prerequisites"
-    Install the framework with `uv add anycode-py` and set at least one provider key, such as `ANTHROPIC_API_KEY`. See [Installation](../getting-started/installation.md) and the [Quickstart](../getting-started/quickstart.md) if you have not run an agent yet.
+    Install the framework with a provider extra such as `uv add "anycode-py[anthropic]"` and set the matching provider key. See [Installation](../getting-started/installation.md) and the [Quickstart](../getting-started/quickstart.md) if you have not run an agent yet.
 
 ## When to use a multi-agent team
 

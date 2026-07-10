@@ -7,7 +7,10 @@ import os
 from collections.abc import AsyncIterator
 from typing import Any
 
-import anthropic
+try:
+    import anthropic as _anthropic
+except ImportError:
+    _anthropic = None
 
 from anycode.constants import (
     BLOCK_TYPE_BASE64,
@@ -125,7 +128,9 @@ class AnthropicAdapter:
     """Wraps the Anthropic Python SDK."""
 
     def __init__(self, api_key: str | None = None) -> None:
-        self._client = anthropic.AsyncAnthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
+        if _anthropic is None:
+            raise ImportError('Anthropic support requires: pip install "anycode-py[anthropic]"')
+        self._client = _anthropic.AsyncAnthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
 
     @property
     def name(self) -> str:

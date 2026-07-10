@@ -9,10 +9,12 @@ import pytest
 
 from anycode.providers._openai_compat import map_messages, map_stop_reason, map_tool_def, parse_json_safe, parse_token_usage
 from anycode.providers.adapter import create_adapter
+from anycode.providers.anthropic import AnthropicAdapter
 from anycode.providers.azure import AzureOpenAIAdapter
 from anycode.providers.bedrock import BedrockAdapter
 from anycode.providers.google import GeminiAdapter
 from anycode.providers.ollama import OllamaAdapter
+from anycode.providers.openai import OpenAIAdapter
 from anycode.types import (
     LLMChatOptions,
     LLMMessage,
@@ -26,6 +28,18 @@ from anycode.types import (
 # ---------------------------------------------------------------------------
 # Shared helper tests (_openai_compat)
 # ---------------------------------------------------------------------------
+
+
+def test_anthropic_adapter_reports_missing_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("anycode.providers.anthropic._anthropic", None)
+    with pytest.raises(ImportError, match=r"anycode-py\[anthropic\]"):
+        AnthropicAdapter(api_key="test")
+
+
+def test_openai_adapter_reports_missing_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("anycode.providers.openai._openai", None)
+    with pytest.raises(ImportError, match=r"anycode-py\[openai\]"):
+        OpenAIAdapter(api_key="test")
 
 
 class TestOpenAICompat:

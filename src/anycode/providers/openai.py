@@ -6,7 +6,10 @@ import os
 from collections.abc import AsyncIterator
 from typing import Any
 
-import openai
+try:
+    import openai as _openai
+except ImportError:
+    _openai = None
 
 from anycode.providers._openai_compat import (
     apply_model_params,
@@ -34,7 +37,9 @@ class OpenAIAdapter:
     """Wraps the OpenAI Python SDK."""
 
     def __init__(self, api_key: str | None = None) -> None:
-        self._client = openai.AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
+        if _openai is None:
+            raise ImportError('OpenAI support requires: pip install "anycode-py[openai]"')
+        self._client = _openai.AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
 
     @property
     def name(self) -> str:

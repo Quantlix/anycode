@@ -110,7 +110,7 @@ The main design rule is simple: the framework owns the harness, while providers 
 For a new or existing Python project:
 
 ```bash
-uv add anycode-py
+uv add "anycode-py[anthropic]"
 ```
 
 For CLI and YAML/TOML configuration support:
@@ -122,7 +122,7 @@ uv add "anycode-py[cli]"
 For the full optional ecosystem:
 
 ```bash
-uv add "anycode-py[cli,telemetry,persistence,redis,vector,mcp,google,ollama,bedrock,azure]"
+uv add "anycode-py[all]"
 ```
 
 ### 3. Add API Keys

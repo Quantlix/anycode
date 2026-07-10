@@ -39,6 +39,8 @@ Add the core package to a new or existing project:
     pip install anycode-py
     ```
 
+The core install contains orchestration, offline evaluation, and `FakeAdapter`, but no provider SDK. Add one provider extra for live calls, for example `anycode-py[anthropic]` or `anycode-py[openai]`.
+
 Add the `cli` extra when you want to scaffold and run workflows from YAML/TOML config files, with rich terminal output:
 
 === "uv"
@@ -62,6 +64,8 @@ Extras are additive — combine any of them in a single bracketed list, and inst
 
 | Extra | Adds |
 | --- | --- |
+| `anthropic` | Anthropic Claude provider support |
+| `openai` | OpenAI provider support |
 | `cli` | `anycode` command, YAML/TOML config, rich terminal output |
 | `telemetry` | OpenTelemetry tracing support |
 | `persistence` | SQLite-backed persistence helpers |
@@ -73,22 +77,24 @@ Extras are additive — combine any of them in a single bracketed list, and inst
 | `bedrock` | AWS Bedrock provider support |
 | `azure` | Azure OpenAI provider support |
 | `tokens` | Token counting through `tiktoken` |
+| `providers` | All built-in provider SDKs |
+| `all` | Every optional provider and framework integration |
 
-!!! note "Anthropic and OpenAI need no extra"
-    The Anthropic and OpenAI providers work with the core install. Add a provider extra only for Google Gemini (`google`), Ollama (`ollama`), AWS Bedrock (`bedrock`), or Azure OpenAI (`azure`).
+!!! note "Install only what the workload uses"
+    Provider modules are lazy-loaded. A core-only process can run deterministic evaluations without installing any provider SDK, while a live deployment can select only its required extras.
 
 For a broad local playground with every optional feature enabled:
 
 === "uv"
 
     ```bash
-    uv add "anycode-py[cli,telemetry,persistence,redis,vector,mcp,google,ollama,bedrock,azure,tokens]"
+    uv add "anycode-py[all]"
     ```
 
 === "pip"
 
     ```bash
-    pip install "anycode-py[cli,telemetry,persistence,redis,vector,mcp,google,ollama,bedrock,azure,tokens]"
+    pip install "anycode-py[all]"
     ```
 
 ## Configure provider keys

@@ -58,13 +58,32 @@ name = "anycode-py"
 version = "0.6.0"
 source = { editable = "." }
 dependencies = [
-    { name = "anthropic" },
-    { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "aiosqlite" },
+    { name = "anthropic" },
+    { name = "boto3" },
+    { name = "chromadb" },
+    { name = "google-genai" },
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "openai" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-grpc" },
+    { name = "opentelemetry-sdk" },
+    { name = "pyyaml" },
+    { name = "redis", extra = ["hiredis"] },
+    { name = "rich" },
+    { name = "tiktoken" },
+    { name = "typer" },
+]
+anthropic = [
+    { name = "anthropic" },
+]
 azure = [
     { name = "openai" },
 ]
@@ -85,8 +104,18 @@ mcp = [
 ollama = [
     { name = "httpx" },
 ]
+openai = [
+    { name = "openai" },
+]
 persistence = [
     { name = "aiosqlite" },
+]
+providers = [
+    { name = "anthropic" },
+    { name = "boto3" },
+    { name = "google-genai" },
+    { name = "httpx" },
+    { name = "openai" },
 ]
 redis = [
     { name = "redis", extra = ["hiredis"] },
@@ -106,6 +135,7 @@ vector = [
 [package.dev-dependencies]
 dev = [
     { name = "aiosqlite" },
+    { name = "anthropic" },
     { name = "boto3" },
     { name = "build" },
     { name = "chromadb" },
@@ -117,6 +147,7 @@ dev = [
     { name = "mkdocs" },
     { name = "mkdocs-material", extra = ["imaging"] },
     { name = "mkdocstrings", extra = ["python"] },
+    { name = "openai" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -130,31 +161,53 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiosqlite", marker = "extra == 'all'", specifier = ">=0.20" },
     { name = "aiosqlite", marker = "extra == 'persistence'", specifier = ">=0.20" },
-    { name = "anthropic", specifier = ">=0.40" },
+    { name = "anthropic", marker = "extra == 'all'", specifier = ">=0.40" },
+    { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.40" },
+    { name = "anthropic", marker = "extra == 'providers'", specifier = ">=0.40" },
+    { name = "boto3", marker = "extra == 'all'", specifier = ">=1.34" },
     { name = "boto3", marker = "extra == 'bedrock'", specifier = ">=1.34" },
+    { name = "boto3", marker = "extra == 'providers'", specifier = ">=1.34" },
+    { name = "chromadb", marker = "extra == 'all'", specifier = ">=0.5" },
     { name = "chromadb", marker = "extra == 'vector'", specifier = ">=0.5" },
+    { name = "google-genai", marker = "extra == 'all'", specifier = ">=1.0" },
     { name = "google-genai", marker = "extra == 'google'", specifier = ">=1.0" },
+    { name = "google-genai", marker = "extra == 'providers'", specifier = ">=1.0" },
+    { name = "httpx", marker = "extra == 'all'", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'ollama'", specifier = ">=0.27" },
+    { name = "httpx", marker = "extra == 'providers'", specifier = ">=0.27" },
+    { name = "mcp", marker = "extra == 'all'", specifier = ">=1.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0" },
-    { name = "openai", specifier = ">=1.50" },
+    { name = "openai", marker = "extra == 'all'", specifier = ">=1.50" },
     { name = "openai", marker = "extra == 'azure'", specifier = ">=1.50" },
+    { name = "openai", marker = "extra == 'openai'", specifier = ">=1.50" },
+    { name = "openai", marker = "extra == 'providers'", specifier = ">=1.50" },
+    { name = "opentelemetry-api", marker = "extra == 'all'", specifier = ">=1.20" },
     { name = "opentelemetry-api", marker = "extra == 'telemetry'", specifier = ">=1.20" },
+    { name = "opentelemetry-exporter-otlp-proto-grpc", marker = "extra == 'all'", specifier = ">=1.20" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", marker = "extra == 'telemetry'", specifier = ">=1.20" },
+    { name = "opentelemetry-sdk", marker = "extra == 'all'", specifier = ">=1.20" },
     { name = "opentelemetry-sdk", marker = "extra == 'telemetry'", specifier = ">=1.20" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "pyyaml", marker = "extra == 'all'", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'cli'", specifier = ">=6.0" },
+    { name = "redis", extras = ["hiredis"], marker = "extra == 'all'", specifier = ">=5.0" },
     { name = "redis", extras = ["hiredis"], marker = "extra == 'redis'", specifier = ">=5.0" },
+    { name = "rich", marker = "extra == 'all'", specifier = ">=13.0" },
     { name = "rich", marker = "extra == 'cli'", specifier = ">=13.0" },
+    { name = "tiktoken", marker = "extra == 'all'", specifier = ">=0.8" },
     { name = "tiktoken", marker = "extra == 'tokens'", specifier = ">=0.8" },
+    { name = "typer", marker = "extra == 'all'", specifier = ">=0.12" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.12" },
 ]
-provides-extras = ["telemetry", "persistence", "redis", "tokens", "vector", "google", "ollama", "bedrock", "azure", "mcp", "cli"]
+provides-extras = ["anthropic", "openai", "telemetry", "persistence", "redis", "tokens", "vector", "google", "ollama", "bedrock", "azure", "providers", "mcp", "cli", "all"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "aiosqlite", specifier = ">=0.20" },
+    { name = "anthropic", specifier = ">=0.40" },
     { name = "boto3", specifier = ">=1.34" },
     { name = "build", specifier = ">=1.4.2" },
     { name = "chromadb", specifier = ">=0.5" },
@@ -166,6 +219,7 @@ dev = [
     { name = "mkdocs", specifier = ">=1.6.1" },
     { name = "mkdocs-material", extras = ["imaging"], specifier = ">=9.7.6" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.4" },
+    { name = "openai", specifier = ">=1.50" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
