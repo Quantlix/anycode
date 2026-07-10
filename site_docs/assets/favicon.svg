@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AnyCode">
+  <rect width="64" height="64" rx="12" fill="#0f172a"/>
+  <path d="M14 42L28 12h8l14 30h-8l-3-7H25l-3 7h-8zm14-14h8l-4-10-4 10z" fill="#38bdf8"/>
+  <path d="M43 49c-8 5-18 4-25-2" fill="none" stroke="#2dd4bf" stroke-width="5" stroke-linecap="round"/>
+</svg><svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AnyCode">
+  <defs>
+    <linearGradient id="ac-g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366f1" />
+      <stop offset="1" stop-color="#8b5cf6" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#ac-g)" />
+  <g stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" opacity="0.95">
+    <path d="M16 22.5 L8 10.5" />
+    <path d="M16 22.5 L16 8.5" />
+    <path d="M16 22.5 L24 10.5" />
+  </g>
+  <g fill="#ffffff">
+    <circle cx="16" cy="23.5" r="3.2" />
+    <circle cx="8" cy="9.5" r="2.5" />
+    <circle cx="16" cy="7.5" r="2.5" />
+    <circle cx="24" cy="9.5" r="2.5" />
+  </g>
+</svg>

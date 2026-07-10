@@ -1,0 +1,238 @@
+site_name: AnyCode
+site_description: AnyCode is an async-first Python framework for orchestrating multi-agent AI teams — typed tools, dependency-aware task graphs, shared memory, provider-agnostic LLM adapters, and verification gates.
+site_author: Quantlix
+site_url: https://quantlix.github.io/anycode/
+repo_url: https://github.com/Quantlix/anycode
+repo_name: Quantlix/anycode
+edit_uri: edit/main/site_docs/
+docs_dir: site_docs
+site_dir: site
+copyright: >
+  Copyright &copy; 2025 Quantlix — released under the MIT License.
+strict: true
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: en
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+    annotation: material/plus-circle
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.path
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+    - content.action.view
+    - announce.dismiss
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+# Diátaxis organization: Tutorials (learning) → How-to Guides (tasks)
+# → Concepts (understanding) → Reference (information).
+nav:
+  - Home: index.md
+  - Tutorials:
+      - getting-started/index.md
+      - Get Started:
+          - Installation: getting-started/installation.md
+          - Quickstart: getting-started/quickstart.md
+      - Real-World Projects:
+          - Build a Code-Review Crew: tutorials/code-review-crew.md
+          - Research Assistant with Memory: tutorials/research-assistant.md
+          - A Resumable Pipeline: tutorials/resumable-pipeline.md
+          - Support-Ticket Triage: tutorials/support-triage.md
+  - How-to Guides:
+      - guides/index.md
+      - Build and Run:
+          - Run a Multi-Agent Team: guides/multi-agent-team.md
+          - Work With Tools: guides/tools.md
+          - Structured Output: guides/structured-output.md
+          - Configure Providers: guides/providers.md
+      - Streaming and Reasoning:
+          - Stream Agent Output: guides/streaming.md
+          - Use Reasoning Models: guides/reasoning-models.md
+      - Memory and Context:
+          - Memory and RAG: guides/memory-and-rag.md
+          - Engineer the Context Window: guides/context-engineering.md
+      - Coordination:
+          - Route Tasks by Complexity: guides/routing.md
+          - Agent Handoff: guides/handoff.md
+          - Self-Reflection: guides/reflection.md
+      - Reliability and Ops:
+          - Durable and Resumable Runs: guides/durability.md
+          - Human-in-the-Loop Approval: guides/human-in-the-loop.md
+          - Track and Cap Cost: guides/cost-tracking.md
+          - Verification Gates: guides/verification-gates.md
+          - Evaluate Agents: guides/evaluation.md
+          - Observability: guides/observability.md
+          - Production Controls: guides/production-controls.md
+      - Integrate and Extend:
+          - Connect MCP Servers: guides/mcp.md
+          - Extend With Plugins: guides/plugins.md
+          - Visualize Runs: guides/visualization.md
+          - Use YAML Config: guides/yaml-config.md
+  - Concepts:
+      - concepts/index.md
+      - Overview: concepts/overview.md
+      - Agents and Teams: concepts/agents-and-teams.md
+  - Reference:
+      - reference/index.md
+      - Public API: reference/public-api.md
+      - Built-in Tools: reference/built-in-tools.md
+      - Configuration: reference/configuration.md
+      - CLI: reference/cli.md
+  - Contributing:
+      - Documentation Guide: contributing/docs-guide.md
+      - Docs Strategy and Case Studies: contributing/documentation-strategy.md
+
+# The TypeScript page is reached via the header language switcher (extra.alternate),
+# not the primary nav — keep it out of the tab bar but present in the build.
+not_in_nav: |
+  /typescript/index.md
+
+plugins:
+  - search
+  - social:
+      enabled: !ENV [CI, false]
+      cards_layout_options:
+        background_color: "#4f46e5"
+        color: "#ffffff"
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            docstring_style: google
+            members_order: source
+            separate_signature: true
+            show_bases: false
+            show_root_heading: true
+            show_source: false
+            show_signature_annotations: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      title: On this page
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      base_path:
+        - .
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true
+  alternate:
+    - name: Python
+      link: ""
+      lang: en
+    - name: TypeScript
+      link: typescript/
+      lang: en
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Quantlix/anycode
+      name: AnyCode on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/anycode-py/
+      name: anycode-py on PyPI
+  analytics:
+    provider: google
+    property: !ENV [GOOGLE_ANALYTICS_KEY, ""]
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/emoticon-happy-outline
+          name: This page was helpful
+          data: 1
+          note: Thanks for the feedback.
+        - icon: material/emoticon-sad-outline
+          name: This page could be improved
+          data: 0
+          note: >-
+            Thanks for the feedback. Help us improve by
+            <a href="https://github.com/Quantlix/anycode/issues/new" target="_blank" rel="noopener">opening an issue</a>.
+
+extra_css:
+  - stylesheets/extra.css
+
+watch:
+  - src
+  - overrides

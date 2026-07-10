@@ -385,7 +385,7 @@ Custom tools use Pydantic input models and are registered through `define_tool()
 
 ## Examples Cookbook
 
-The `examples/` directory contains 26 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
+The `examples/` directory contains 34 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
 
 | Examples | Theme |
 | --- | --- |
@@ -398,6 +398,8 @@ The `examples/` directory contains 26 runnable scripts. They are arranged from b
 | `22_deterministic_eval.py` to `25_runtime_cancellation.py` | Fake adapters, context pressure, verification gates, and cancellation telemetry |
 | `26_context_engineering.py` | Huge-context model profiles, section budgets, first-class section inputs, and usage reports |
 | `27_plugin_ecosystem.py` | Plugin bundles wiring custom tools, provider factories, and sensors into the engine |
+| `28_durable_runs.py` to `30_scheduled_wakeups.py` | Durable resumable runs, session chaining, and scheduled wakeups |
+| `31_streaming_runtime.py` to `34_list_files.py` | Provider-token streaming, reasoning-model controls, authenticated MCP over HTTP, and fast file listing |
 
 Run an example from the repository root:
 
