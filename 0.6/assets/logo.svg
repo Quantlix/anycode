@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AnyCode">
+  <g stroke="#ffffff" stroke-width="1.9" stroke-linecap="round">
+    <path d="M16 22.5 L8 10.5" />
+    <path d="M16 22.5 L16 8.5" />
+    <path d="M16 22.5 L24 10.5" />
+  </g>
+  <g fill="#ffffff">
+    <circle cx="16" cy="23.5" r="3.4" />
+    <circle cx="8" cy="9.5" r="2.7" />
+    <circle cx="16" cy="7.5" r="2.7" />
+    <circle cx="24" cy="9.5" r="2.7" />
+  </g>
+</svg>
