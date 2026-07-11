@@ -2045,6 +2045,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cancel-and-shut-down-cleanly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancel and shut down cleanly
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#manage-context-pressure" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2852,6 +2863,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cancel-and-shut-down-cleanly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancel and shut down cleanly
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#manage-context-pressure" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3018,6 +3040,10 @@
 <tr>
 <td>Provider capacity limits</td>
 <td>Shared concurrency bulkheads, request pacing, and bounded queue waits around provider calls.</td>
+</tr>
+<tr>
+<td>Cancellation and shutdown</td>
+<td>Direct cancellation propagation plus owned-task and process-tree cleanup.</td>
 </tr>
 <tr>
 <td>Side-effect idempotency</td>
@@ -3210,6 +3236,9 @@
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>anycode<span class="w"> </span>runs<span class="w"> </span>audit
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>anycode<span class="w"> </span>runs<span class="w"> </span>sweep
 </span></code></pre></div>
+<h2 id="cancel-and-shut-down-cleanly">Cancel and shut down cleanly<a class="headerlink" href="#cancel-and-shut-down-cleanly" title="Permanent link">&para;</a></h2>
+<p>Cancelling an agent run raises <code>asyncio.CancelledError</code> to the caller rather than returning a normal failure result. The agent state becomes <code>cancelled</code>, lifecycle listeners receive a terminal <code>cancelled</code> phase with a <code>user_cancelled</code> stop reason, and durable runs persist that state with a final checkpoint. Concurrent tool calls and wave siblings are cancelled and awaited before the parent exits; shell-tool cancellation terminates and reaps the spawned process tree.</p>
+<p>Call <code>await engine.close()</code> during application shutdown. The orchestrator stops and drains tracked standalone, coordinator, team, reflection, and handoff operations before disconnecting MCP clients or closing persistent stores. Cancellation remains cooperative for custom tools and integrations: do not swallow <code>asyncio.CancelledError</code>, and put resource cleanup in <code>finally</code> blocks or async context managers.</p>
 <h2 id="manage-context-pressure">Manage context pressure<a class="headerlink" href="#manage-context-pressure" title="Permanent link">&para;</a></h2>
 <p>Context policies define how AnyCode responds as conversation history grows. A policy can trim, mask, offload, compact, or hand off context while preserving what matters — task state and verification failures survive even as lower-priority content is reduced. This keeps long runs inside a model's context window without silently dropping the information a downstream agent needs.</p>
 <h2 id="protect-exported-and-persisted-data">Protect exported and persisted data<a class="headerlink" href="#protect-exported-and-persisted-data" title="Permanent link">&para;</a></h2>

@@ -2935,7 +2935,7 @@
 <tr>
 <td><code>done</code></td>
 <td><code>RunResult</code></td>
-<td>Terminal; always the last event on success or cancellation</td>
+<td>Terminal event for completed runs and structured stop conditions</td>
 </tr>
 <tr>
 <td><code>error</code></td>
@@ -2948,7 +2948,8 @@
 <ul>
 <li>Incremental <code>text</code> events always precede <code>done</code>; a chunked reply produces multiple <code>text</code> events.</li>
 <li>Tools execute exactly once under streaming — no double dispatch.</li>
-<li>A cancelled run (<code>asyncio.CancelledError</code>) still yields one final <code>done</code> event with <code>stop_reason.code == "user_cancelled"</code> before the cancellation propagates.</li>
+<li>Cancellation does not yield <code>done</code> or <code>error</code>. <code>asyncio.CancelledError</code> propagates directly after the runner records a terminal <code>cancelled</code> lifecycle event with <code>stop_reason.code == "user_cancelled"</code>; durable runs also persist the stop and latest checkpoint.</li>
+<li>Cancelling a turn with concurrent tools cancels and drains the whole tool batch before the run exits.</li>
 </ul>
 <h2 id="configure-streaming">Configure streaming<a class="headerlink" href="#configure-streaming" title="Permanent link">&para;</a></h2>
 <p>Streaming is controlled by <code>RunnerStreamingConfig</code> on <code>RunnerOptions.streaming</code>:</p>
