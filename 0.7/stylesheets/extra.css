@@ -1,0 +1,616 @@
+/* ============================================================================
+   AnyCode documentation theme
+   Restrained indigo system layered on Material for MkDocs.
+   Design rules: flat surfaces, 1px borders, small layered neutral shadows,
+   one accent hue, AA contrast in both schemes.
+   Sections: 1) tokens  2) palette overrides  3) chrome  4) announce
+   5) buttons  6) hero  7) code window  8) landing sections
+   9) content polish  10) responsive
+   ========================================================================== */
+
+/* 1) Brand tokens -------------------------------------------------------- */
+:root {
+  --ac-indigo-50:  #eef2ff;
+  --ac-indigo-100: #e0e7ff;
+  --ac-indigo-200: #c7d2fe;
+  --ac-indigo-300: #a5b4fc;
+  --ac-indigo-400: #818cf8;
+  --ac-indigo-500: #6366f1;
+  --ac-indigo-600: #4f46e5;
+  --ac-indigo-700: #4338ca;
+  --ac-indigo-800: #3730a3;
+  --ac-indigo-900: #312e81;
+
+  /* Neutral inks / surfaces */
+  --ac-ink-900: #0f1222;
+  --ac-ink-800: #171a2e;
+  --ac-ink-700: #23263c;
+
+  /* Layered neutral shadows — subtle, never colored glows */
+  --ac-shadow-sm: 0 1px 2px rgba(15, 18, 34, 0.05);
+  --ac-shadow-md: 0 1px 2px rgba(15, 18, 34, 0.05), 0 4px 12px rgba(15, 18, 34, 0.07);
+  --ac-shadow-lg: 0 2px 4px rgba(15, 18, 34, 0.05), 0 12px 32px rgba(15, 18, 34, 0.12);
+
+  --md-primary-fg-color: var(--ac-indigo-700);
+  --md-primary-fg-color--light: var(--ac-indigo-500);
+  --md-primary-fg-color--dark: var(--ac-indigo-800);
+  --md-accent-fg-color: var(--ac-indigo-600);
+}
+
+/* Fonts fall back gracefully if Inter/JetBrains fail to load. */
+:root {
+  --md-text-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --md-code-font: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+/* Screen-reader-only heading on the landing page */
+.ac-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 2) Palette overrides --------------------------------------------------- */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: var(--ac-indigo-700);
+  --md-accent-fg-color: var(--ac-indigo-600);
+  --md-default-fg-color: #1c1f2e;
+  --md-footer-bg-color: var(--ac-ink-900);
+  --md-footer-bg-color--dark: #0a0c18;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 245;
+  --md-default-bg-color: #12141f;
+  --md-default-bg-color--light: #181b29;
+  --md-typeset-a-color: var(--ac-indigo-300);
+  --md-accent-fg-color: var(--ac-indigo-300);
+  --md-code-bg-color: #191c2b;
+  --md-footer-bg-color: #0d0f1a;
+  --md-footer-bg-color--dark: #090b14;
+}
+
+/* 3) Chrome: header + tabs ----------------------------------------------- */
+/* Flat header — no gradient, no glow. Depth comes from a hairline border.  */
+.md-header {
+  background-color: var(--ac-indigo-800);
+  box-shadow: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.md-header--shadow {
+  box-shadow: 0 1px 8px rgba(10, 12, 24, 0.25);
+}
+.md-tabs {
+  background-color: var(--ac-indigo-800);
+}
+[data-md-color-scheme="slate"] .md-header,
+[data-md-color-scheme="slate"] .md-tabs {
+  background-color: #14162a;
+}
+.md-header__title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.md-tabs__link {
+  opacity: 0.8;
+  font-weight: 500;
+  transition: opacity 120ms ease;
+}
+.md-tabs__link:hover,
+.md-tabs__link--active {
+  opacity: 1;
+}
+.md-search__form {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.md-search__form:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* 4) Announcement bar ----------------------------------------------------- */
+.md-banner {
+  background: var(--ac-ink-900);
+  color: #d9dcec;
+  font-size: 0.72rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.md-banner a {
+  color: var(--ac-indigo-300);
+  font-weight: 600;
+}
+.ac-announce__badge {
+  display: inline-block;
+  margin-right: 0.5em;
+  padding: 0.1em 0.6em;
+  border-radius: 4px;
+  background: var(--ac-indigo-600);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* 5) Buttons --------------------------------------------------------------
+   Solid fills, small radius, restrained motion. No gradients or glows.    */
+.ac-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.7em 1.25em;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.78rem;
+  line-height: 1;
+  text-decoration: none;
+  transition: background-color 140ms ease, border-color 140ms ease,
+              box-shadow 140ms ease, transform 140ms ease;
+  white-space: nowrap;
+}
+.ac-btn svg { flex: none; }
+.ac-btn--primary {
+  color: #fff;
+  background: var(--ac-indigo-600);
+  border: 1px solid var(--ac-indigo-600);
+  box-shadow: var(--ac-shadow-sm);
+}
+.ac-btn--primary:hover {
+  color: #fff;
+  background: var(--ac-indigo-700);
+  border-color: var(--ac-indigo-700);
+  box-shadow: var(--ac-shadow-md);
+  transform: translateY(-1px);
+}
+.ac-btn--ghost {
+  color: #e6e8f7;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+.ac-btn--ghost:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.45);
+  transform: translateY(-1px);
+}
+/* High-contrast button for dark panels (hero/CTA) */
+.ac-btn--inverse {
+  color: var(--ac-indigo-900);
+  background: #fff;
+  border: 1px solid #fff;
+  box-shadow: var(--ac-shadow-sm);
+}
+.ac-btn--inverse:hover {
+  color: var(--ac-indigo-900);
+  background: var(--ac-indigo-50);
+  box-shadow: var(--ac-shadow-md);
+  transform: translateY(-1px);
+}
+
+/* 6) Hero ------------------------------------------------------------------
+   One dark navy surface with a faint indigo tint at the top edge.         */
+.ac-hero {
+  position: relative;
+  overflow: hidden;
+  color: #e8eaf6;
+  background:
+    radial-gradient(1100px 480px at 20% -20%, rgba(79, 70, 229, 0.28) 0%, transparent 60%),
+    radial-gradient(900px 420px at 95% -10%, rgba(99, 102, 241, 0.16) 0%, transparent 55%),
+    var(--ac-ink-900);
+}
+.ac-hero__bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(800px 420px at 30% 0%, #000 0%, transparent 70%);
+  pointer-events: none;
+}
+.ac-hero__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 3rem;
+  align-items: center;
+  padding: 3.6rem 0 4rem;
+}
+.ac-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  margin: 0 0 1.1rem;
+  padding: 0.35em 0.85em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #d4d8f0;
+}
+.ac-eyebrow__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+}
+.ac-hero__title {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 4.2vw, 3.1rem);
+  line-height: 1.08;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  color: #fff;
+}
+.ac-hero__lede {
+  margin: 0 0 1.9rem;
+  max-width: 33rem;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: #c2c7e0;
+}
+.ac-hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1.7rem;
+}
+.ac-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.7rem;
+}
+.ac-hero__badges code {
+  padding: 0.45em 0.8em;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #dde1f5;
+  font-family: var(--md-code-font);
+}
+.ac-pill {
+  padding: 0.35em 0.7em;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #c2c7e0;
+  font-weight: 600;
+}
+.ac-pill--alpha {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fcd34d;
+}
+
+/* 7) Code window ----------------------------------------------------------- */
+.ac-window {
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ac-ink-800);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--ac-shadow-lg);
+}
+.ac-window__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.95rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ac-window__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+.ac-window__name {
+  margin-left: 0.5rem;
+  font-size: 0.66rem;
+  color: #9aa0bf;
+  font-family: var(--md-code-font);
+}
+.ac-window__code {
+  margin: 0;
+  padding: 1.1rem 1.2rem;
+  overflow-x: auto;
+  font-family: var(--md-code-font);
+  font-size: 0.7rem;
+  line-height: 1.7;
+  color: #dbdff2;
+}
+.ac-window__code .k { color: #b6befc; font-weight: 600; }
+.ac-window__code .s { color: #9fe8bb; }
+.ac-window__code .n { color: #f2b8b8; }
+.ac-window__code .c { color: #8289ab; font-style: italic; }
+
+/* 8) Landing sections (rendered from index.md) ----------------------------- */
+.ac-section {
+  margin: 3.4rem 0 0.6rem;
+  text-align: center;
+}
+.ac-section__eyebrow {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ac-indigo-600);
+}
+[data-md-color-scheme="slate"] .ac-section__eyebrow {
+  color: var(--ac-indigo-300);
+}
+.md-typeset .ac-section__title,
+.ac-section__title {
+  margin: 0 auto 0.6rem;
+  padding: 0;
+  border: 0;
+  font-size: clamp(1.45rem, 2.6vw, 1.85rem);
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  color: var(--md-default-fg-color);
+}
+.ac-section__lede {
+  max-width: 38rem;
+  margin: 0 auto;
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Feature cards — real links; children are spans styled as blocks. */
+.ac-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.9rem;
+  margin: 2rem 0 1rem;
+}
+.md-typeset .ac-card {
+  display: block;
+  padding: 1.3rem 1.3rem 1.4rem;
+  border-radius: 12px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background: var(--md-default-bg-color);
+  box-shadow: var(--ac-shadow-sm);
+  text-decoration: none !important;
+  color: inherit;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.md-typeset .ac-card:hover,
+.md-typeset .ac-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--ac-indigo-300);
+  box-shadow: var(--ac-shadow-md);
+  color: inherit;
+}
+[data-md-color-scheme="slate"] .md-typeset .ac-card {
+  background: var(--md-default-bg-color--light);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+[data-md-color-scheme="slate"] .md-typeset .ac-card:hover,
+[data-md-color-scheme="slate"] .md-typeset .ac-card:focus-visible {
+  border-color: var(--ac-indigo-400);
+}
+.ac-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 0.85rem;
+  border-radius: 10px;
+  background: var(--ac-indigo-50);
+  color: var(--ac-indigo-700);
+}
+[data-md-color-scheme="slate"] .ac-card__icon {
+  background: rgba(129, 140, 248, 0.14);
+  color: var(--ac-indigo-300);
+}
+.ac-card__title {
+  display: block;
+  margin: 0 0 0.35rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--md-default-fg-color);
+}
+.ac-card__body {
+  display: block;
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Provider / integration strip */
+.ac-providers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 1.5rem auto 0;
+  max-width: 52rem;
+}
+.ac-chip {
+  padding: 0.5em 1em;
+  border-radius: 999px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background: var(--md-default-bg-color);
+  box-shadow: var(--ac-shadow-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--md-default-fg-color--light);
+}
+[data-md-color-scheme="slate"] .ac-chip {
+  background: var(--md-default-bg-color--light);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+/* Final CTA band — solid dark panel, high-contrast actions. */
+.md-typeset .ac-cta {
+  margin: 3.6rem 0 1.4rem;
+  padding: 2.8rem 1.5rem 3rem;
+  border-radius: 16px;
+  text-align: center;
+  background: var(--ac-ink-900);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.md-typeset .ac-cta__title {
+  margin: 0 0 0.6rem;
+  padding: 0;
+  border: 0;
+  font-size: clamp(1.4rem, 2.4vw, 1.7rem);
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.ac-cta__lede {
+  max-width: 36rem;
+  margin: 0 auto 1.6rem;
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: #c2c7e0;
+}
+.ac-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+/* 9) Content polish --------------------------------------------------------- */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+.md-typeset h2 {
+  margin-top: 2.2rem;
+}
+.md-content__inner > .md-typeset h1:first-of-type {
+  font-weight: 750;
+}
+.md-typeset a {
+  text-underline-offset: 0.2em;
+}
+
+/* Material grid cards used inside content pages */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card {
+  border-radius: 12px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: var(--ac-shadow-sm);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--ac-indigo-300);
+  box-shadow: var(--ac-shadow-md);
+}
+
+/* Code blocks */
+.md-typeset pre > code {
+  border-radius: 8px;
+}
+.md-typeset .highlight {
+  border-radius: 8px;
+}
+.md-typeset code {
+  border-radius: 4px;
+}
+
+/* Admonitions */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 8px;
+  border-width: 1px;
+  border-left-width: 3px;
+  box-shadow: var(--ac-shadow-sm);
+}
+
+/* Tables */
+.md-typeset table:not([class]) {
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.72rem;
+  box-shadow: 0 0 0 1px var(--md-default-fg-color--lightest);
+}
+.md-typeset table:not([class]) th {
+  background: var(--md-default-bg-color--light);
+  font-weight: 700;
+}
+
+/* Buttons rendered via Material .md-button on content pages */
+.md-typeset .md-button {
+  border-radius: 8px;
+  transition: background-color 140ms ease, border-color 140ms ease,
+              color 140ms ease, box-shadow 140ms ease;
+}
+.md-typeset .md-button--primary {
+  background: var(--ac-indigo-600);
+  border-color: var(--ac-indigo-600);
+  color: #fff;
+}
+.md-typeset .md-button--primary:hover {
+  background: var(--ac-indigo-700);
+  border-color: var(--ac-indigo-700);
+  color: #fff;
+}
+/* Secondary (outline) buttons need a light ink on dark surfaces. */
+[data-md-color-scheme="slate"] .md-typeset .md-button:not(.md-button--primary) {
+  color: var(--ac-indigo-300);
+  border-color: var(--ac-indigo-400);
+}
+[data-md-color-scheme="slate"] .md-typeset .md-button:not(.md-button--primary):hover {
+  color: #fff;
+  background: var(--ac-indigo-600);
+  border-color: var(--ac-indigo-600);
+}
+
+/* Footer */
+.md-footer-meta {
+  background: var(--md-footer-bg-color--dark);
+}
+
+/* Version + language selectors in header */
+.md-version__current,
+.md-select__inner {
+  font-weight: 600;
+}
+
+/* 10) Responsive ------------------------------------------------------------ */
+@media screen and (max-width: 76.1875em) {
+  .ac-hero__grid {
+    grid-template-columns: 1fr;
+    gap: 2.2rem;
+    padding: 2.6rem 0 2.8rem;
+  }
+  .ac-hero__code { order: 2; }
+}
+
+@media screen and (max-width: 44.9375em) {
+  .ac-hero__grid { padding: 2rem 0 2.4rem; }
+  .ac-hero__title { font-size: clamp(1.8rem, 8vw, 2.3rem); }
+  .ac-btn { width: 100%; justify-content: center; }
+  .ac-hero__cta { flex-direction: column; }
+  .ac-window__code { font-size: 0.64rem; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .ac-btn,
+  .md-typeset .ac-card,
+  .md-typeset .grid.cards > ul > li {
+    transition: none;
+  }
+}

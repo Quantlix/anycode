@@ -1,0 +1,71 @@
+# AnyCode
+
+> AnyCode is an async-first Python framework for orchestrating multi-agent AI teams: typed tools, dependency-aware task scheduling, provider-agnostic LLM adapters, shared memory, lifecycle data, and verification gates.
+
+AnyCode is an alpha-stage framework with workload-specific production eligibility. A pinned release can support bounded workloads only when the threat model and mandatory production-readiness checklist are satisfied. The package alone does not provide host isolation, network policy, identity, key management, or operational response.
+
+Use public imports from the `anycode` package root. The package is distributed on PyPI as `anycode-py` and requires Python 3.12 or newer. A TypeScript SDK is planned but not yet released.
+
+Documentation is versioned; the links below point to the `latest` release alias.
+
+## Start Here
+
+- [Documentation home](https://quantlix.github.io/anycode/latest/): Overview, feature map, and recommended reading path.
+- [Installation](https://quantlix.github.io/anycode/latest/getting-started/installation/): Install commands, extras, provider keys, and verification steps.
+- [Quickstart](https://quantlix.github.io/anycode/latest/getting-started/quickstart/): Single-agent and multi-agent examples.
+- [Concepts overview](https://quantlix.github.io/anycode/latest/concepts/overview/): Runtime model and architecture.
+- [Agents and teams](https://quantlix.github.io/anycode/latest/concepts/agents-and-teams/): How agents, teams, tasks, and shared state relate.
+
+## Tutorials (Real-World Projects)
+
+- [Build a code-review crew](https://quantlix.github.io/anycode/latest/tutorials/code-review-crew/): A planner and reviewer with file tools, gated on ruff and pytest, under a cost budget.
+- [Research assistant with memory](https://quantlix.github.io/anycode/latest/tutorials/research-assistant/): A RAG assistant that indexes what it learns and retrieves it on later questions.
+- [A resumable pipeline](https://quantlix.github.io/anycode/latest/tutorials/resumable-pipeline/): A durable run that checkpoints every turn and resumes after a crash.
+- [Support-ticket triage](https://quantlix.github.io/anycode/latest/tutorials/support-triage/): A triage bot that hands off to specialists and requires human approval for refunds.
+
+## How-to Guides
+
+- [Run a multi-agent team](https://quantlix.github.io/anycode/latest/guides/multi-agent-team/): Build a planner, builder, and reviewer workflow.
+- [Work with tools](https://quantlix.github.io/anycode/latest/guides/tools/): Built-in tools and custom Pydantic tools.
+- [Structured output](https://quantlix.github.io/anycode/latest/guides/structured-output/): Force a validated Pydantic object with run_structured and output_schema.
+- [Configure providers](https://quantlix.github.io/anycode/latest/guides/providers/): Anthropic, OpenAI, Google, Ollama, Bedrock, Azure, and retry resilience.
+- [Stream agent output](https://quantlix.github.io/anycode/latest/guides/streaming/): StreamEvent types, chat fallback, and parallel tool execution.
+- [Use reasoning models](https://quantlix.github.io/anycode/latest/guides/reasoning-models/): reasoning_effort, thinking budgets, and thinking output per provider.
+- [Memory and RAG](https://quantlix.github.io/anycode/latest/guides/memory-and-rag/): Persistent backends, shared memory, and automatic retrieval.
+- [Engineer the context window](https://quantlix.github.io/anycode/latest/guides/context-engineering/): Trim, mask, offload, and compact context by pressure.
+- [Route tasks by complexity](https://quantlix.github.io/anycode/latest/guides/routing/): Classify tasks and route each to the right model.
+- [Agent handoff](https://quantlix.github.io/anycode/latest/guides/handoff/): Let an agent delegate to a teammate mid-run.
+- [Self-reflection](https://quantlix.github.io/anycode/latest/guides/reflection/): Critique and revise output against a quality threshold.
+- [Durable and resumable runs](https://quantlix.github.io/anycode/latest/guides/durability/): Checkpoints, durable runs, session chains, and scheduled wakeups.
+- [Human-in-the-loop approval](https://quantlix.github.io/anycode/latest/guides/human-in-the-loop/): Gate sensitive tool calls and tasks on a human.
+- [Track and cap cost](https://quantlix.github.io/anycode/latest/guides/cost-tracking/): Measure spend per agent and enforce a budget.
+- [Verification gates](https://quantlix.github.io/anycode/latest/guides/verification-gates/): Block output on ruff, pyright, pytest, regex, and schema sensors.
+- [Evaluate agents](https://quantlix.github.io/anycode/latest/guides/evaluation/): Scenario suites, scoring, and regression comparison.
+- [Observability](https://quantlix.github.io/anycode/latest/guides/observability/): Tracing, metrics, and events.
+- [Connect MCP servers](https://quantlix.github.io/anycode/latest/guides/mcp/): stdio and streamable-http transports with bearer-token auth.
+- [Extend with plugins](https://quantlix.github.io/anycode/latest/guides/plugins/): Package tools, provider factories, sensors, and turn hooks.
+- [Visualize runs](https://quantlix.github.io/anycode/latest/guides/visualization/): Render task DAGs and per-agent timelines.
+- [Use YAML config](https://quantlix.github.io/anycode/latest/guides/yaml-config/): Declarative agents, tasks, and runtime controls.
+- [Production controls](https://quantlix.github.io/anycode/latest/guides/production-controls/): Cost, approval, verification, checkpoints, durable runs, and context policies.
+- [Production readiness](https://quantlix.github.io/anycode/latest/guides/production-readiness/): Mandatory deployment controls, release evidence, and go or no-go criteria.
+
+## Reference
+
+- [Public API](https://quantlix.github.io/anycode/latest/reference/public-api/): Core classes, config models, result models, tools, and provider factory.
+- [Security and threat model](https://quantlix.github.io/anycode/latest/reference/security/): Trust boundaries, enforced invariants, residual risk, and operator-owned controls.
+- [Built-in tools](https://quantlix.github.io/anycode/latest/reference/built-in-tools/): bash, file_read, file_write, file_edit, grep, list_files — parameters, defaults, limits.
+- [Configuration](https://quantlix.github.io/anycode/latest/reference/configuration/): OrchestratorConfig, AgentConfig, TeamConfig, RunnerOptions, and defaults.
+- [CLI reference](https://quantlix.github.io/anycode/latest/reference/cli/): `anycode init`, `run`, `inspect`, `eval`, and `runs` commands.
+
+## Source And Examples
+
+- [Repository](https://github.com/Quantlix/anycode): Source code.
+- [Documentation source](https://github.com/Quantlix/anycode/tree/main/site_docs): Markdown source for this site.
+- [Examples](https://github.com/Quantlix/anycode/tree/main/examples): 34 runnable example scripts, beginner to advanced.
+- [README](https://github.com/Quantlix/anycode/blob/main/README.md): Project overview and package summary.
+
+## Optional
+
+- [TypeScript SDK (planned)](https://quantlix.github.io/anycode/latest/typescript/): Roadmap and API sketch for the coming TypeScript version.
+- [Documentation strategy](https://quantlix.github.io/anycode/latest/contributing/documentation-strategy/): Tooling rationale, SEO plan, and docs case studies.
+- [Changelog](https://github.com/Quantlix/anycode/blob/main/CHANGELOG.md): Release history.

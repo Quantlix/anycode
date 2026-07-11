@@ -1,0 +1,5 @@
+# AnyCode documentation — all crawlers welcome, including AI answer engines.
+User-agent: *
+Allow: /
+
+Sitemap: https://quantlix.github.io/anycode/latest/sitemap.xml
