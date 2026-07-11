@@ -2970,6 +2970,10 @@
 <td>Provider concurrency, request pacing, retry, deadline, and circuit settings.</td>
 </tr>
 <tr>
+<td><code>tool_idempotency</code></td>
+<td>Process-local or restart-safe claims for side-effecting tools.</td>
+</tr>
+<tr>
 <td><code>cost</code></td>
 <td>Spend budget and overspend behavior.</td>
 </tr>
@@ -3073,6 +3077,11 @@
 </span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">  </span><span class="nt">requests_per_minute</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">120</span>
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">  </span><span class="nt">capacity_scope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shared-production-key</span>
 </span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">  </span><span class="nt">capacity_wait_timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="nt">tool_idempotency</span><span class="p">:</span>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sqlite</span>
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">  </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.anycode/tool-idempotency.db</span>
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">  </span><span class="nt">redact_sensitive_data</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
 <p>The keys above map to the controls you tune most often:</p>
 <table>
@@ -3143,6 +3152,16 @@
 <td><code>provider_resilience</code></td>
 <td><code>capacity_wait_timeout_seconds</code></td>
 <td>Queue wait before the call is load-shed.</td>
+</tr>
+<tr>
+<td><code>tool_idempotency</code></td>
+<td><code>backend</code></td>
+<td><code>memory</code> for one process or <code>sqlite</code> for restart-safe claims.</td>
+</tr>
+<tr>
+<td><code>tool_idempotency</code></td>
+<td><code>path</code></td>
+<td>SQLite database path when the persistent backend is selected.</td>
 </tr>
 </tbody>
 </table>

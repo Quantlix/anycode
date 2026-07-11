@@ -2977,6 +2977,12 @@
 <td>Global provider capacity/retry policy inherited by agents</td>
 </tr>
 <tr>
+<td><code>tool_idempotency</code></td>
+<td><code>ToolIdempotencyConfig</code></td>
+<td>memory store</td>
+<td>Atomic claims for explicitly side-effecting tools</td>
+</tr>
+<tr>
 <td><code>approval_handler</code></td>
 <td><code>ApprovalGate \| None</code></td>
 <td><code>None</code></td>
@@ -2988,6 +2994,7 @@
 <p>Each is <code>None</code>/disabled by default; set it to switch the feature on.</p>
 <p><strong><code>memory: MemoryConfig</code></strong> — <code>backend</code> (<code>"memory"</code> | <code>"sqlite"</code> | <code>"redis"</code>, default <code>"memory"</code>), <code>path</code>, <code>url</code>, <code>vector_backend</code> (<code>"none"</code> | <code>"memory"</code> | <code>"chromadb"</code>, default <code>"none"</code>), <code>vector_path</code>, <code>redact_sensitive_data=True</code>.</p>
 <p><strong><code>checkpoint: CheckpointConfig</code></strong> — <code>enabled=False</code>, <code>backend</code> (<code>"filesystem"</code> | <code>"sqlite"</code>, default <code>"filesystem"</code>), <code>path=".anycode/checkpoints"</code>, <code>keep_last=5</code>, <code>redact_sensitive_data=True</code>.</p>
+<p><strong><code>tool_idempotency: ToolIdempotencyConfig</code></strong> — <code>backend</code> (<code>"memory"</code> | <code>"sqlite"</code>, default <code>"memory"</code>), <code>path=".anycode/tool-idempotency.db"</code>, <code>redact_sensitive_data=True</code>. Use SQLite for claims that must survive a process restart; install the <code>persistence</code> extra.</p>
 <p><strong><code>approval: ApprovalConfig</code></strong> — <code>enabled=False</code>, <code>timeout_seconds=300.0</code>, <code>default_on_timeout</code> (<code>"approve"</code> | <code>"reject"</code>, default <code>"reject"</code>), <code>require_approval_tools=None</code>, <code>require_approval_tasks=False</code>.</p>
 <p><strong><code>routing: RoutingConfig</code></strong> — <code>enabled=False</code>, <code>rules: list[RoutingRule]</code>, <code>default_model</code>, <code>default_provider</code>, <code>classify_with_llm=False</code>. Each <code>RoutingRule</code> has <code>condition</code>, <code>target_model</code>, <code>target_provider</code>, <code>priority=0</code>.</p>
 <p><strong><code>cost: CostConfig</code></strong> — <code>enabled=True</code>, <code>budget_usd=None</code>, <code>alert_threshold=0.8</code>, <code>on_budget_exceeded</code> (<code>"stop"</code> | <code>"warn"</code> | <code>"continue"</code>, default <code>"stop"</code>), <code>custom_pricing</code>.</p>
