@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Turn on AnyCode tracing with TraceConfig or env vars, export spans to the console or OTLP, and collect metrics and events with MetricsCollector and EventEmitter.">
+        <meta name="description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention.">
       
       
         <meta name="author" content="Quantlix">
@@ -93,7 +93,7 @@
   <meta name="apple-mobile-web-app-title" content="AnyCode">
   <meta name="generator" content="AnyCode Docs">
   
-  <meta name="keywords" content="anycode telemetry, tracing, TraceConfig, Tracer, opentelemetry otlp, MetricsCollector, EventEmitter, observability, spans, ANYCODE_TRACE_ENABLED">
+  <meta name="keywords" content="anycode telemetry, tracing, TraceConfig, structured JSONL logs, opentelemetry otlp, runtime metrics, correlation IDs, observability, alerts">
   
   <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/guides/observability/">
 
@@ -102,10 +102,10 @@
   <meta property="og:site_name" content="AnyCode">
   <meta property="og:locale" content="en_US">
   <meta property="og:title" content="Trace and Measure AnyCode Runs with Telemetry">
-  <meta property="og:description" content="Turn on AnyCode tracing with TraceConfig or env vars, export spans to the console or OTLP, and collect metrics and events with MetricsCollector and EventEmitter.">
+  <meta property="og:description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention.">
   <meta property="og:url" content="https://quantlix.github.io/anycode/0.6/guides/observability/">
   <meta name="twitter:title" content="Trace and Measure AnyCode Runs with Telemetry">
-  <meta name="twitter:description" content="Turn on AnyCode tracing with TraceConfig or env vars, export spans to the console or OTLP, and collect metrics and events with MetricsCollector and EventEmitter.">
+  <meta name="twitter:description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention.">
 
   <script type="application/ld+json">
   {
@@ -146,7 +146,7 @@
       {
         "@type": "TechArticle",
         "headline": "Trace and Measure AnyCode Runs with Telemetry",
-        "description": "Turn on AnyCode tracing with TraceConfig or env vars, export spans to the console or OTLP, and collect metrics and events with MetricsCollector and EventEmitter.",
+        "description": "Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention.",
         "url": "https://quantlix.github.io/anycode/0.6/guides/observability/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.6#website" },
@@ -160,7 +160,7 @@
   
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Trace and Measure AnyCode Runs with Telemetry - AnyCode" />
-<meta property="og:description" content="Turn on AnyCode tracing with TraceConfig or env vars, export spans to the console or OTLP, and collect metrics and events with MetricsCollector and EventEmitter." />
+<meta property="og:description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention." />
 <meta property="og:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/guides/observability.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
@@ -168,7 +168,7 @@
 <meta property="og:url" content="https://quantlix.github.io/anycode/0.6/guides/observability/" />
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:title" content="Trace and Measure AnyCode Runs with Telemetry - AnyCode" />
-<meta property="twitter:description" content="Turn on AnyCode tracing with TraceConfig or env vars, export spans to the console or OTLP, and collect metrics and events with MetricsCollector and EventEmitter." />
+<meta property="twitter:description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention." />
 <meta property="twitter:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/guides/observability.png" />
 </head>
   
@@ -1940,10 +1940,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#enable-tracing" class="md-nav__link">
+  <a href="#enable-telemetry" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Enable tracing
+        Enable telemetry
       
     </span>
   </a>
@@ -1951,10 +1951,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#collect-metrics" class="md-nav__link">
+  <a href="#correlate-a-run" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Collect metrics
+        Correlate a run
       
     </span>
   </a>
@@ -1962,10 +1962,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#emit-events" class="md-nav__link">
+  <a href="#emit-structured-jsonl-logs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Emit events
+        Emit structured JSONL logs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-automatic-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use automatic metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-events-and-retention-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect events and retention health
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-spans-with-otlp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export spans with OTLP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-dashboards-and-alerts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build dashboards and alerts
       
     </span>
   </a>
@@ -2698,10 +2742,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#enable-tracing" class="md-nav__link">
+  <a href="#enable-telemetry" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Enable tracing
+        Enable telemetry
       
     </span>
   </a>
@@ -2709,10 +2753,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#collect-metrics" class="md-nav__link">
+  <a href="#correlate-a-run" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Collect metrics
+        Correlate a run
       
     </span>
   </a>
@@ -2720,10 +2764,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#emit-events" class="md-nav__link">
+  <a href="#emit-structured-jsonl-logs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Emit events
+        Emit structured JSONL logs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-automatic-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use automatic metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-events-and-retention-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect events and retention health
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-spans-with-otlp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export spans with OTLP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-dashboards-and-alerts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build dashboards and alerts
       
     </span>
   </a>
@@ -2841,23 +2929,23 @@
 
 
 <h1 id="observe-runs-with-telemetry">Observe Runs with Telemetry<a class="headerlink" href="#observe-runs-with-telemetry" title="Permanent link">&para;</a></h1>
-<p>When an agent misbehaves in production you need to see <em>what it did</em> — the turns, tool calls, and decisions. AnyCode ships a tracer that records spans through a run, plus a metrics collector and an event emitter you can drive yourself. Everything is off by default and zero-overhead until enabled. This guide shows how to turn each on.</p>
-<h2 id="enable-tracing">Enable tracing<a class="headerlink" href="#enable-tracing" title="Permanent link">&para;</a></h2>
-<p>The <code>Tracer</code> is the one telemetry component wired into the run pipeline automatically. Pass an enabled <code>Tracer</code> to an <code>Agent</code>, or flip it on with environment variables — no code change needed.</p>
+<p>An enabled AnyCode <code>Tracer</code> automatically records correlated spans and derives operational metrics and completion events from them. Use the console exporter for local work, JSONL for container log collectors, or OTLP for a tracing backend. Telemetry is disabled by default.</p>
+<h2 id="enable-telemetry">Enable telemetry<a class="headerlink" href="#enable-telemetry" title="Permanent link">&para;</a></h2>
+<p>Pass an enabled <code>Tracer</code> to an <code>Agent</code>, or configure the default tracer with environment variables.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="in-code" name="__tabbed_1" type="radio" /><input id="via-environment" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="in-code">In code</label><label for="via-environment">Via environment</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="language-python highlight"><span class="filename">tracing.py</span><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">Tracer</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">TraceConfig</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">tracer</span> <span class="o">=</span> <span class="n">Tracer</span><span class="p">(</span><span class="n">TraceConfig</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exporter</span><span class="o">=</span><span class="s2">&quot;console&quot;</span><span class="p">))</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">tracer</span> <span class="o">=</span> <span class="n">Tracer</span><span class="p">(</span><span class="n">TraceConfig</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exporter</span><span class="o">=</span><span class="s2">&quot;jsonl&quot;</span><span class="p">))</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">tool_registry</span><span class="p">,</span> <span class="n">tool_executor</span><span class="p">,</span> <span class="n">tracer</span><span class="o">=</span><span class="n">tracer</span><span class="p">)</span>
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANYCODE_TRACE_ENABLED</span><span class="o">=</span><span class="nb">true</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANYCODE_TRACE_EXPORTER</span><span class="o">=</span>console<span class="w">   </span><span class="c1"># or otlp</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANYCODE_TRACE_ENDPOINT</span><span class="o">=</span>http://localhost:4317
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANYCODE_TRACE_EXPORTER</span><span class="o">=</span>jsonl
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANYCODE_TRACE_SAMPLE_RATE</span><span class="o">=</span><span class="m">1</span>.0
 </span></code></pre></div>
 </div>
 </div>
@@ -2874,17 +2962,17 @@
 <tr>
 <td><code>enabled</code></td>
 <td><code>False</code></td>
-<td>Master switch</td>
+<td>Enables spans, metrics, and completion events</td>
 </tr>
 <tr>
 <td><code>service_name</code></td>
 <td><code>"anycode"</code></td>
-<td>Service name on emitted spans</td>
+<td>Service name used by OTLP</td>
 </tr>
 <tr>
 <td><code>exporter</code></td>
 <td><code>"console"</code></td>
-<td><code>console</code>, <code>otlp</code>, or <code>none</code></td>
+<td><code>console</code>, <code>jsonl</code>, <code>otlp</code>, or <code>none</code></td>
 </tr>
 <tr>
 <td><code>endpoint</code></td>
@@ -2894,60 +2982,203 @@
 <tr>
 <td><code>sample_rate</code></td>
 <td><code>1.0</code></td>
-<td>Fraction of traces to record</td>
+<td>Probability of retaining and exporting each root trace</td>
 </tr>
 <tr>
 <td><code>redact_sensitive_data</code></td>
 <td><code>True</code></td>
-<td>Scrub recognized credentials from console and OTLP exports</td>
+<td>Scrubs recognized credentials from built-in exports</td>
+</tr>
+<tr>
+<td><code>max_recorded_spans</code></td>
+<td><code>10_000</code></td>
+<td>Retained sampled spans per tracer</td>
+</tr>
+<tr>
+<td><code>max_recorded_events</code></td>
+<td><code>10_000</code></td>
+<td>Retained completion events per tracer</td>
+</tr>
+<tr>
+<td><code>max_metric_series</code></td>
+<td><code>1_000</code></td>
+<td>Unique in-memory counter and histogram series</td>
+</tr>
+<tr>
+<td><code>max_histogram_samples</code></td>
+<td><code>1_000</code></td>
+<td>Recent values retained per histogram series</td>
 </tr>
 </tbody>
 </table>
-<p>Spans capture per-turn phases, sensor evaluations, and attributes like <code>stop_reason</code> and token counts. When tracing is disabled, span calls return a shared no-op object, so instrumentation costs nothing.</p>
-<p>Credential-like values are redacted when a span or event is converted with <code>to_dict()</code> or sent through a built-in exporter. The live in-memory span retains its original values. Set <code>redact_sensitive_data=False</code> only when the telemetry sink has an independently enforced data-protection boundary.</p>
-<p>Environment configuration uses <code>ANYCODE_TRACE_REDACT_SENSITIVE_DATA</code>; it defaults to <code>true</code>.</p>
+<p>The corresponding retention environment variables are <code>ANYCODE_TRACE_MAX_RECORDED_SPANS</code>, <code>ANYCODE_TRACE_MAX_RECORDED_EVENTS</code>, <code>ANYCODE_TRACE_MAX_METRIC_SERIES</code>, and <code>ANYCODE_TRACE_MAX_HISTOGRAM_SAMPLES</code>. <code>ANYCODE_TRACE_SERVICE_NAME</code>, <code>ANYCODE_TRACE_ENDPOINT</code>, and <code>ANYCODE_TRACE_REDACT_SENSITIVE_DATA</code> configure the remaining exporter options.</p>
+<h2 id="correlate-a-run">Correlate a run<a class="headerlink" href="#correlate-a-run" title="Permanent link">&para;</a></h2>
+<p>Every instrumented agent run has a stable <code>run_id</code>, which is persisted when durability is enabled. Its spans share an AnyCode <code>trace_id</code>; each span also has a <code>span_id</code> and <code>parent_span_id</code>. Completion events inherit <code>run_id</code>, agent, model, provider, task, and tool dimensions from their parent span, so child LLM and tool records remain searchable without repeating attributes at every call site.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;Investigate the failed deployment&quot;</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">run_id</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">lifecycle_events</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">run_id</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">tracer</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">events</span><span class="p">:</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">record</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">if</span> <span class="n">record</span><span class="p">[</span><span class="s2">&quot;attributes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_id&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">run_id</span><span class="p">:</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Sampling is decided once per root and inherited by its children. A sampled-out trace is omitted from <code>tracer.spans</code> and from console, JSONL, and OTLP export. Its operational metrics and in-memory completion events are still recorded. Use <code>sample_rate=1.0</code> when an external dashboard derives exact run counts only from exported spans.</p>
+<h2 id="emit-structured-jsonl-logs">Emit structured JSONL logs<a class="headerlink" href="#emit-structured-jsonl-logs" title="Permanent link">&para;</a></h2>
+<p>The <code>jsonl</code> exporter writes one redacted JSON object for every sampled completed span. Records include wall-clock timestamps, duration, status, <code>trace_id</code>, <code>span_id</code>, <code>parent_span_id</code>, <code>run_id</code>, and effective runtime dimensions.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">&quot;duration_ms&quot;</span><span class="p">:</span><span class="mf">412.7</span><span class="p">,</span><span class="nt">&quot;operation&quot;</span><span class="p">:</span><span class="s2">&quot;anycode.llm.chat&quot;</span><span class="p">,</span><span class="nt">&quot;parent_span_id&quot;</span><span class="p">:</span><span class="s2">&quot;af82c1e3b47048aa&quot;</span><span class="p">,</span><span class="nt">&quot;run_id&quot;</span><span class="p">:</span><span class="s2">&quot;7ed62e65-86be-44ba-b825-96fdfab73231&quot;</span><span class="p">,</span><span class="nt">&quot;span_id&quot;</span><span class="p">:</span><span class="s2">&quot;626d9eac8ea843f4&quot;</span><span class="p">,</span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;ok&quot;</span><span class="p">,</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="s2">&quot;2026-07-11T04:15:22.481923+00:00&quot;</span><span class="p">,</span><span class="nt">&quot;trace_id&quot;</span><span class="p">:</span><span class="s2">&quot;7ed62e6586be44bab82596fdfab73231&quot;</span><span class="p">,</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;anycode.span.completed&quot;</span><span class="p">}</span>
+</span></code></pre></div>
+<p>Send stdout to your platform's normal collector, such as Fluent Bit, Vector, CloudWatch, or a Kubernetes logging agent. Export failures are logged as warnings and do not change agent results or cancellation behavior.</p>
+<p>Credential-like values are redacted when a span or event is serialized or sent through a built-in exporter. The live in-memory object retains its original values. Set <code>redact_sensitive_data=False</code> only when the sink has an independently enforced data-protection boundary.</p>
 <div class="admonition warning">
 <p class="admonition-title">Redaction is defense in depth</p>
-<p>Pattern and key-based redaction reduces accidental credential leakage but cannot identify every sensitive business value or personal identifier. Keep secrets out of telemetry attributes and error messages in the first place, and enforce access controls and retention at the collector.</p>
+<p>Pattern and key-based redaction reduces accidental credential leakage but cannot identify every sensitive business value or personal identifier. Keep secrets out of telemetry attributes and error messages, then enforce access controls and retention at the collector.</p>
 </div>
-<div class="admonition warning">
-<p class="admonition-title">OTLP export needs the extra</p>
-<p>The <code>otlp</code> exporter lazily loads the OpenTelemetry SDK and <strong>silently does nothing</strong> if it isn't installed. Install <code>anycode-py[telemetry]</code> and point <code>endpoint</code> at your collector to actually ship spans.</p>
-</div>
-<h2 id="collect-metrics">Collect metrics<a class="headerlink" href="#collect-metrics" title="Permanent link">&para;</a></h2>
-<p><code>MetricsCollector</code> aggregates counters and histograms — tokens, cost, latency, errors. It is a standalone utility: construct it with <code>enabled=True</code> and record from your own code or hooks; the framework does not push into it automatically.</p>
-<div class="language-python highlight"><span class="filename">metrics.py</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricsCollector</span><span class="p">,</span> <span class="n">Timer</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">metrics</span> <span class="o">=</span> <span class="n">MetricsCollector</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">metrics</span><span class="o">.</span><span class="n">record_token_usage</span><span class="p">(</span><span class="s2">&quot;worker&quot;</span><span class="p">,</span> <span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span> <span class="n">input_tokens</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span> <span class="n">output_tokens</span><span class="o">=</span><span class="mi">340</span><span class="p">)</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">with</span> <span class="n">Timer</span><span class="p">(</span><span class="n">metrics</span><span class="p">,</span> <span class="s2">&quot;tool.grep&quot;</span><span class="p">):</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="o">...</span>   <span class="c1"># timed block records latency on exit</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="o">.</span><span class="n">get_summary</span><span class="p">())</span>
+<h2 id="use-automatic-metrics">Use automatic metrics<a class="headerlink" href="#use-automatic-metrics" title="Permanent link">&para;</a></h2>
+<p>Completed spans feed <code>tracer.metrics</code> even when trace sampling excludes them. The collector exposes counters and bounded histogram samples.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Type</th>
+<th>Dimensions</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>anycode.runs</code></td>
+<td>Counter</td>
+<td><code>outcome</code>, <code>stop_reason</code></td>
+<td>Terminal run outcomes</td>
+</tr>
+<tr>
+<td><code>anycode.latency.ms</code></td>
+<td>Histogram</td>
+<td><code>operation</code></td>
+<td>LLM, tool, turn, and terminal latency</td>
+</tr>
+<tr>
+<td><code>anycode.llm.first_token.ms</code></td>
+<td>Histogram</td>
+<td><code>model</code></td>
+<td>Streaming time to first token when available</td>
+</tr>
+<tr>
+<td><code>anycode.tokens.input</code></td>
+<td>Counter</td>
+<td><code>agent</code>, <code>model</code></td>
+<td>Provider-reported input tokens</td>
+</tr>
+<tr>
+<td><code>anycode.tokens.output</code></td>
+<td>Counter</td>
+<td><code>agent</code>, <code>model</code></td>
+<td>Provider-reported output tokens</td>
+</tr>
+<tr>
+<td><code>anycode.tokens.total</code></td>
+<td>Counter</td>
+<td><code>agent</code>, <code>model</code></td>
+<td>Combined token usage</td>
+</tr>
+<tr>
+<td><code>anycode.cost.usd</code></td>
+<td>Counter</td>
+<td><code>agent</code>, <code>model</code></td>
+<td>Estimated model cost</td>
+</tr>
+<tr>
+<td><code>anycode.retries</code></td>
+<td>Histogram</td>
+<td><code>agent</code>, <code>model</code></td>
+<td>Aggregate retries per terminal run</td>
+</tr>
+<tr>
+<td><code>anycode.errors</code></td>
+<td>Counter</td>
+<td><code>operation</code>, <code>error_type</code></td>
+<td>Operation and non-success terminal errors</td>
+</tr>
+</tbody>
+</table>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">run_count</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">get_counter</span><span class="p">(</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">&quot;anycode.runs&quot;</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="p">{</span><span class="s2">&quot;outcome&quot;</span><span class="p">:</span> <span class="s2">&quot;completed&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_reason&quot;</span><span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">},</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="emit-events">Emit events<a class="headerlink" href="#emit-events" title="Permanent link">&para;</a></h2>
-<p><code>EventEmitter</code> records a timestamped stream of named events — agent start/complete, turn boundaries, tool calls, budget warnings — with typed helpers for each. Like the metrics collector, you build and drive it yourself.</p>
-<div class="language-python highlight"><span class="filename">events.py</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">EventEmitter</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">events</span> <span class="o">=</span> <span class="n">EventEmitter</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">events</span><span class="o">.</span><span class="n">agent_start</span><span class="p">(</span><span class="s2">&quot;worker&quot;</span><span class="p">,</span> <span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">events</span><span class="o">.</span><span class="n">turn_complete</span><span class="p">(</span><span class="s2">&quot;worker&quot;</span><span class="p">,</span> <span class="n">turn_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">token_input</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span> <span class="n">token_output</span><span class="o">=</span><span class="mi">340</span><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span><span class="o">.</span><span class="n">events</span><span class="p">:</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<p><code>MetricsCollector</code> is in-memory. <code>get_summary()</code> reports counter values, retained histogram sizes, and drop counts; use <code>get_histogram()</code> when a metrics bridge needs the retained values. You can also derive backend metrics from JSONL or OTLP span attributes. AnyCode does not start an HTTP metrics endpoint.</p>
+<h2 id="inspect-events-and-retention-health">Inspect events and retention health<a class="headerlink" href="#inspect-events-and-retention-health" title="Permanent link">&para;</a></h2>
+<p><code>tracer.events</code> retains an <code>anycode.span.completed</code> event for every completed span, including sampled-out spans. Each event carries the effective correlation and runtime attributes used by metrics and structured logs.</p>
+<p>All in-memory telemetry is bounded. Old spans, events, and histogram values roll out when their configured limit is reached; new metric label combinations are rejected after <code>max_metric_series</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">health</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">&quot;dropped_spans&quot;</span><span class="p">:</span> <span class="n">tracer</span><span class="o">.</span><span class="n">dropped_spans</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="s2">&quot;dropped_events&quot;</span><span class="p">:</span> <span class="n">tracer</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">dropped_events</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="s2">&quot;dropped_metric_series&quot;</span><span class="p">:</span> <span class="n">tracer</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">dropped_series</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="s2">&quot;dropped_histogram_samples&quot;</span><span class="p">:</span> <span class="n">tracer</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">dropped_histogram_samples</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>TelemetryEvent.to_dict(redact_sensitive_data=False)</code> exposes the original attributes for controlled local debugging. The default remains redacted.</p>
-<div class="admonition note">
-<p class="admonition-title">Metrics and events are opt-in and manual</p>
-<p>Only the <code>Tracer</code> is auto-instrumented. <code>MetricsCollector</code> and <code>EventEmitter</code> are yours to wire into hooks or surrounding code — nothing is collected unless you enable the object and call it.</p>
+<p>The first three counters indicate that retention or label-cardinality limits are undersized for the observation window. Histogram sample drops indicate normal rolling-window eviction, but a fast increase can justify a larger sample limit when percentile stability matters.</p>
+<p>You can also construct <code>MetricsCollector</code> and <code>EventEmitter</code> directly for application-specific instrumentation. Their typed helpers remain available, and their serializers redact sensitive values by default.</p>
+<h2 id="export-spans-with-otlp">Export spans with OTLP<a class="headerlink" href="#export-spans-with-otlp" title="Permanent link">&para;</a></h2>
+<p>Install the telemetry extra and configure the collector:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="in-code_1" name="__tabbed_2" type="radio" /><input id="via-environment_1" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="in-code_1">In code</label><label for="via-environment_1">Via environment</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">TraceConfig</span><span class="p">,</span> <span class="n">Tracer</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">tracer</span> <span class="o">=</span> <span class="n">Tracer</span><span class="p">(</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">TraceConfig</span><span class="p">(</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="n">exporter</span><span class="o">=</span><span class="s2">&quot;otlp&quot;</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="n">endpoint</span><span class="o">=</span><span class="s2">&quot;http://localhost:4317&quot;</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>        <span class="n">service_name</span><span class="o">=</span><span class="s2">&quot;deployment-worker&quot;</span><span class="p">,</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="p">)</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="p">)</span>
+</span></code></pre></div>
 </div>
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;anycode-py[telemetry]&quot;</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANYCODE_TRACE_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANYCODE_TRACE_EXPORTER</span><span class="o">=</span>otlp
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANYCODE_TRACE_ENDPOINT</span><span class="o">=</span>http://localhost:4317
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<p>OTLP spans preserve AnyCode's original start and end time. The exporter attaches <code>anycode.trace_id</code>, <code>anycode.span_id</code>, and <code>anycode.parent_span_id</code> as explicit attributes, together with <code>run_id</code>. Use those application attributes for cross-record correlation; the backend's native OpenTelemetry IDs are assigned by its SDK and are not the AnyCode IDs.</p>
+<p>The OTLP dependency is lazy. If the telemetry extra is absent, the exporter does not ship spans. Verify collector ingestion during deployment readiness checks.</p>
+<p><code>AnyCode.close()</code> flushes the configured OTLP provider during normal engine shutdown. When you own a standalone <code>Tracer</code>, flush and close it before a short-lived process exits:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">tracer</span><span class="o">.</span><span class="n">force_flush</span><span class="p">(</span><span class="n">timeout_millis</span><span class="o">=</span><span class="mi">30_000</span><span class="p">)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">tracer</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+</span></code></pre></div>
+<h2 id="build-dashboards-and-alerts">Build dashboards and alerts<a class="headerlink" href="#build-dashboards-and-alerts" title="Permanent link">&para;</a></h2>
+<p>A production dashboard should show:</p>
+<ul>
+<li>Run volume and outcome ratio by <code>stop_reason</code>.</li>
+<li>P50, P95, and P99 latency for LLM, tool, turn, and terminal operations.</li>
+<li>Streaming first-token latency by model.</li>
+<li>Input, output, and total tokens by agent and model.</li>
+<li>Estimated cost by agent and model.</li>
+<li>Retry distribution and provider/tool error counts.</li>
+<li>Telemetry drop counters and JSONL or OTLP ingestion health.</li>
+</ul>
+<p>Start alert thresholds from measured baselines and service objectives. Useful first alerts are:</p>
+<ul>
+<li>Non-success run ratio above 5% for 10 minutes, excluding expected user cancellation.</li>
+<li>P95 LLM latency or first-token latency above twice the seven-day baseline for 10 minutes.</li>
+<li>P95 retries at or above 2, or any sustained <code>provider_unavailable</code> stop reason.</li>
+<li>Any <code>side_effect_unknown</code> stop reason, which requires operator reconciliation before retry.</li>
+<li>Cost above 80% of the configured budget, with a second alert at exhaustion.</li>
+<li>Growth in dropped spans, events, or metric series, or missing JSONL/OTLP ingestion for five minutes while runs are active.</li>
+</ul>
+<p>Tune these examples to traffic volume. A low-volume service should alert on absolute failures as well as percentages.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../visualization/">Visualize runs</a> — render the task graph and per-agent activity.</li>
-<li><a href="../cost-tracking/">Track and cap cost</a> — the cost numbers you'll feed into metrics.</li>
-<li><a href="../production-controls/">Production controls</a> — telemetry as part of hardening a run.</li>
-<li><a href="../../reference/public-api/">Public API</a> — <code>Tracer</code>, <code>MetricsCollector</code>, and <code>EventEmitter</code> signatures.</li>
+<li><a href="../visualization/">Visualize runs</a> - render the task graph and per-agent activity.</li>
+<li><a href="../cost-tracking/">Track and cap cost</a> - enforce the budgets represented in telemetry.</li>
+<li><a href="../production-controls/">Production controls</a> - combine telemetry with durability and safety controls.</li>
+<li><a href="../../reference/configuration/">Configuration</a> - review every <code>TraceConfig</code> field and default.</li>
 </ul>
 
 
