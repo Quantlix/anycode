@@ -8,6 +8,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
+from anycode.security.redaction import redact_text
 from anycode.types import LLMToolDef
 
 T = TypeVar("T", bound=BaseModel)
@@ -68,10 +69,11 @@ def parse_structured_output[T](raw: str, schema_class: type[T]) -> T | None:
 
 def build_retry_prompt(original_prompt: str, error: str) -> str:
     """Build a re-prompt message including the validation error."""
+    safe_error = redact_text(error)
     return (
         f"{original_prompt}\n\n"
         "Your previous response could not be validated. Please try again.\n"
-        f"Validation error: {error}\n"
+        f"Validation error: {safe_error}\n"
         "Respond with valid JSON matching the required schema exactly."
     )
 

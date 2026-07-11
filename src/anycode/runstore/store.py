@@ -24,6 +24,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from anycode.checkpoint.serializer import _deserialize_message, _serialize_message
+from anycode.security.redaction import redact_sensitive
 from anycode.types import (
     BudgetSnapshot,
     ContextManifest,
@@ -59,8 +60,9 @@ def _atomic_write(path: Path, content: str) -> None:
 class FilesystemRunStore:
     """Durable per-run persistence on the local filesystem (stdlib only)."""
 
-    def __init__(self, root: str | Path = ".anycode/runs") -> None:
+    def __init__(self, root: str | Path = ".anycode/runs", *, redact_sensitive_data: bool = True) -> None:
         self._root = Path(root)
+        self._redact_sensitive_data = redact_sensitive_data
         self._seq: dict[str, int] = {}
 
     @property
@@ -104,7 +106,10 @@ class FilesystemRunStore:
         return RunRecord.model_validate_json(path.read_text(encoding="utf-8"))
 
     def _write_record(self, record: RunRecord) -> None:
-        _atomic_write(self._run_dir(record.run_id) / _META, record.model_dump_json(indent=2))
+        payload = record.model_dump(mode="json")
+        if self._redact_sensitive_data:
+            payload = redact_sensitive(payload)
+        _atomic_write(self._run_dir(record.run_id) / _META, json.dumps(payload, indent=2, default=str))
 
     def update_status(self, run_id: str, status: RunStatus) -> RunRecord:
         record = self.read_record(run_id)
@@ -210,9 +215,12 @@ class FilesystemRunStore:
     def append_event(self, run_id: str, kind: TranscriptEventKind, payload: dict[str, object] | None = None) -> TranscriptEvent:
         seq = self._next_seq(run_id)
         event = TranscriptEvent(seq=seq, ts=_now(), kind=kind, payload=dict(payload or {}))
+        serialized = event.model_dump(mode="json")
+        if self._redact_sensitive_data:
+            serialized = redact_sensitive(serialized)
         path = self._run_dir(run_id) / _TRANSCRIPT
         with path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event.model_dump(mode="json"), default=str) + "\n")
+            fh.write(json.dumps(serialized, default=str) + "\n")
             fh.flush()
         return event
 
@@ -249,7 +257,7 @@ class FilesystemRunStore:
         cp_dir = self._run_dir(checkpoint.run_id) / _CHECKPOINT_DIR
         cp_dir.mkdir(parents=True, exist_ok=True)
         path = cp_dir / f"turn-{checkpoint.turn:06d}.json"
-        _atomic_write(path, _serialize_turn_checkpoint(checkpoint))
+        _atomic_write(path, _serialize_turn_checkpoint(checkpoint, redact_sensitive_data=self._redact_sensitive_data))
         for stale in sorted(cp_dir.glob("turn-*.json"))[:-keep_last]:
             stale.unlink(missing_ok=True)
         return path
@@ -267,11 +275,13 @@ class FilesystemRunStore:
         return None
 
 
-def _serialize_turn_checkpoint(cp: TurnCheckpoint) -> str:
+def _serialize_turn_checkpoint(cp: TurnCheckpoint, *, redact_sensitive_data: bool = True) -> str:
     payload = cp.model_dump(mode="json")
     # Message content blocks are a union; serialize through the shared
     # checkpoint helpers so deserialization is deterministic.
     payload["messages"] = [_serialize_message(m) for m in cp.messages]
+    if redact_sensitive_data:
+        payload = redact_sensitive(payload)
     return json.dumps(payload, indent=2, default=str)
 
 

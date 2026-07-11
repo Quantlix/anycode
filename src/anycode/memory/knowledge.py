@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict
 
 from anycode.helpers.uuid7 import uuid7
+from anycode.security.redaction import redact_text
 
 if TYPE_CHECKING:
     from anycode.types import ToolDefinition
@@ -56,8 +57,9 @@ def _hash_content(content: str) -> str:
 class KnowledgeStore:
     """Markdown + frontmatter knowledge files under a single directory."""
 
-    def __init__(self, root: str | Path = ".anycode/knowledge") -> None:
+    def __init__(self, root: str | Path = ".anycode/knowledge", *, redact_sensitive_data: bool = True) -> None:
         self._root = Path(root)
+        self._redact_sensitive_data = redact_sensitive_data
 
     @property
     def root(self) -> Path:
@@ -79,6 +81,11 @@ class KnowledgeStore:
         marked superseded — append-plus-supersede, never in-place mutation.
         """
         self._root.mkdir(parents=True, exist_ok=True)
+        if self._redact_sensitive_data:
+            title = redact_text(title)
+            content = redact_text(content)
+            tags = tuple(redact_text(tag) for tag in tags)
+            author = redact_text(author)
         entry = KnowledgeEntry(
             id=str(uuid7()),
             title=title,

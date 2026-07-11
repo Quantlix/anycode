@@ -242,6 +242,17 @@ def test_save_and_render_meta_report(tmp_path: Path) -> None:
     assert target.exists()
 
 
+def test_meta_report_exports_redact_notes(tmp_path: Path) -> None:
+    from anycode.types import MetaHarnessReport
+
+    report = MetaHarnessReport(blueprint_id="bp", notes="Bearer abcdefghijklmnop")
+
+    target = save_meta_report(report, tmp_path / "meta.json")
+
+    assert "Bearer" not in target.read_text(encoding="utf-8")
+    assert "Bearer" not in render_meta_report(report)
+
+
 def test_compare_blueprints_ranks_by_heldout_score() -> None:
     from anycode.types import MetaHarnessReport
 

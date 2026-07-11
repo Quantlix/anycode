@@ -14,6 +14,7 @@ from typing import Final
 
 from pydantic import BaseModel, ValidationError
 
+from anycode.security.redaction import safe_exception_message
 from anycode.types import VerificationResult, VerificationSensorConfig
 from anycode.verification.sensor import Sensor, SensorContext
 
@@ -145,7 +146,7 @@ def schema_sensor(
                 severity="error",
                 message="schema validation failed",
                 evidence={"errors": exc.error_count()},
-                feedback_for_agent=str(exc)[:1200],
+                feedback_for_agent=safe_exception_message(exc, max_chars=1200),
             )
         return VerificationResult(
             sensor_name=name,

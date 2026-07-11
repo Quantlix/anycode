@@ -129,6 +129,38 @@ def test_contract_roundtrip_and_gated_flips(tmp_path: Path) -> None:
     assert passed.next_incomplete().id == "c2"  # type: ignore[union-attr]
 
 
+def test_contract_persistence_redacts_secrets_by_default(tmp_path: Path) -> None:
+    contract = GoalContract(
+        goal="use api_key=plain-value",
+        criteria=(GoalCriterion(id="c1", description="Bearer abcdefghijklmnop"),),
+    )
+
+    save_contract(tmp_path, contract)
+
+    persisted = (tmp_path / "contract.json").read_text(encoding="utf-8")
+    assert "plain-value" not in persisted
+    assert "Bearer" not in persisted
+
+
+async def test_session_progress_redacts_result_output(tmp_path: Path) -> None:
+    contract = GoalContract(goal="g", criteria=(GoalCriterion(id="c1", description="d"),))
+
+    async def deny_verifier(criterion, result):  # type: ignore[no-untyped-def]
+        return None
+
+    chain = SessionChain(
+        runner_factory=lambda: _plain_runner(FakeAdapter.from_texts(["token=abcdefghijklmnop"])),
+        contract=contract,
+        work_dir=tmp_path,
+        verifier=deny_verifier,
+        max_sessions=1,
+    )
+
+    await chain.run()
+
+    assert "abcdefghijklmnop" not in (tmp_path / "progress.md").read_text(encoding="utf-8")
+
+
 def test_chain_refuses_changed_contract(tmp_path: Path) -> None:
     original = GoalContract(goal="g", criteria=(GoalCriterion(id="a", description="a"),))
     save_contract(tmp_path, original)

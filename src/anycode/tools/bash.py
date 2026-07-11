@@ -18,6 +18,7 @@ from anycode.constants import (
     EXIT_CODE_TIMEOUT,
 )
 from anycode.security.policy import ToolSecurityError, build_subprocess_environment, resolve_tool_path, validate_shell_command
+from anycode.security.redaction import safe_exception_message
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -39,7 +40,7 @@ async def _execute(input: BashInput, context: ToolUseContext) -> ToolResult:
         cwd = str(resolve_tool_path(input.cwd, context)) if input.cwd is not None or context.security_policy is not None else None
         env = build_subprocess_environment(context)
     except ToolSecurityError as error:
-        return ToolResult(data=str(error), is_error=True)
+        return ToolResult(data=safe_exception_message(error), is_error=True)
     stdout, stderr, exit_code = await _exec_command(input.command, cwd=cwd, timeout=limit, cap=cap, env=env)
     return ToolResult(data=_compose_result(stdout, stderr, exit_code), is_error=exit_code != 0)
 
@@ -112,7 +113,7 @@ async def _exec_command(command: str, cwd: str | None, timeout: float, cap: int,
             **_spawn_kwargs(),  # type: ignore[arg-type]
         )
     except Exception as e:
-        return "", str(e), EXIT_CODE_NOT_FOUND
+        return "", safe_exception_message(e), EXIT_CODE_NOT_FOUND
 
     async def _collect() -> tuple[bytes, int, bytes, int]:
         out, out_total = await _read_capped(proc.stdout, cap)

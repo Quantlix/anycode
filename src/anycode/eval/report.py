@@ -5,13 +5,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from anycode.security.redaction import redact_sensitive
 from anycode.types import EvalReport
 
 
-def write_report(report: EvalReport, path: str | Path) -> Path:
+def write_report(report: EvalReport, path: str | Path, *, redact_sensitive_data: bool = True) -> Path:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(report.model_dump(), indent=2, default=str), encoding="utf-8")
+    payload = report.model_dump(mode="json")
+    if redact_sensitive_data:
+        payload = redact_sensitive(payload)
+    target.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     return target
 
 
@@ -20,7 +24,9 @@ def read_report(path: str | Path) -> EvalReport:
     return EvalReport.model_validate(payload)
 
 
-def render_markdown(report: EvalReport) -> str:
+def render_markdown(report: EvalReport, *, redact_sensitive_data: bool = True) -> str:
+    if redact_sensitive_data:
+        report = EvalReport.model_validate(redact_sensitive(report.model_dump(mode="json")))
     lines = [
         f"# Eval Report: {report.suite_name} ({report.harness_variant})",
         "",

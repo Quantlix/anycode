@@ -40,6 +40,7 @@ from anycode.plugins.discovery import discover_entry_point_plugins
 from anycode.plugins.registry import PluginRegistry
 from anycode.reflection.loop import ReflectionLoop
 from anycode.routing.router import DefaultRouter
+from anycode.security.redaction import safe_exception_message
 from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task, get_task_dependency_order, validate_task_dependencies
 from anycode.telemetry.tracer import Tracer
@@ -301,7 +302,7 @@ class AnyCode:
             return result
         except Exception as e:
             self._emit(OrchestratorEvent(type=ORCH_EVENT_ERROR, agent=typed_config.name, data=e))
-            return AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
+            return AgentRunResult(success=False, output=safe_exception_message(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
         finally:
             if root_span and self._tracer:
                 self._tracer.end_span(root_span)
@@ -640,8 +641,9 @@ class AnyCode:
                 queue.fail(task.id, result.output)
             return (assignee, result)
         except Exception as e:
-            queue.fail(task.id, str(e))
-            return (assignee, AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[]))
+            message = safe_exception_message(e)
+            queue.fail(task.id, message)
+            return (assignee, AgentRunResult(success=False, output=message, messages=[], token_usage=EMPTY_USAGE, tool_calls=[]))
 
     def _resolve_task_agent(self, assignee: str, team: Team, route_decision: RouteDecision | None) -> Agent:
         """Build (or reuse) the Agent instance for a task, applying any route decision."""

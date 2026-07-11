@@ -143,6 +143,22 @@ def test_report_roundtrip(tmp_path: Path) -> None:
     assert restored.scenario_results[0].scenario_name == "a"
 
 
+def test_report_exports_redact_secrets_by_default(tmp_path: Path) -> None:
+    result = _scenario_result("secret", passed=False).model_copy(
+        update={"output": "sk-1234567890abcdef1234567890", "failure_reason": "api_key=plain-value"}
+    )
+    report = _report("v1", (result,))
+
+    target = write_report(report, tmp_path / "redacted.json")
+    raw = target.read_text(encoding="utf-8")
+    markdown = render_markdown(report)
+
+    assert "sk-" not in raw
+    assert "plain-value" not in raw
+    assert "plain-value" not in markdown
+    assert "plain-value" in render_markdown(report, redact_sensitive_data=False)
+
+
 def test_render_markdown_contains_header_and_rows() -> None:
     report = _report("v1", (_scenario_result("a", passed=True), _scenario_result("b", passed=False)))
     md = render_markdown(report)

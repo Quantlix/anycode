@@ -16,6 +16,7 @@ from anycode.providers._openai_compat import (
     parse_json_safe,
     parse_token_usage,
 )
+from anycode.security.redaction import safe_exception_message
 from anycode.types import (
     ContentBlock,
     LLMChatOptions,
@@ -171,4 +172,4 @@ class AzureOpenAIAdapter:
                 ),
             )
         except Exception as e:
-            yield StreamEvent(type="error", data=str(e))
+            yield StreamEvent(type="error", data=safe_exception_message(e))

@@ -20,12 +20,14 @@ verification says so (a quality-gate check, a test run, a human).
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
 from anycode.core.runner import AgentRunner
+from anycode.security.redaction import redact_sensitive, redact_text
 from anycode.types import GoalContract, GoalCriterion, LLMMessage, RunResult, TextBlock
 
 Verifier = Callable[[GoalCriterion, RunResult], Awaitable[str | None]]
@@ -43,11 +45,14 @@ def load_contract(work_dir: str | Path) -> GoalContract | None:
     return GoalContract.model_validate_json(path.read_text(encoding="utf-8"))
 
 
-def save_contract(work_dir: str | Path, contract: GoalContract) -> None:
+def save_contract(work_dir: str | Path, contract: GoalContract, *, redact_sensitive_data: bool = True) -> None:
     path = Path(work_dir) / _CONTRACT_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(contract.model_dump_json(indent=2), encoding="utf-8")
+    payload = contract.model_dump(mode="json")
+    if redact_sensitive_data:
+        payload = redact_sensitive(payload)
+    tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     os.replace(tmp, path)
 
 
@@ -62,11 +67,13 @@ class SessionChain:
         work_dir: str | Path,
         verifier: Verifier,
         max_sessions: int | None = None,
+        redact_sensitive_data: bool = True,
     ) -> None:
         self._runner_factory = runner_factory
         self._work_dir = Path(work_dir)
         self._verifier = verifier
         self._max_sessions = max_sessions
+        self._redact_sensitive_data = redact_sensitive_data
         self._work_dir.mkdir(parents=True, exist_ok=True)
         existing = load_contract(self._work_dir)
         if existing is not None:
@@ -76,7 +83,7 @@ class SessionChain:
                 raise ValueError("Goal contract on disk differs from the provided contract — refusing to continue.")
             contract = existing
         self._contract = contract
-        save_contract(self._work_dir, self._contract)
+        save_contract(self._work_dir, self._contract, redact_sensitive_data=self._redact_sensitive_data)
 
     @property
     def contract(self) -> GoalContract:
@@ -106,7 +113,7 @@ class SessionChain:
             evidence = await self._verifier(criterion, result)
         if evidence:
             self._contract = self._contract.mark_passed(criterion.id, evidence)
-            save_contract(self._work_dir, self._contract)
+            save_contract(self._work_dir, self._contract, redact_sensitive_data=self._redact_sensitive_data)
 
         self._append_progress(criterion, result, verified=bool(evidence))
         return result
@@ -139,10 +146,11 @@ class SessionChain:
         path = self._work_dir / _PROGRESS_FILE
         stamp = datetime.now(UTC).isoformat()
         stop = result.stop_reason.code if result.stop_reason else "unknown"
+        output = redact_text(result.output) if self._redact_sensitive_data else result.output
         entry = (
             f"\n## {stamp} — criterion `{criterion.id}`\n"
             f"- stop: {stop}, turns: {result.turns}, verified: {'yes' if verified else 'no'}\n"
-            f"- output: {result.output[:500]}\n"
+            f"- output: {output[:500]}\n"
         )
         with path.open("a", encoding="utf-8") as fh:
             fh.write(entry)

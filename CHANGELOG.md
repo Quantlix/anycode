@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Default-on credential redaction** — centralized `redact_text`, `redact_sensitive`, and `safe_exception_message` helpers now protect built-in telemetry exports, exception surfaces, workflow and turn checkpoints, run records and transcripts, context artifacts, session-chain files, persistent memory backends, eval reports, and harness artifacts. Structured sensitive keys and common provider/cloud token formats are replaced with `<redacted-secret>` while token-usage metrics and other non-secret fields retain their shape. Persistence and exporter configs expose explicit `redact_sensitive_data=False` opt-outs for independently protected stores that require exact replay.
+
 ## [0.6.0] - 2026-07-10
 
 ### Added

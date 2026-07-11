@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.helpers.usage_tracker import EMPTY_USAGE
+from anycode.security.redaction import safe_exception_message
 from anycode.types import AgentRunResult, PoolStatus
 
 if TYPE_CHECKING:
@@ -52,7 +53,13 @@ class AgentPool:
             try:
                 results[agent_name] = await self.run(agent_name, prompt)
             except Exception as e:
-                results[agent_name] = AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
+                results[agent_name] = AgentRunResult(
+                    success=False,
+                    output=safe_exception_message(e),
+                    messages=[],
+                    token_usage=EMPTY_USAGE,
+                    tool_calls=[],
+                )
 
         await asyncio.gather(*[_job(j["agent"], j["prompt"]) for j in jobs])
         return results

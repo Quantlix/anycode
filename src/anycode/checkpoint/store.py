@@ -20,15 +20,16 @@ except ImportError:
 class FilesystemCheckpointStore:
     """JSON file–based checkpoint store with atomic writes."""
 
-    def __init__(self, path: str = ".anycode/checkpoints") -> None:
+    def __init__(self, path: str = ".anycode/checkpoints", *, redact_sensitive_data: bool = True) -> None:
         self._root = Path(path)
+        self._redact_sensitive_data = redact_sensitive_data
 
     async def save(self, checkpoint: CheckpointData) -> None:
         directory = self._root / checkpoint.workflow_id
         await asyncio.to_thread(directory.mkdir, parents=True, exist_ok=True)
         target = directory / f"{checkpoint.id}.json"
         tmp = target.with_suffix(".tmp")
-        content = serialize_checkpoint(checkpoint)
+        content = serialize_checkpoint(checkpoint, redact_sensitive_data=self._redact_sensitive_data)
         await asyncio.to_thread(_atomic_write, tmp, target, content)
 
     async def load(self, checkpoint_id: str) -> CheckpointData | None:
@@ -74,8 +75,9 @@ class FilesystemCheckpointStore:
 class SQLiteCheckpointStore:
     """SQLite-backed checkpoint store using aiosqlite."""
 
-    def __init__(self, path: str = ".anycode/checkpoints.db") -> None:
+    def __init__(self, path: str = ".anycode/checkpoints.db", *, redact_sensitive_data: bool = True) -> None:
         self._path = path
+        self._redact_sensitive_data = redact_sensitive_data
         self._db: Any = None
 
     async def setup(self) -> None:
@@ -106,7 +108,7 @@ class SQLiteCheckpointStore:
         return self._db
 
     async def save(self, checkpoint: CheckpointData) -> None:
-        content = serialize_checkpoint(checkpoint)
+        content = serialize_checkpoint(checkpoint, redact_sensitive_data=self._redact_sensitive_data)
         await self._conn().execute(
             "INSERT OR REPLACE INTO checkpoints (id, workflow_id, wave_index, data, created_at) VALUES (?, ?, ?, ?, ?)",
             (checkpoint.id, checkpoint.workflow_id, checkpoint.wave_index, content, checkpoint.created_at.isoformat()),

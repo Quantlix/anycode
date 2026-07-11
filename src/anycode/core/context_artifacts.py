@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 from typing import Final
 
+from anycode.security.redaction import redact_text
 from anycode.types import ContextArtifact
 
 _DEFAULT_HEAD_CHARS: Final[int] = 400
@@ -31,8 +32,11 @@ def offload_text(
     source_event_id: str | None = None,
     head_chars: int = _DEFAULT_HEAD_CHARS,
     tail_chars: int = _DEFAULT_TAIL_CHARS,
+    redact_sensitive_data: bool = True,
 ) -> ContextArtifact:
     """Write `text` to `artifact_dir` and return a recoverable artifact handle."""
+    if redact_sensitive_data:
+        text = redact_text(text)
     target_dir = Path(artifact_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     digest = _hash(text)

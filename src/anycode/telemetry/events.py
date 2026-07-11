@@ -18,6 +18,7 @@ from anycode.constants import (
     TEL_EVENT_TURN_COMPLETE,
     TEL_EVENT_TURN_START,
 )
+from anycode.security.redaction import redact_sensitive
 
 
 class TelemetryEvent:
@@ -28,8 +29,9 @@ class TelemetryEvent:
         self.attributes = attributes or {}
         self.timestamp = time.monotonic()
 
-    def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "attributes": self.attributes, "timestamp": self.timestamp}
+    def to_dict(self, *, redact_sensitive_data: bool = True) -> dict[str, Any]:
+        payload = {"name": self.name, "attributes": self.attributes, "timestamp": self.timestamp}
+        return redact_sensitive(payload) if redact_sensitive_data else payload
 
 
 class EventEmitter:

@@ -121,6 +121,16 @@ def test_offload_text_digest_roundtrip(tmp_path: Path) -> None:
     assert restore_text(artifact) == "hello world"
 
 
+def test_offload_text_redacts_secrets_by_default(tmp_path: Path) -> None:
+    secret = "Authorization: Bearer abcdefghijklmnop"
+
+    artifact = offload_text(secret, tmp_path)
+    raw_artifact = offload_text(secret, tmp_path, label="raw", redact_sensitive_data=False)
+
+    assert restore_text(artifact) == "Authorization: <redacted-secret>"
+    assert restore_text(raw_artifact) == secret
+
+
 def test_offload_text_rejects_tampered_payload(tmp_path: Path) -> None:
     artifact = offload_text("hello world", tmp_path)
     Path(artifact.path).write_text("tampered", encoding="utf-8")

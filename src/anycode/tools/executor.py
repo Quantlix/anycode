@@ -9,6 +9,7 @@ from anycode.constants import DEFAULT_TOOL_CONCURRENCY
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.hitl.approval import ApprovalManager
 from anycode.security.policy import ToolSecurityError, check_tool_access
+from anycode.security.redaction import safe_exception_message
 from anycode.telemetry.tracer import Tracer
 from anycode.tools.registry import ToolRegistry
 from anycode.types import BatchToolCall, SpanAttributes, ToolDefinition, ToolResult, ToolUseContext
@@ -37,7 +38,7 @@ class ToolExecutor:
         try:
             check_tool_access(tool_name, context.security_policy)
         except ToolSecurityError as error:
-            return _failure(str(error))
+            return _failure(safe_exception_message(error))
 
         # HITL: tool-level approval
         if self._approval_manager is not None:
@@ -69,7 +70,7 @@ class ToolExecutor:
         try:
             validated = tool.input_model.model_validate(raw_input)
         except Exception as e:
-            return _failure(f'Invalid input for tool "{tool.name}": {e}')
+            return _failure(f'Invalid input for tool "{tool.name}": {safe_exception_message(e)}')
 
         async with self._tracer.async_span(f"anycode.tool.{tool.name}") as span:
             span.set_attributes(SpanAttributes(tool_name=tool.name, agent_name=context.agent.name))
@@ -78,8 +79,9 @@ class ToolExecutor:
                 span.set_attribute("is_error", bool(result.is_error))
                 return result
             except Exception as e:
-                span.set_error(str(e))
-                return _failure(f'Tool "{tool.name}" raised an error: {e}')
+                message = safe_exception_message(e)
+                span.set_error(message)
+                return _failure(f'Tool "{tool.name}" raised an error: {message}')
 
 
 def _failure(message: str) -> ToolResult:

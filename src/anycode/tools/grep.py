@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from anycode.constants import DEFAULT_ENCODING, GREP_IGNORED_DIRS, GREP_MATCH_CEILING
 from anycode.security.policy import ToolSecurityError, resolve_tool_path
+from anycode.security.redaction import redact_text, safe_exception_message
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -28,7 +29,7 @@ async def _execute(input: GrepInput, context: ToolUseContext) -> ToolResult:
     try:
         search_path = str(resolve_tool_path(input.path, context))
     except ToolSecurityError as error:
-        return ToolResult(data=str(error), is_error=True)
+        return ToolResult(data=safe_exception_message(error), is_error=True)
     cap = input.max_results
 
     if _has_ripgrep():
@@ -52,10 +53,11 @@ async def _ripgrep_search(pattern: str, search_path: str, *, glob: str | None, m
         stdout, stderr = await proc.communicate()
         output = stdout.decode(DEFAULT_ENCODING, errors="replace").strip()
         if proc.returncode not in (0, 1):
-            return ToolResult(data=f"ripgrep exited with code {proc.returncode}: {stderr.decode().strip()}", is_error=True)
+            error_output = redact_text(stderr.decode(DEFAULT_ENCODING, errors="replace").strip())
+            return ToolResult(data=f"ripgrep exited with code {proc.returncode}: {error_output}", is_error=True)
         return ToolResult(data=output or "No matches.", is_error=False)
     except Exception as e:
-        return ToolResult(data=f"ripgrep error: {e}", is_error=True)
+        return ToolResult(data=f"ripgrep error: {safe_exception_message(e)}", is_error=True)
 
 
 def _python_search(regex: re.Pattern[str], search_path: str, *, glob: str | None, max_results: int) -> ToolResult:
@@ -63,7 +65,7 @@ def _python_search(regex: re.Pattern[str], search_path: str, *, glob: str | None
     try:
         files = [target] if target.is_file() else list(_gather_files(target, glob))
     except Exception as e:
-        return ToolResult(data=f'Cannot access "{search_path}": {e}', is_error=True)
+        return ToolResult(data=f'Cannot access "{search_path}": {safe_exception_message(e)}', is_error=True)
 
     hits: list[str] = []
     for file in files:

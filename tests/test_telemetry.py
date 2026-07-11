@@ -99,6 +99,18 @@ class TestTracer:
         assert d["attributes"]["key"] == "value"
         assert len(d["events"]) == 1
 
+    def test_span_exports_redact_secrets_by_default(self) -> None:
+        tracer = Tracer(TraceConfig(enabled=True, exporter="none"))
+        span = tracer.start_span("secret.op")
+        span.set_attribute("api_key", "plain-value")
+        span.set_error("provider rejected sk-1234567890abcdef1234567890")
+
+        exported = span.to_dict()
+
+        assert exported["attributes"]["api_key"] == "<redacted-secret>"
+        assert "sk-" not in exported["error"]
+        assert span.to_dict(redact_sensitive_data=False)["attributes"]["api_key"] == "plain-value"
+
     def test_noop_span_has_zero_overhead(self) -> None:
         noop = _NoOpSpan()
         noop.set_attributes(SpanAttributes(agent_name="x"))
@@ -260,6 +272,13 @@ class TestEvents:
         emitter = EventEmitter(enabled=False)
         emitter.emit("test")
         assert len(emitter.events) == 0
+
+    def test_event_export_redacts_sensitive_attributes(self) -> None:
+        event = TelemetryEvent("provider.error", {"authorization": "Bearer abcdefghijklmnop", "input_tokens": 12})
+
+        exported = event.to_dict()
+
+        assert exported["attributes"] == {"authorization": "<redacted-secret>", "input_tokens": 12}
 
     def test_emit_custom_event(self) -> None:
         emitter = EventEmitter(enabled=True)

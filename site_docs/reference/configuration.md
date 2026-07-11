@@ -36,9 +36,9 @@ engine = AnyCode(config=OrchestratorConfig(max_concurrency=3, default_provider="
 
 Each is `None`/disabled by default; set it to switch the feature on.
 
-**`memory: MemoryConfig`** — `backend` (`"memory"` \| `"sqlite"` \| `"redis"`, default `"memory"`), `path`, `url`, `vector_backend` (`"none"` \| `"memory"` \| `"chromadb"`, default `"none"`), `vector_path`.
+**`memory: MemoryConfig`** — `backend` (`"memory"` \| `"sqlite"` \| `"redis"`, default `"memory"`), `path`, `url`, `vector_backend` (`"none"` \| `"memory"` \| `"chromadb"`, default `"none"`), `vector_path`, `redact_sensitive_data=True`.
 
-**`checkpoint: CheckpointConfig`** — `enabled=False`, `backend` (`"filesystem"` \| `"sqlite"`, default `"filesystem"`), `path=".anycode/checkpoints"`, `keep_last=5`.
+**`checkpoint: CheckpointConfig`** — `enabled=False`, `backend` (`"filesystem"` \| `"sqlite"`, default `"filesystem"`), `path=".anycode/checkpoints"`, `keep_last=5`, `redact_sensitive_data=True`.
 
 **`approval: ApprovalConfig`** — `enabled=False`, `timeout_seconds=300.0`, `default_on_timeout` (`"approve"` \| `"reject"`, default `"reject"`), `require_approval_tools=None`, `require_approval_tasks=False`.
 
@@ -52,7 +52,7 @@ Each is `None`/disabled by default; set it to switch the feature on.
 
 Tracing and guardrails are supplied via `AnyCode.configure(trace=TraceConfig(...), guardrails=GuardrailConfig(...))` rather than the constructor:
 
-**`TraceConfig`** — `enabled=False`, `service_name="anycode"`, `exporter` (`"otlp"` \| `"console"` \| `"none"`, default `"console"`), `endpoint`, `sample_rate=1.0`.
+**`TraceConfig`** — `enabled=False`, `service_name="anycode"`, `exporter` (`"otlp"` \| `"console"` \| `"none"`, default `"console"`), `endpoint`, `sample_rate=1.0`, `redact_sensitive_data=True`.
 
 **`GuardrailConfig`** — `max_tokens_per_agent`, `max_tokens_per_team`, `max_cost_usd`, `max_turns`, `max_tool_calls` (all `None`), plus `blocked_tools`, `require_approval_tools`, `output_validators`.
 
@@ -99,9 +99,11 @@ Related runtime configs:
 
 **`RetryPolicy`** — `max_attempts=6`, `base_delay_seconds=1.0`, `max_delay_seconds=60.0`, `jitter=True`, `respect_retry_after=True`, `call_timeout_seconds=300.0`.
 
-**`DurabilityConfig`** — `enabled=False`, `run_root=".anycode/runs"`, `checkpoint_every_turns=5`, `keep_last_checkpoints=3`, `heartbeat_seconds=30.0`.
+**`DurabilityConfig`** — `enabled=False`, `run_root=".anycode/runs"`, `checkpoint_every_turns=5`, `keep_last_checkpoints=3`, `heartbeat_seconds=30.0`, `redact_sensitive_data=True`.
 
-**`ContextPolicy`** (per agent) — thresholds that trigger context management as the window fills: `max_context_tokens=100_000`, then ratios `trim_ratio=0.65`, `mask_ratio=0.70`, `offload_ratio=0.75`, `compact_ratio=0.85`, `handoff_ratio=0.95`; plus `keep_recent_messages=6`, `max_tool_output_tokens=4000`, `summary_target_tokens=800`, `artifact_dir=".anycode/artifacts"`, `mode` (`"disabled"` \| `"manual"` \| `"auto"`).
+**`ContextPolicy`** (per agent) — thresholds that trigger context management as the window fills: `max_context_tokens=100_000`, then ratios `trim_ratio=0.65`, `mask_ratio=0.70`, `offload_ratio=0.75`, `compact_ratio=0.85`, `handoff_ratio=0.95`; plus `keep_recent_messages=6`, `max_tool_output_tokens=4000`, `summary_target_tokens=800`, `artifact_dir=".anycode/artifacts"`, `redact_sensitive_data=True`, `mode` (`"disabled"` \| `"manual"` \| `"auto"`).
+
+The `redact_sensitive_data` flags scrub recognized credentials before telemetry export or persistence. Leave them enabled unless the destination is independently protected and exact replay is required. They are pattern- and key-based defenses, not a substitute for encryption, access control, data classification, or retention policies.
 
 ## Notable defaults
 

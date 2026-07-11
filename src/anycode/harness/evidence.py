@@ -18,7 +18,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from anycode.harness.distill import _scrub_payload, distill_evidence
+from anycode.harness.distill import distill_evidence
+from anycode.security.redaction import redact_sensitive
 from anycode.types import AgentRunResult, TrajectoryEvent, TrajectoryEvidence
 
 
@@ -56,7 +57,7 @@ class EvidenceStore:
         if raw_events is not None:
             with raw_path.open("w", encoding="utf-8") as fh:
                 for record in raw_events:
-                    fh.write(json.dumps(_scrub_payload(record), default=str, sort_keys=True) + "\n")
+                    fh.write(json.dumps(redact_sensitive(record), default=str, sort_keys=True) + "\n")
         return target
 
     def list_runs(self) -> list[str]:
@@ -135,7 +136,7 @@ def write_evidence_bundle(
 
 def _write_json(path: Path, payload: Any) -> None:
     path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, default=str, ensure_ascii=False),
+        json.dumps(redact_sensitive(payload), indent=2, sort_keys=True, default=str, ensure_ascii=False),
         encoding="utf-8",
     )
 

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from anycode.constants import DEFAULT_ENCODING
 from anycode.security.policy import ToolSecurityError, resolve_tool_path
+from anycode.security.redaction import safe_exception_message
 from anycode.tools._fsutil import atomic_write_text
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
@@ -22,13 +23,13 @@ async def _execute(input: FileWriteInput, context: ToolUseContext) -> ToolResult
     try:
         target = resolve_tool_path(input.path, context)
     except ToolSecurityError as error:
-        return ToolResult(data=str(error), is_error=True)
+        return ToolResult(data=safe_exception_message(error), is_error=True)
     existed = target.exists()
 
     try:
         await asyncio.to_thread(atomic_write_text, target, input.content)
     except Exception as e:
-        return ToolResult(data=f'Could not write file "{input.path}": {e}', is_error=True)
+        return ToolResult(data=f'Could not write file "{input.path}": {safe_exception_message(e)}', is_error=True)
 
     line_count = input.content.count("\n") + (1 if input.content and not input.content.endswith("\n") else 0)
     byte_count = len(input.content.encode(DEFAULT_ENCODING))

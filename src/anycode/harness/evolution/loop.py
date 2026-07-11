@@ -36,6 +36,7 @@ from anycode.harness.evolution.workspace import (
     HarnessWorkspace,
     materialize_workspace,
 )
+from anycode.security.redaction import redact_sensitive
 from anycode.types import (
     AcceptanceThresholds,
     EvalReport,
@@ -60,6 +61,7 @@ class EvolutionPolicy:
     allow_filesystem_writes: bool = False
     thresholds: AcceptanceThresholds = field(default_factory=AcceptanceThresholds)
     patch_dir: Path | None = None
+    redact_sensitive_data: bool = True
 
 
 @dataclass(frozen=True)
@@ -188,6 +190,8 @@ class EvolutionLoop:
                 "max_iterations": self.policy.max_iterations,
             },
         }
+        if self.policy.redact_sensitive_data:
+            payload = redact_sensitive(payload)
         path.write_text(
             json.dumps(payload, indent=2, sort_keys=True, default=str),
             encoding="utf-8",

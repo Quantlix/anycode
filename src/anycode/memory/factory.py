@@ -26,14 +26,14 @@ def create_memory_store(config: MemoryConfig | dict[str, object] | None = None) 
             from anycode.memory.sqlite_store import SQLiteStore
         except ImportError as exc:
             raise ImportError("SQLite backend requires: pip install anycode-py[persistence]") from exc
-        return SQLiteStore(path=cfg.path or ":memory:")
+        return SQLiteStore(path=cfg.path or ":memory:", redact_sensitive_data=cfg.redact_sensitive_data)
 
     if cfg.backend == "redis":
         try:
             from anycode.memory.redis_store import RedisStore
         except ImportError as exc:
             raise ImportError("Redis backend requires: pip install anycode-py[redis]") from exc
-        return RedisStore(url=cfg.url or "redis://localhost:6379/0")
+        return RedisStore(url=cfg.url or "redis://localhost:6379/0", redact_sensitive_data=cfg.redact_sensitive_data)
 
     raise ValueError(f"Unknown memory backend: {cfg.backend!r}")
 
@@ -52,7 +52,10 @@ def create_vector_store(config: MemoryConfig | None = None) -> VectorStore:
             from anycode.memory.chromadb_store import ChromaDBVectorStore
         except ImportError as exc:
             raise ImportError("ChromaDB backend requires: pip install anycode-py[vector]") from exc
-        return ChromaDBVectorStore(path=config.vector_path if config else None)
+        return ChromaDBVectorStore(
+            path=config.vector_path if config else None,
+            redact_sensitive_data=config.redact_sensitive_data if config else True,
+        )
 
     if backend == "none":
         logger.warning(

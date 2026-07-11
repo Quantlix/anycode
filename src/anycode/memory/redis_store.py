@@ -13,14 +13,16 @@ except ImportError as exc:
     raise ImportError("RedisStore requires the 'redis' package. Install it with: pip install anycode-py[redis]") from exc
 
 from anycode.constants import REDIS_KEY_PREFIX, REDIS_MAX_RETRIES, REDIS_RETRY_BASE_SECONDS
+from anycode.security.redaction import redact_sensitive, redact_text
 from anycode.types import MemoryEntry
 
 
 class RedisStore:
     """Async Redis MemoryStore implementation with connection retry."""
 
-    def __init__(self, url: str = "redis://localhost:6379/0") -> None:
+    def __init__(self, url: str = "redis://localhost:6379/0", *, redact_sensitive_data: bool = True) -> None:
         self._url = url
+        self._redact_sensitive_data = redact_sensitive_data
         self._client: aioredis.Redis | None = None  # type: ignore[type-arg]
 
     async def setup(self) -> None:
@@ -47,7 +49,9 @@ class RedisStore:
         now = datetime.now(UTC).isoformat()
         existing = await self.get(key)
         created = existing.created_at.isoformat() if existing else now
-        payload = json.dumps({"key": key, "value": value, "metadata": metadata, "created_at": created, "updated_at": now})
+        stored_value = redact_text(value) if self._redact_sensitive_data else value
+        stored_metadata = redact_sensitive(metadata) if self._redact_sensitive_data else metadata
+        payload = json.dumps({"key": key, "value": stored_value, "metadata": stored_metadata, "created_at": created, "updated_at": now})
         await self._conn().set(REDIS_KEY_PREFIX + key, payload)
 
     async def list(self) -> list[MemoryEntry]:

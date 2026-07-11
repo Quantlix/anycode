@@ -17,7 +17,10 @@ class CheckpointManager:
 
     def __init__(self, config: CheckpointConfig, store: CheckpointStore | None = None) -> None:
         self._config = config
-        self._store: CheckpointStore = store or FilesystemCheckpointStore(config.path)
+        self._store: CheckpointStore = store or FilesystemCheckpointStore(
+            config.path,
+            redact_sensitive_data=config.redact_sensitive_data,
+        )
 
     @property
     def store(self) -> CheckpointStore:

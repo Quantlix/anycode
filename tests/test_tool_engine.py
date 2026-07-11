@@ -42,6 +42,26 @@ async def test_executor_enforces_security_policy_for_custom_tools() -> None:
     assert "allowlist" in result.data
 
 
+async def test_executor_redacts_secrets_from_tool_exceptions() -> None:
+    registry = ToolRegistry()
+
+    from pydantic import BaseModel
+
+    class _Input(BaseModel):
+        pass
+
+    async def _execute(_input: object, _context: ToolUseContext) -> ToolResult:
+        raise RuntimeError("request failed with Bearer abcdefghijklmnop")
+
+    registry.register(define_tool(name="failing", description="failing", input_model=_Input, execute=_execute))
+
+    result = await ToolExecutor(registry).execute("failing", {}, CTX)
+
+    assert result.is_error is True
+    assert "Bearer" not in result.data
+    assert "<redacted-secret>" in result.data
+
+
 # -- file tools -------------------------------------------------------------
 
 

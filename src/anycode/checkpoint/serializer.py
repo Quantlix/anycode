@@ -14,6 +14,7 @@ from anycode.constants import (
     BLOCK_TYPE_TOOL_USE,
     CHECKPOINT_FORMAT_VERSION,
 )
+from anycode.security.redaction import redact_sensitive
 from anycode.types import (
     AgentRunResult,
     CheckpointData,
@@ -37,7 +38,7 @@ from anycode.types import (
 )
 
 
-def serialize_checkpoint(data: CheckpointData) -> str:
+def serialize_checkpoint(data: CheckpointData, *, redact_sensitive_data: bool = True) -> str:
     payload = {
         "id": data.id,
         "workflow_id": data.workflow_id,
@@ -49,6 +50,8 @@ def serialize_checkpoint(data: CheckpointData) -> str:
         "tasks": [_serialize_task(t) for t in data.tasks],
         "agent_results": {k: _serialize_agent_result(v) for k, v in data.agent_results.items()},
     }
+    if redact_sensitive_data:
+        payload = redact_sensitive(payload)
     return json.dumps(payload, indent=2, default=str)
 
 

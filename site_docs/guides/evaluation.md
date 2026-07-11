@@ -49,6 +49,8 @@ print(f"{report.passed}/{report.total_scenarios} passed")
 write_report(report, "artifacts/eval/report.json")
 ```
 
+`write_report` and `render_markdown` redact recognized credentials by default, including secrets in model output and failure reasons. Pass `redact_sensitive_data=False` only when the destination is independently protected and the exact output is required.
+
 Scoring is deterministic string-and-stop-reason matching: a scenario passes only if the run succeeded, every `success_criteria` substring is present, no `forbidden_substrings` appear, and the stop reason matches. There is no model-graded scoring in the eval layer — for semantic judgment, add an inferential [verification sensor](verification-gates.md) to the run instead.
 
 !!! note "Suites run sequentially"

@@ -199,6 +199,17 @@ def test_evidence_store_round_trip(tmp_path: Path) -> None:
     assert restored.run_summary.run_id == "r-store"
 
 
+def test_evidence_store_redacts_structured_sensitive_values(tmp_path: Path) -> None:
+    store = EvidenceStore(tmp_path / "bundles")
+    ev = distill_evidence(_failed_run(), run_id="r-secret", task="t")
+
+    target = store.write_bundle(ev, raw_events=[{"api_key": "plain-value", "input_tokens": 12}])
+    persisted = (target / "raw_trace.jsonl").read_text(encoding="utf-8")
+
+    assert "plain-value" not in persisted
+    assert '"input_tokens": 12' in persisted
+
+
 def test_evidence_store_load_missing_raises(tmp_path: Path) -> None:
     store = EvidenceStore(tmp_path / "empty")
     with pytest.raises(FileNotFoundError):

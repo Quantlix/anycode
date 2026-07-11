@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from anycode.constants import POLL_INTERVAL_S, WEBHOOK_TIMEOUT_S
 from anycode.hitl.review import format_approval_request
+from anycode.security.redaction import safe_exception_message
 from anycode.types import ApprovalRequest, ApprovalResponse
 
 ApprovalCallback = object  # placeholder for callable type
@@ -90,7 +91,7 @@ class WebhookApprovalGate:
         try:
             urllib.request.urlopen(req, timeout=WEBHOOK_TIMEOUT_S)  # noqa: S310
         except urllib.error.URLError as exc:
-            raise ConnectionError(f"WebhookApprovalGate: POST to {url} failed: {exc}") from exc
+            raise ConnectionError(f"WebhookApprovalGate POST failed: {safe_exception_message(exc)}") from exc
 
     def _get(self, url: str) -> dict[str, object] | None:
         req = urllib.request.Request(url, headers=self._headers, method="GET")

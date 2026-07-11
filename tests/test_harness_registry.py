@@ -228,6 +228,15 @@ def test_manifest_roundtrip(tmp_path: Path) -> None:
     assert tuple(c.id for c in restored.components) == tuple(c.id for c in snapshot.components)
 
 
+def test_manifest_persistence_redacts_notes(tmp_path: Path) -> None:
+    snapshot = build_manifest(build_default_registry(team=_team_with_agent()), notes="api_key=plain-value")
+
+    target = save_manifest(snapshot, tmp_path / "manifest.json")
+
+    assert "plain-value" not in target.read_text(encoding="utf-8")
+    assert load_manifest(target).notes == "<redacted-secret>"
+
+
 def test_diff_manifests_detects_drift() -> None:
     team_a = _team_with_agent()
     team_b = TeamConfig(

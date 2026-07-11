@@ -58,6 +58,7 @@ agent = AgentConfig(
 | `max_context_tokens` | `100_000` | Manual-mode window cap |
 | `keep_recent_messages` | `6` | Recent messages always kept intact |
 | `max_tool_output_tokens` | `4_000` | Tool output above this is offloaded |
+| `redact_sensitive_data` | `True` | Scrub recognized credentials from persisted artifacts |
 | `preserved_task_state` | `{}` | Key facts that survive every reduction |
 | `preserved_verification_failures` | `()` | Failures that survive so they aren't forgotten |
 
@@ -92,7 +93,9 @@ print(manifest.pressure)                                 # normal .. handoff
 print(render_usage_report_table(manifest.usage_report))  # per-section token table
 ```
 
-The low-level `offload_text` / `restore_text` helpers move a large blob to disk and back with an integrity check, and `rebuild_from_handoff` restores a serialized context for a fresh agent.
+The low-level `offload_text` / `restore_text` helpers move a large blob to disk and back with an integrity check, and `rebuild_from_handoff` restores a serialized context for a fresh agent. By default, offloaded text, archived history, and handoff files replace recognized credentials with `<redacted-secret>` before writing. The digest verifies the redacted artifact, so restoration is exact for the persisted form rather than necessarily the original input.
+
+Set `ContextPolicy(redact_sensitive_data=False)` or pass `redact_sensitive_data=False` to `offload_text` only when the artifact directory has its own encryption, access control, and retention policy.
 
 !!! tip "tiktoken sharpens token counts"
     By default AnyCode counts tokens heuristically. Install `anycode-py[tokens]` and the OpenAI-family profiles use `tiktoken` for exact counts, which makes the pressure ladder trigger at the right moments.

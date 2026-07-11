@@ -112,6 +112,19 @@ class TestSerializer:
         assert restored.total_token_usage.input_tokens == 100
         assert restored.total_token_usage.output_tokens == 50
 
+    def test_serialization_redacts_secrets_without_losing_usage(self) -> None:
+        cp = _make_checkpoint().model_copy(
+            update={"metadata": {"api_key": "plain-value", "input_tokens": 42, "error": "sk-1234567890abcdef1234567890"}}
+        )
+
+        raw = serialize_checkpoint(cp)
+        restored = deserialize_checkpoint(raw)
+
+        assert "plain-value" not in raw
+        assert "sk-" not in raw
+        assert restored.metadata == {"api_key": "<redacted-secret>", "input_tokens": 42, "error": "<redacted-secret>"}
+        assert "plain-value" in serialize_checkpoint(cp, redact_sensitive_data=False)
+
     def test_round_trip_tool_calls(self) -> None:
         cp = _make_checkpoint()
         raw = serialize_checkpoint(cp)

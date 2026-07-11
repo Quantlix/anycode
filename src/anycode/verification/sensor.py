@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from anycode.security.redaction import safe_exception_message
 from anycode.types import (
     SensorPhase,
     VerificationResult,
@@ -72,6 +73,6 @@ class Sensor:
                 kind=self.config.kind,
                 passed=False,
                 severity="error",
-                message=f"sensor raised {type(exc).__name__}: {exc}",
+                message=f"sensor raised {type(exc).__name__}: {safe_exception_message(exc)}",
                 duration_ms=duration_ms,
             )

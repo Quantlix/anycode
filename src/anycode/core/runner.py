@@ -42,6 +42,7 @@ from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
 from anycode.providers.resilience import ProviderUnavailableError
 from anycode.runstore.store import FilesystemRunStore
+from anycode.security.redaction import safe_exception_message
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
     build_retry_prompt,
@@ -141,7 +142,10 @@ class AgentRunner:
         self._durability = durability if (durability and durability.enabled) else None
         self._run_store: FilesystemRunStore | None = None
         if self._durability is not None:
-            self._run_store = run_store or FilesystemRunStore(self._durability.run_root)
+            self._run_store = run_store or FilesystemRunStore(
+                self._durability.run_root,
+                redact_sensitive_data=self._durability.redact_sensitive_data,
+            )
         self._resume_from = resume_from
 
     @property
@@ -717,9 +721,9 @@ class AgentRunner:
         except ProviderUnavailableError as e:
             # Transient-failure retries exhausted or circuit open: surface a
             # structured, recoverable stop reason instead of a raw error event.
-            terminal_stop = stop_provider_unavailable(str(e))
+            terminal_stop = stop_provider_unavailable(safe_exception_message(e))
         except Exception as e:
-            failure_stop = StopReason(code="unknown", message=str(e), recoverable=False)
+            failure_stop = StopReason(code="unknown", message=safe_exception_message(e), recoverable=False)
             try:
                 emitter.transition("failed", stop_reason=failure_stop)
             except Exception:  # noqa: BLE001 - never mask the real error
@@ -887,8 +891,9 @@ class AgentRunner:
             try:
                 result = await self._executor.execute(block.name, block.input, ctx)
             except Exception as e:
-                result = ToolResult(data=str(e), is_error=True)
-                tool_span.set_error(str(e))
+                message = safe_exception_message(e)
+                result = ToolResult(data=message, is_error=True)
+                tool_span.set_error(message)
 
             duration = time.monotonic() - began
             tool_span.set_attributes(SpanAttributes(tool_name=block.name))

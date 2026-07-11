@@ -6,6 +6,7 @@ import os
 import shlex
 from pathlib import Path
 
+from anycode.security.redaction import safe_exception_message
 from anycode.types import ToolSecurityPolicy, ToolUseContext
 
 _SHELL_CONTROL_TOKENS = frozenset({"&", "&&", "|", "||", ";", "<", ">", ">>", "<<"})
@@ -65,7 +66,7 @@ def validate_shell_command(command: str, context: ToolUseContext) -> None:
         lexer.whitespace_split = True
         tokens = list(lexer)
     except ValueError as error:
-        raise ToolSecurityError(f"Shell command could not be parsed safely: {error}") from error
+        raise ToolSecurityError(f"Shell command could not be parsed safely: {safe_exception_message(error)}") from error
 
     if not tokens:
         raise ToolSecurityError("Shell command is empty.")

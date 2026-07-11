@@ -29,6 +29,11 @@ entry = await store.get("decision:auth")
 await store.teardown()
 ```
 
+`MemoryConfig.redact_sensitive_data` defaults to `True`. SQLite, Redis, and Chroma replace recognized credentials before writing values, metadata, or documents. `KnowledgeStore` applies the same default to its Markdown entries.
+
+!!! warning "Redacted memory cannot reconstruct a credential"
+    Retrieval returns `<redacted-secret>` rather than the original value. This is deliberate: long-lived memory should not be a credential store. Set `redact_sensitive_data=False` only when exact values are required and the backend has independent encryption, access control, and retention enforcement.
+
 !!! warning "sqlite and redis need `setup()`"
     `SQLiteStore`, `RedisStore`, and `ChromaDBVectorStore` all raise a `RuntimeError` if you use them before `await setup()`. `InMemoryStore` needs no setup. Persistent stores are imported from their submodules (for example `from anycode.memory.sqlite_store import SQLiteStore`), not the top-level package.
 
@@ -114,6 +119,8 @@ knowledge_tools = build_knowledge_tools(store)   # [knowledge_save, memory_searc
 ```
 
 Register those tools like any other (see [Work with tools](tools.md)) and add `"knowledge_save"` / `"memory_search"` to an agent's `tools` allowlist.
+
+For an independently protected knowledge directory that must preserve exact text, construct `KnowledgeStore(root="team_knowledge", redact_sensitive_data=False)` explicitly.
 
 ## Next steps
 

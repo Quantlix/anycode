@@ -11,6 +11,7 @@ from typing import Any
 
 from anycode.harness.component import compute_checksum
 from anycode.helpers.uuid7 import uuid7
+from anycode.security.redaction import redact_sensitive
 from anycode.types import (
     EvidencePacket,
     HarnessChangeEdit,
@@ -92,11 +93,14 @@ def build_change_manifest(
     )
 
 
-def save_change_manifest(manifest: HarnessChangeManifest, path: str | Path) -> Path:
+def save_change_manifest(manifest: HarnessChangeManifest, path: str | Path, *, redact_sensitive_data: bool = True) -> Path:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
+    payload = manifest.model_dump(mode="json")
+    if redact_sensitive_data:
+        payload = redact_sensitive(payload)
     target.write_text(
-        json.dumps(manifest.model_dump(), indent=2, sort_keys=True, default=str),
+        json.dumps(payload, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
     )
     return target

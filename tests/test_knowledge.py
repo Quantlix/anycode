@@ -100,6 +100,19 @@ def test_knowledge_survives_new_store_instance(tmp_path: Path) -> None:
     assert [e.title for e in fresh.list_entries()] == ["Persistent"]
 
 
+def test_knowledge_store_redacts_secrets_by_default(tmp_path: Path) -> None:
+    entry = KnowledgeStore(tmp_path).save("Credential", "token=abcdefghijklmnop")
+
+    assert entry.content == "<redacted-secret>"
+    assert "abcdefghijklmnop" not in (tmp_path / f"{entry.id}.md").read_text(encoding="utf-8")
+
+
+def test_knowledge_store_redaction_can_be_disabled(tmp_path: Path) -> None:
+    entry = KnowledgeStore(tmp_path, redact_sensitive_data=False).save("Credential", "token=abcdefghijklmnop")
+
+    assert entry.content == "token=abcdefghijklmnop"
+
+
 async def test_knowledge_tools_roundtrip(tmp_path: Path) -> None:
     store = KnowledgeStore(tmp_path)
     save_tool, search_tool = build_knowledge_tools(store)

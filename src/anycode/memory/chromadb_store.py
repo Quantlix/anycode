@@ -7,6 +7,7 @@ from typing import Any
 
 from anycode.constants import CHROMADB_DEFAULT_COLLECTION, CHROMADB_DEFAULT_PORT
 from anycode.helpers.uuid7 import uuid7
+from anycode.security.redaction import redact_sensitive, redact_text
 
 try:
     import chromadb
@@ -19,10 +20,18 @@ from anycode.types import VectorSearchResult
 class ChromaDBVectorStore:
     """ChromaDB VectorStore implementation — runs blocking calls in asyncio.to_thread()."""
 
-    def __init__(self, path: str | None = None, collection_name: str = CHROMADB_DEFAULT_COLLECTION, url: str | None = None) -> None:
+    def __init__(
+        self,
+        path: str | None = None,
+        collection_name: str = CHROMADB_DEFAULT_COLLECTION,
+        url: str | None = None,
+        *,
+        redact_sensitive_data: bool = True,
+    ) -> None:
         self._path = path
         self._url = url
         self._collection_name = collection_name
+        self._redact_sensitive_data = redact_sensitive_data
         self._client: Any = None
         self._collection: Any = None
 
@@ -54,9 +63,10 @@ class ChromaDBVectorStore:
     async def add(self, texts: list[str], metadata: list[dict[str, Any]] | None = None) -> list[str]:
         ids = [str(uuid7()) for _ in texts]
         coll = self._coll()
-        kwargs: dict[str, Any] = {"ids": ids, "documents": texts}
+        stored_texts = [redact_text(text) for text in texts] if self._redact_sensitive_data else texts
+        kwargs: dict[str, Any] = {"ids": ids, "documents": stored_texts}
         if metadata:
-            kwargs["metadatas"] = metadata
+            kwargs["metadatas"] = redact_sensitive(metadata) if self._redact_sensitive_data else metadata
         await asyncio.to_thread(coll.add, **kwargs)
         return ids
 

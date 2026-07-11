@@ -41,6 +41,7 @@ if restored is not None:
 | `enabled` | `False` | Turn checkpointing on |
 | `path` | `.anycode/checkpoints` | Where snapshots are written |
 | `keep_last` | `5` | Snapshots to retain per workflow before pruning |
+| `redact_sensitive_data` | `True` | Scrub recognized credentials before persistence |
 
 !!! warning "Resume is manual, and `backend` is not honored by the manager"
     There is no auto-resume — you reload with `load_latest` and drive the loop yourself. `CheckpointManager` always writes to the filesystem; to use the SQLite store you must construct `SQLiteCheckpointStore(...)` (from `anycode.checkpoint`) and pass it in explicitly.
@@ -75,8 +76,22 @@ result = await resumed.run([])   # empty seed is fine when resuming
 | `run_root` | `.anycode/runs` | Root directory for run records |
 | `checkpoint_every_turns` | `5` | Save a turn checkpoint every N turns |
 | `keep_last_checkpoints` | `3` | Turn checkpoints retained per run |
+| `heartbeat_seconds` | `30.0` | Heartbeat interval for stale-run detection |
+| `redact_sensitive_data` | `True` | Scrub recognized credentials from records, events, and turn checkpoints |
 
 A durable run that hits a provider outage doesn't fail — it **pauses** with a wake condition to retry later. `resume_from` takes a loaded `TurnCheckpoint`, not a run ID.
+
+!!! warning "Redaction changes persisted replay data"
+    Checkpoint and run-store redaction is enabled by default. Recognized credentials are replaced with `<redacted-secret>` in serialized messages, tool inputs and outputs, metadata, errors, and transcript payloads. A resumed run therefore receives the placeholder rather than the original credential. Pass `redact_sensitive_data=False` only when exact replay is required and the store is protected with encryption, access control, and an appropriate retention policy.
+
+Low-level constructors expose the same explicit opt-out:
+
+```python title="protected-store.py"
+store = FilesystemRunStore("/protected/runs", redact_sensitive_data=False)
+checkpoint_store = FilesystemCheckpointStore("/protected/checkpoints", redact_sensitive_data=False)
+```
+
+The built-in filesystem stores do not encrypt data at rest.
 
 ## Inspect runs from the CLI
 
@@ -120,6 +135,8 @@ final = await chain.run()            # loops until final.complete or max_session
 ```
 
 Only the contract (`contract.json`) and an append-only `progress.md` carry between sessions — the conversation itself does not. This is the mechanism for goals measured in days rather than turns.
+
+Goal contracts and progress-log output are redacted before they are written by default. Pass `redact_sensitive_data=False` to `SessionChain` only for a protected work directory that requires exact persisted text.
 
 ## Wake paused runs on a schedule
 

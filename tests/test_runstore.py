@@ -83,6 +83,35 @@ def test_transcript_append_and_read(tmp_path: Path) -> None:
     assert store.read_events("run-1", after_seq=1)[0].kind == "tool_result"
 
 
+def test_durable_writes_redact_secrets_by_default(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path)
+    store.create_run("run-1", agent_name="a", model="m", metadata={"api_key": "plain-value", "input_tokens": "12"})
+    store.append_event("run-1", "tool_result", {"output": "token=abcdefghijklmnop", "input_tokens": 12})
+    store.save_checkpoint(
+        TurnCheckpoint(
+            run_id="run-1",
+            turn=1,
+            messages=[LLMMessage(role="user", content=[TextBlock(text="sk-1234567890abcdef1234567890")])],
+            token_usage=TokenUsage(),
+            created_at=datetime.now(UTC),
+        )
+    )
+
+    persisted = "\n".join(path.read_text(encoding="utf-8") for path in (tmp_path / "run-1").rglob("*.json*"))
+    assert "plain-value" not in persisted
+    assert "abcdefghijklmnop" not in persisted
+    assert "sk-" not in persisted
+    assert store.read_record("run-1").metadata["input_tokens"] == "12"  # type: ignore[union-attr]
+    assert store.read_events("run-1")[0].payload["input_tokens"] == 12
+
+
+def test_durable_redaction_can_be_disabled(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path, redact_sensitive_data=False)
+    store.create_run("run-1", agent_name="a", model="m", metadata={"api_key": "plain-value"})
+
+    assert "plain-value" in (tmp_path / "run-1" / "meta.json").read_text(encoding="utf-8")
+
+
 def test_transcript_torn_tail_is_skipped(tmp_path: Path) -> None:
     store = FilesystemRunStore(tmp_path)
     store.create_run("run-1", agent_name="a", model="m")
@@ -229,9 +258,7 @@ def _sample_agent_result() -> AgentRunResult:
         stop_reason=StopReason(code="success", message="done", recoverable=False),
         retries=1,
         lifecycle_events=[LifecycleEvent(run_id="r", agent_name="a", phase="completed")],
-        verification_results=[
-            VerificationResult(sensor_name="ruff", kind="computational", passed=True, severity="info", message="clean")
-        ],
+        verification_results=[VerificationResult(sensor_name="ruff", kind="computational", passed=True, severity="info", message="clean")],
         gate_decisions=[QualityGateDecision(outcome="pass", message="ok", results=())],
     )
 

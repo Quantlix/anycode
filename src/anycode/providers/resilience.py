@@ -20,6 +20,7 @@ import random
 import time
 from collections.abc import AsyncIterable, AsyncIterator
 
+from anycode.security.redaction import redact_text, safe_exception_message
 from anycode.types import (
     LLMAdapter,
     LLMChatOptions,
@@ -139,7 +140,10 @@ class ResilientAdapter:
                 if not is_retryable(e):
                     raise
                 if attempt >= retry.max_attempts:
-                    raise ProviderUnavailableError(self.name, f"retries exhausted after {attempt} attempts: {e}") from e
+                    raise ProviderUnavailableError(
+                        self.name,
+                        f"retries exhausted after {attempt} attempts: {safe_exception_message(e)}",
+                    ) from e
                 delay = retry_after_seconds(e) if retry.respect_retry_after else None
                 if delay is None:
                     delay = _backoff_delay(attempt, retry)
@@ -164,7 +168,7 @@ class ResilientAdapter:
                         # before any output is safely retryable; after output has
                         # been forwarded the turn cannot be re-issued transparently.
                         if event.type == "error" and not emitted:
-                            pre_output_error = str(event.data)
+                            pre_output_error = redact_text(str(event.data))
                             break
                         emitted = True
                         yield event
@@ -174,7 +178,7 @@ class ResilientAdapter:
                     if emitted or not is_retryable(e):
                         self._breaker.record_failure()
                         raise
-                    pre_output_error = str(e)
+                    pre_output_error = safe_exception_message(e)
                 if pre_output_error is None:
                     self._breaker.record_success()
                     return

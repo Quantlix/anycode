@@ -131,6 +131,30 @@ class TestSQLiteStore:
         finally:
             await store.teardown()
 
+    @pytest.mark.asyncio
+    async def test_redacts_sensitive_values_by_default(self) -> None:
+        store = SQLiteStore(":memory:")
+        await store.setup()
+        try:
+            await store.set("credential", "Bearer abcdefghijklmnop", {"api_key": "plain-value", "input_tokens": 12})
+            entry = await store.get("credential")
+            assert entry is not None
+            assert entry.value == "<redacted-secret>"
+            assert entry.metadata == {"api_key": "<redacted-secret>", "input_tokens": 12}
+        finally:
+            await store.teardown()
+
+    @pytest.mark.asyncio
+    async def test_redaction_can_be_disabled(self) -> None:
+        store = SQLiteStore(":memory:", redact_sensitive_data=False)
+        await store.setup()
+        try:
+            await store.set("credential", "Bearer abcdefghijklmnop")
+            entry = await store.get("credential")
+            assert entry is not None and entry.value == "Bearer abcdefghijklmnop"
+        finally:
+            await store.teardown()
+
 
 class TestInMemoryVectorStore:
     @pytest.mark.asyncio

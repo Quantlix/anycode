@@ -9,6 +9,7 @@ from typing import Any
 
 from anycode.constants import MCP_TRANSPORT_SSE, MCP_TRANSPORT_STDIO, MCP_TRANSPORT_STREAMABLE_HTTP
 from anycode.mcp.config import validate_server_config
+from anycode.security.redaction import safe_exception_message
 from anycode.types import MCPServerConfig, MCPToolInfo
 
 try:
@@ -204,7 +205,7 @@ class MCPClient:
 
         except Exception as e:
             logger.error("MCP tool call '%s' on server '%s' failed: %s", tool_name, self._config.name, e)
-            return {"content": str(e), "is_error": True}
+            return {"content": safe_exception_message(e), "is_error": True}
 
     async def disconnect(self) -> None:
         """Disconnect from the MCP server and clean up resources."""

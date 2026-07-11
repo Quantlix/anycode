@@ -8,6 +8,7 @@ from pathlib import Path
 from statistics import mean
 from typing import TypedDict
 
+from anycode.security.redaction import redact_sensitive, redact_text
 from anycode.types import MetaHarnessReport
 
 
@@ -34,17 +35,21 @@ def _mean(values: Sequence[float]) -> float:
     return mean(values) if values else 0.0
 
 
-def save_meta_report(report: MetaHarnessReport, path: str | Path) -> Path:
+def save_meta_report(report: MetaHarnessReport, path: str | Path, *, redact_sensitive_data: bool = True) -> Path:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
+    payload = report.model_dump(mode="json")
+    if redact_sensitive_data:
+        payload = redact_sensitive(payload)
     target.write_text(
-        json.dumps(report.model_dump(), indent=2, sort_keys=True, default=str),
+        json.dumps(payload, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
     )
     return target
 
 
-def render_meta_report(report: MetaHarnessReport) -> str:
+def render_meta_report(report: MetaHarnessReport, *, redact_sensitive_data: bool = True) -> str:
+    notes = redact_text(report.notes) if redact_sensitive_data else report.notes
     lines = [
         f"# Meta Harness Report: {report.blueprint_id}",
         "",
@@ -56,8 +61,8 @@ def render_meta_report(report: MetaHarnessReport) -> str:
         f"- Total cost: **${report.total_cost_usd:.4f}**",
         f"- Convergence iterations: {list(report.convergence_iterations)}",
     ]
-    if report.notes:
-        lines.extend(["", "## Notes", "", report.notes])
+    if notes:
+        lines.extend(["", "## Notes", "", notes])
     return "\n".join(lines)
 
 

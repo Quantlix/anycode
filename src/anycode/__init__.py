@@ -116,6 +116,7 @@ from anycode.routing.rules import evaluate_rules, match_rule
 from anycode.runstore.store import FilesystemRunStore
 from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
 from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
+from anycode.security import REDACTED_SECRET, redact_sensitive, redact_text, safe_exception_message
 from anycode.structured.output import (
     STRUCTURED_OUTPUT_TOOL_NAME,
     build_retry_prompt,
@@ -327,6 +328,11 @@ __all__ = [
     "rebuild_from_handoff",
     "offload_text",
     "restore_text",
+    # Data protection
+    "REDACTED_SECRET",
+    "redact_sensitive",
+    "redact_text",
+    "safe_exception_message",
     # Verification & quality gates
     "QualityGate",
     "Sensor",

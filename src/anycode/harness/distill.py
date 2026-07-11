@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,7 @@ from anycode.harness.failure_taxonomy import (
     categorize_run,
 )
 from anycode.helpers.uuid7 import uuid7
+from anycode.security.redaction import redact_sensitive, redact_text
 from anycode.types import (
     AgentRunResult,
     EvidencePacket,
@@ -27,32 +27,13 @@ from anycode.types import (
     VerificationResult,
 )
 
-_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"sk-[A-Za-z0-9]{16,}"),
-    re.compile(r"Bearer\s+[A-Za-z0-9._\-]+", re.IGNORECASE),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"ghp_[A-Za-z0-9]{20,}"),
-    re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}"),
-)
-
-_REDACTED = "<redacted-secret>"
-
 
 def _scrub_secrets(text: str) -> str:
-    cleaned = text
-    for pattern in _SECRET_PATTERNS:
-        cleaned = pattern.sub(_REDACTED, cleaned)
-    return cleaned
+    return redact_text(text)
 
 
 def _scrub_payload(payload: Any) -> Any:
-    if isinstance(payload, str):
-        return _scrub_secrets(payload)
-    if isinstance(payload, dict):
-        return {key: _scrub_payload(value) for key, value in payload.items()}
-    if isinstance(payload, (list, tuple)):
-        return [_scrub_payload(item) for item in payload]
-    return payload
+    return redact_sensitive(payload)
 
 
 def _lifecycle_to_event(event: LifecycleEvent, index: int) -> TrajectoryEvent:

@@ -20,6 +20,7 @@ from anycode.constants import (
     STOP_REASON_MAX_TOKENS,
     STOP_REASON_TOOL_USE,
 )
+from anycode.security.redaction import safe_exception_message
 from anycode.types import (
     ContentBlock,
     LLMChatOptions,
@@ -264,4 +265,4 @@ class GeminiAdapter:
                 ),
             )
         except Exception as e:
-            yield StreamEvent(type="error", data=str(e))
+            yield StreamEvent(type="error", data=safe_exception_message(e))

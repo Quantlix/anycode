@@ -37,8 +37,16 @@ The `Tracer` is the one telemetry component wired into the run pipeline automati
 | `exporter` | `"console"` | `console`, `otlp`, or `none` |
 | `endpoint` | `None` | OTLP collector endpoint |
 | `sample_rate` | `1.0` | Fraction of traces to record |
+| `redact_sensitive_data` | `True` | Scrub recognized credentials from console and OTLP exports |
 
 Spans capture per-turn phases, sensor evaluations, and attributes like `stop_reason` and token counts. When tracing is disabled, span calls return a shared no-op object, so instrumentation costs nothing.
+
+Credential-like values are redacted when a span or event is converted with `to_dict()` or sent through a built-in exporter. The live in-memory span retains its original values. Set `redact_sensitive_data=False` only when the telemetry sink has an independently enforced data-protection boundary.
+
+Environment configuration uses `ANYCODE_TRACE_REDACT_SENSITIVE_DATA`; it defaults to `true`.
+
+!!! warning "Redaction is defense in depth"
+    Pattern and key-based redaction reduces accidental credential leakage but cannot identify every sensitive business value or personal identifier. Keep secrets out of telemetry attributes and error messages in the first place, and enforce access controls and retention at the collector.
 
 !!! warning "OTLP export needs the extra"
     The `otlp` exporter lazily loads the OpenTelemetry SDK and **silently does nothing** if it isn't installed. Install `anycode-py[telemetry]` and point `endpoint` at your collector to actually ship spans.
@@ -73,6 +81,8 @@ events.turn_complete("worker", turn_number=1, token_input=1200, token_output=340
 for event in events.events:
     print(event.to_dict())
 ```
+
+`TelemetryEvent.to_dict(redact_sensitive_data=False)` exposes the original attributes for controlled local debugging. The default remains redacted.
 
 !!! note "Metrics and events are opt-in and manual"
     Only the `Tracer` is auto-instrumented. `MetricsCollector` and `EventEmitter` are yours to wire into hooks or surrounding code — nothing is collected unless you enable the object and call it.

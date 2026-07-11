@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import Any
 
 from anycode.constants import MS_PER_SECOND
+from anycode.security.redaction import redact_sensitive, safe_exception_message
 from anycode.types import SpanAttributes, TraceConfig
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ def _resolve_config(config: TraceConfig | None) -> TraceConfig:
         exporter=os.environ.get("ANYCODE_TRACE_EXPORTER", "console"),  # type: ignore[arg-type]
         endpoint=os.environ.get("ANYCODE_TRACE_ENDPOINT"),
         sample_rate=float(os.environ.get("ANYCODE_TRACE_SAMPLE_RATE", "1.0")),
+        redact_sensitive_data=os.environ.get("ANYCODE_TRACE_REDACT_SENSITIVE_DATA", "true").lower() in ("true", "1", "yes"),
     )
 
 
@@ -66,8 +68,8 @@ class Span:
         end = self._end_time or time.monotonic()
         return (end - self._start_time) * MS_PER_SECOND
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
+    def to_dict(self, *, redact_sensitive_data: bool = True) -> dict[str, Any]:
+        payload = {
             "name": self.name,
             "parent": self.parent.name if self.parent else None,
             "attributes": self.attributes,
@@ -76,6 +78,7 @@ class Span:
             "error": self.error,
             "duration_ms": self.duration_ms,
         }
+        return redact_sensitive(payload) if redact_sensitive_data else payload
 
 
 class _NoOpSpan(Span):
@@ -113,8 +116,11 @@ class SpanExporter:
 class ConsoleExporter(SpanExporter):
     """Prints span data to stdout for local development."""
 
+    def __init__(self, *, redact_sensitive_data: bool = True) -> None:
+        self._redact_sensitive_data = redact_sensitive_data
+
     def export(self, span: Span) -> None:
-        data = span.to_dict()
+        data = span.to_dict(redact_sensitive_data=self._redact_sensitive_data)
         indent = "  " if span.parent else ""
         status_icon = "x" if data["status"] == "error" else "v"
         print(f"{indent}[{status_icon}] {data['name']} ({data['duration_ms']:.1f}ms)")  # noqa: T201
@@ -130,9 +136,10 @@ class ConsoleExporter(SpanExporter):
 class OTLPExporter(SpanExporter):
     """Exports spans via OpenTelemetry SDK (lazy-loaded)."""
 
-    def __init__(self, endpoint: str | None = None, service_name: str = "anycode") -> None:
+    def __init__(self, endpoint: str | None = None, service_name: str = "anycode", *, redact_sensitive_data: bool = True) -> None:
         self._endpoint = endpoint
         self._service_name = service_name
+        self._redact_sensitive_data = redact_sensitive_data
         self._tracer: Any = None
 
     def _init_tracer(self) -> None:
@@ -160,14 +167,15 @@ class OTLPExporter(SpanExporter):
             return
         from opentelemetry import trace  # type: ignore[import-not-found]
 
+        data = span.to_dict(redact_sensitive_data=self._redact_sensitive_data)
         with self._tracer.start_as_current_span(span.name) as otel_span:
-            for key, value in span.attributes.items():
+            for key, value in data["attributes"].items():
                 if isinstance(value, (str, int, float, bool)):
                     otel_span.set_attribute(key, value)
-            for event in span.events:
+            for event in data["events"]:
                 otel_span.add_event(event["name"], event.get("attributes", {}))
-            if span.status == "error":
-                otel_span.set_status(trace.StatusCode.ERROR, span.error or "")
+            if data["status"] == "error":
+                otel_span.set_status(trace.StatusCode.ERROR, data["error"] or "")
 
 
 class Tracer:
@@ -192,9 +200,13 @@ class Tracer:
         if not self._enabled:
             return None
         if self._config.exporter == "console":
-            return ConsoleExporter()
+            return ConsoleExporter(redact_sensitive_data=self._config.redact_sensitive_data)
         if self._config.exporter == "otlp":
-            return OTLPExporter(endpoint=self._config.endpoint, service_name=self._config.service_name)
+            return OTLPExporter(
+                endpoint=self._config.endpoint,
+                service_name=self._config.service_name,
+                redact_sensitive_data=self._config.redact_sensitive_data,
+            )
         return None
 
     def start_span(self, name: str, parent: Span | None = None) -> Span:
@@ -220,7 +232,7 @@ class Tracer:
         try:
             yield s
         except Exception as e:
-            s.set_error(str(e))
+            s.set_error(safe_exception_message(e))
             raise
         finally:
             self.end_span(s)
@@ -231,7 +243,7 @@ class Tracer:
         try:
             yield s
         except Exception as e:
-            s.set_error(str(e))
+            s.set_error(safe_exception_message(e))
             raise
         finally:
             self.end_span(s)

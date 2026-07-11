@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from anycode.constants import DEFAULT_ENCODING
 from anycode.security.policy import ToolSecurityError, resolve_tool_path
+from anycode.security.redaction import safe_exception_message
 from anycode.tools.registry import define_tool
 from anycode.types import ToolResult, ToolUseContext
 
@@ -23,9 +24,9 @@ async def _execute(input: FileReadInput, context: ToolUseContext) -> ToolResult:
         target = resolve_tool_path(input.path, context)
         raw = await asyncio.to_thread(target.read_text, encoding=DEFAULT_ENCODING)
     except ToolSecurityError as error:
-        return ToolResult(data=str(error), is_error=True)
+        return ToolResult(data=safe_exception_message(error), is_error=True)
     except Exception as e:
-        return ToolResult(data=f'Unable to read "{input.path}": {e}', is_error=True)
+        return ToolResult(data=f'Unable to read "{input.path}": {safe_exception_message(e)}', is_error=True)
 
     lines = raw.split("\n")
     if lines and lines[-1] == "":

@@ -247,6 +247,7 @@ class ContextPolicy(BaseModel):
     max_tool_output_tokens: int = 4000
     summary_target_tokens: int = 800
     artifact_dir: str = ".anycode/artifacts"
+    redact_sensitive_data: bool = True
     preserved_task_state: dict[str, str] = {}
     preserved_verification_failures: tuple[str, ...] = ()
     provider_overrides: dict[str, ContextPolicy] = {}
@@ -690,6 +691,7 @@ class DurabilityConfig(BaseModel):
     checkpoint_every_turns: int = 5
     keep_last_checkpoints: int = 3
     heartbeat_seconds: float = 30.0
+    redact_sensitive_data: bool = True
 
 
 WakeKind = Literal["at_time", "on_approval", "on_provider_recovery", "manual"]
@@ -895,6 +897,7 @@ class TraceConfig(BaseModel):
     exporter: Literal["otlp", "console", "none"] = "console"
     endpoint: str | None = None
     sample_rate: float = 1.0
+    redact_sensitive_data: bool = True
 
 
 class SpanAttributes(BaseModel):
@@ -1016,6 +1019,7 @@ class MemoryConfig(BaseModel):
     url: str | None = None
     vector_backend: Literal["none", "memory", "chromadb"] = "none"
     vector_path: str | None = None
+    redact_sensitive_data: bool = True
 
 
 # -- Checkpoint --
@@ -1027,6 +1031,7 @@ class CheckpointConfig(BaseModel):
     backend: Literal["filesystem", "sqlite"] = "filesystem"
     path: str = ".anycode/checkpoints"
     keep_last: int = 5
+    redact_sensitive_data: bool = True
 
 
 class CheckpointData(BaseModel):

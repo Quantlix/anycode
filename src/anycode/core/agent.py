@@ -10,6 +10,7 @@ from anycode.constants import AGENT_ROLE_MAX_LENGTH, TOOL_CONTEXT_ROLE_MAX_LENGT
 from anycode.core.runner import AgentRunner
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.providers.adapter import create_adapter
+from anycode.security.redaction import safe_exception_message
 from anycode.structured.output import parse_structured_output
 from anycode.telemetry.tracer import Tracer
 from anycode.tools.executor import ToolExecutor
@@ -186,8 +187,9 @@ class Agent:
                 retries=result.retries,
             )
         except Exception as e:
-            self._state = self._state.model_copy(update={"status": "error", "error": str(e)})
-            return AgentRunResult(success=False, output=str(e), messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
+            message = safe_exception_message(e)
+            self._state = self._state.model_copy(update={"status": "error", "error": message})
+            return AgentRunResult(success=False, output=message, messages=[], token_usage=EMPTY_USAGE, tool_calls=[])
 
     async def _execute_stream(self, messages: list[LLMMessage]) -> AsyncGenerator[StreamEvent, None]:
         self._state = self._state.model_copy(update={"status": "running"})
@@ -205,7 +207,7 @@ class Agent:
                     self._state = self._state.model_copy(update={"status": "error", "error": str(event.data)})
                 yield event
         except Exception as e:
-            self._state = self._state.model_copy(update={"status": "error", "error": str(e)})
+            self._state = self._state.model_copy(update={"status": "error", "error": safe_exception_message(e)})
             yield StreamEvent(type="error", data=e)
 
     def build_tool_context(self) -> ToolUseContext:

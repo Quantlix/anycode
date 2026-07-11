@@ -22,6 +22,7 @@ from anycode.core.runner import AgentRunner
 from anycode.eval.scorer import score
 from anycode.helpers.usage_tracker import EMPTY_USAGE
 from anycode.providers.fake import FakeAdapter, FakeResponse
+from anycode.security.redaction import safe_exception_message
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
@@ -123,7 +124,7 @@ async def run_scenario(scenario: EvalScenario, *, agent: Agent | None = None) ->
             runner_agent = agent or build_agent(scenario)
             result = await runner_agent.run(scenario.prompt)
     except Exception as exc:  # noqa: BLE001 - capture as scoring failure
-        failure = f"{type(exc).__name__}: {exc}"
+        failure = f"{type(exc).__name__}: {safe_exception_message(exc)}"
     elapsed = time.monotonic() - started
     return score(scenario, result, runtime_seconds=elapsed, failure_reason=failure)
 

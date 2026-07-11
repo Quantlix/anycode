@@ -6,13 +6,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+from anycode.security.redaction import redact_sensitive
 from anycode.types import HarnessManifest
 
 
-def save_manifest(manifest: HarnessManifest, path: str | Path) -> Path:
+def save_manifest(manifest: HarnessManifest, path: str | Path, *, redact_sensitive_data: bool = True) -> Path:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    payload = manifest.model_dump()
+    payload = manifest.model_dump(mode="json")
+    if redact_sensitive_data:
+        payload = redact_sensitive(payload)
     target.write_text(json.dumps(payload, indent=2, default=str, sort_keys=True), encoding="utf-8")
     return target
 

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from anycode.config.loader import load_config
+from anycode.security.redaction import safe_exception_message
 
 
 def validate_config(path: str | os.PathLike[str]) -> list[str]:
@@ -17,9 +18,9 @@ def validate_config(path: str | os.PathLike[str]) -> list[str]:
     try:
         loaded = load_config(path)
     except FileNotFoundError as e:
-        return [str(e)]
+        return [safe_exception_message(e)]
     except Exception as e:
-        return [f"Failed to parse config: {e}"]
+        return [f"Failed to parse config: {safe_exception_message(e)}"]
 
     agent_names = {a.name for a in loaded.team.agents}
 

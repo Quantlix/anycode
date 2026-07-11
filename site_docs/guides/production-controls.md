@@ -29,6 +29,7 @@ Each control below is available today and can be layered onto a single agent run
 | Durable runs | Run metadata, transcript events, heartbeats, wake conditions, and turn checkpoints. |
 | Context policies | Rules for trimming, masking, offloading, or compacting context as history grows. |
 | Telemetry | OpenTelemetry tracing through the `telemetry` extra. |
+| Data redaction | Default-on credential scrubbing for telemetry, checkpoints, transcripts, context artifacts, eval reports, and evidence bundles. |
 
 ## Start with explicit limits
 
@@ -130,6 +131,14 @@ anycode runs sweep
 ## Manage context pressure
 
 Context policies define how AnyCode responds as conversation history grows. A policy can trim, mask, offload, compact, or hand off context while preserving what matters — task state and verification failures survive even as lower-priority content is reduced. This keeps long runs inside a model's context window without silently dropping the information a downstream agent needs.
+
+## Protect exported and persisted data
+
+AnyCode redacts recognized credentials at built-in telemetry and persistence boundaries by default. Structured keys such as `api_key`, `authorization`, `password`, and provider-specific token fields are replaced, as are common token formats found inside free-form output and exception messages.
+
+The policy covers console and OTLP span exports, telemetry-event serialization, workflow and turn checkpoints, run transcripts and metadata, context and session-chain artifacts, persistent SQLite/Redis/Chroma/knowledge memory, eval reports, and harness artifacts. It does not mutate the active model conversation or tool result in memory.
+
+Use `redact_sensitive`, `redact_text`, and `safe_exception_message` for custom exporters or persistence adapters. Redaction is not encryption or data-loss prevention: classify data before a run, minimize what agents can access, protect storage and telemetry sinks, and define retention outside the process.
 
 ## Inspect run results
 

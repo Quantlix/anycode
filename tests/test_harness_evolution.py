@@ -153,6 +153,23 @@ def test_save_and_load_change_manifest(tmp_path: Path) -> None:
     assert restored.id == manifest.id
 
 
+def test_change_manifest_persistence_redacts_free_form_secrets(tmp_path: Path) -> None:
+    prediction = HarnessChangePrediction(metric="passed", expected_direction="increase", rationale="api_key=plain-value")
+    manifest = build_change_manifest(
+        component_ids=("a",),
+        summary="Bearer abcdefghijklmnop",
+        predictions=[prediction],
+        rollback_plan="token=abcdefghijklmnop",
+    )
+
+    target = save_change_manifest(manifest, tmp_path / "manifest.json")
+    persisted = target.read_text(encoding="utf-8")
+
+    assert "plain-value" not in persisted
+    assert "Bearer" not in persisted
+    assert "abcdefghijklmnop" not in persisted
+
+
 # -- workspace --
 
 

@@ -31,6 +31,7 @@ from typing import Final, cast
 from anycode.context.profiles import resolve_profile
 from anycode.context.tokenizer import Tokenizer, select_tokenizer
 from anycode.core.context_artifacts import offload_text, render_placeholder
+from anycode.security.redaction import redact_sensitive
 from anycode.types import (
     ContentBlock,
     ContextArtifact,
@@ -511,7 +512,12 @@ class ContextManager:
                     included_text = ""
                     strategy = "dropped"
                 elif budget.overflow == "offload":
-                    artifact = offload_text(rendered, self._policy.artifact_dir, label=f"context_{kind}")
+                    artifact = offload_text(
+                        rendered,
+                        self._policy.artifact_dir,
+                        label=f"context_{kind}",
+                        redact_sensitive_data=self._policy.redact_sensitive_data,
+                    )
                     offloaded.append(artifact)
                     self._artifacts.append(artifact)
                     included_text = render_placeholder(artifact)
@@ -556,6 +562,7 @@ class ContextManager:
                         block.content,
                         self._policy.artifact_dir,
                         label="tool_result",
+                        redact_sensitive_data=self._policy.redact_sensitive_data,
                     )
                     offloaded.append(artifact)
                     new_blocks.append(
@@ -602,6 +609,8 @@ class ContextManager:
         target_dir.mkdir(parents=True, exist_ok=True)
         path = target_dir / f"history-{int(time.time() * 1000)}.json"
         payload = {"messages": [m.model_dump() for m in messages]}
+        if self._policy.redact_sensitive_data:
+            payload = redact_sensitive(payload)
         path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         return str(path)
 
@@ -698,6 +707,8 @@ class ContextManager:
             "warnings": [],
             "messages": [m.model_dump() for m in messages],
         }
+        if self._policy.redact_sensitive_data:
+            payload = redact_sensitive(payload)
         path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         return str(path)
 

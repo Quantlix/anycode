@@ -11,6 +11,7 @@ try:
 except ImportError as exc:
     raise ImportError("SQLiteStore requires the 'aiosqlite' package. Install it with: pip install anycode-py[persistence]") from exc
 
+from anycode.security.redaction import redact_sensitive, redact_text
 from anycode.types import MemoryEntry
 
 _ROW_TYPE = tuple[str, str, str | None, str, str]
@@ -30,8 +31,9 @@ _CREATE_INDEX = "CREATE INDEX IF NOT EXISTS idx_memory_created ON memory_entries
 class SQLiteStore:
     """Async SQLite MemoryStore implementation with WAL mode for concurrent reads."""
 
-    def __init__(self, path: str = ":memory:") -> None:
+    def __init__(self, path: str = ":memory:", *, redact_sensitive_data: bool = True) -> None:
         self._path = path
+        self._redact_sensitive_data = redact_sensitive_data
         self._db: aiosqlite.Connection | None = None
 
     async def setup(self) -> None:
@@ -60,12 +62,14 @@ class SQLiteStore:
 
     async def set(self, key: str, value: str, metadata: dict[str, Any] | None = None) -> None:
         now = datetime.now(UTC).isoformat()
-        meta_json = json.dumps(metadata) if metadata else None
+        stored_value = redact_text(value) if self._redact_sensitive_data else value
+        stored_metadata = redact_sensitive(metadata) if self._redact_sensitive_data else metadata
+        meta_json = json.dumps(stored_metadata) if stored_metadata else None
         existing = await self.get(key)
         created = existing.created_at.isoformat() if existing else now
         await self._conn().execute(
             "INSERT OR REPLACE INTO memory_entries (key, value, metadata, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-            (key, value, meta_json, created, now),
+            (key, stored_value, meta_json, created, now),
         )
         await self._conn().commit()
 
