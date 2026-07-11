@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import sqlite3
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +20,9 @@ try:
     import aiosqlite
 except ImportError:
     aiosqlite: Any = None
+
+_SQLITE_SETUP_ATTEMPTS = 3
+_SQLITE_SETUP_RETRY_DELAY_S = 0.05
 
 IdempotencyClaimOutcome = Literal["execute", "replay", "in_progress", "conflict"]
 
@@ -118,25 +122,33 @@ class SQLiteToolIdempotencyStore:
                 return
             if self._path != ":memory:":
                 Path(self._path).parent.mkdir(parents=True, exist_ok=True)
-            database = await aiosqlite.connect(self._path)
-            try:
-                await database.execute("PRAGMA journal_mode=WAL")
-                await database.execute(
-                    "CREATE TABLE IF NOT EXISTS tool_idempotency ("
-                    "tool_name TEXT NOT NULL, key TEXT NOT NULL, input_fingerprint TEXT NOT NULL, "
-                    "result_json TEXT, prunable INTEGER NOT NULL DEFAULT 0, "
-                    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
-                    "PRIMARY KEY (tool_name, key))"
-                )
-                await database.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_tool_idempotency_completed "
-                    "ON tool_idempotency(updated_at) WHERE result_json IS NOT NULL AND prunable = 1"
-                )
-                await database.commit()
-            except BaseException:
-                await database.close()
-                raise
-            self._db = database
+            for attempt in range(_SQLITE_SETUP_ATTEMPTS):
+                database = None
+                try:
+                    database = await aiosqlite.connect(self._path)
+                    async with database.execute("PRAGMA journal_mode=WAL") as cursor:
+                        await cursor.fetchone()
+                    await database.execute(
+                        "CREATE TABLE IF NOT EXISTS tool_idempotency ("
+                        "tool_name TEXT NOT NULL, key TEXT NOT NULL, input_fingerprint TEXT NOT NULL, "
+                        "result_json TEXT, prunable INTEGER NOT NULL DEFAULT 0, "
+                        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
+                        "PRIMARY KEY (tool_name, key))"
+                    )
+                    await database.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_tool_idempotency_completed "
+                        "ON tool_idempotency(updated_at) WHERE result_json IS NOT NULL AND prunable = 1"
+                    )
+                    await database.commit()
+                except BaseException as error:
+                    if database is not None:
+                        await database.close()
+                    if _is_sqlite_lock_error(error) and attempt + 1 < _SQLITE_SETUP_ATTEMPTS:
+                        await asyncio.sleep(_SQLITE_SETUP_RETRY_DELAY_S * (attempt + 1))
+                        continue
+                    raise
+                self._db = database
+                return
 
     async def teardown(self) -> None:
         async with self._setup_lock:
@@ -236,6 +248,10 @@ class SQLiteToolIdempotencyStore:
         if self._db is None:
             raise RuntimeError("SQLite tool idempotency store is not initialized")
         return self._db
+
+
+def _is_sqlite_lock_error(error: BaseException) -> bool:
+    return isinstance(error, sqlite3.OperationalError) and getattr(error, "sqlite_errorcode", None) in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
 
 
 def create_tool_idempotency_store(config: ToolIdempotencyConfig | None = None) -> ToolIdempotencyStore:

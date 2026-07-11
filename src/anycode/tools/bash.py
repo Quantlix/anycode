@@ -50,7 +50,7 @@ def _spawn_kwargs() -> dict[str, object]:
     if _IS_WINDOWS:
         import subprocess
 
-        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+        return {"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP")}
     return {"start_new_session": True}
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 import subprocess
 import sys
 import time
@@ -12,6 +13,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
+import anycode.tools.idempotency as idempotency_module
 from anycode.tools.bash import BashInput, bash_tool
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.file_edit import FileEditInput, file_edit_tool
@@ -211,6 +213,74 @@ async def test_sqlite_claim_is_atomic_across_store_connections(tmp_path: Path) -
     await first_store.teardown()
     await second_store.teardown()
     assert {first.outcome, second.outcome} == {"execute", "in_progress"}
+
+
+async def test_sqlite_setup_retries_lock_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    original_connect = idempotency_module.aiosqlite.connect
+    attempts = 0
+
+    async def _connect(*args: object, **kwargs: object) -> object:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            error = sqlite3.OperationalError("database is locked")
+            error.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise error
+        return await original_connect(*args, **kwargs)
+
+    monkeypatch.setattr(idempotency_module.aiosqlite, "connect", _connect)
+    monkeypatch.setattr(idempotency_module, "_SQLITE_SETUP_RETRY_DELAY_S", 0)
+    store = SQLiteToolIdempotencyStore(tmp_path / "retry-idempotency.db")
+
+    await store.setup()
+    await store.teardown()
+
+    assert attempts == 2
+
+
+async def test_sqlite_setup_bounds_lock_retries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _LockedExecute:
+        def __init__(self, error: sqlite3.OperationalError) -> None:
+            self._error = error
+
+        async def __aenter__(self) -> None:
+            raise self._error
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    class _LockedDatabase:
+        def __init__(self) -> None:
+            self.closed = False
+            self.error = sqlite3.OperationalError("database is locked")
+            self.error.sqlite_errorcode = sqlite3.SQLITE_LOCKED
+
+        def execute(self, *_args: object) -> _LockedExecute:
+            return _LockedExecute(self.error)
+
+        async def close(self) -> None:
+            self.closed = True
+
+    databases = [_LockedDatabase() for _ in range(idempotency_module._SQLITE_SETUP_ATTEMPTS)]
+    pending_databases = iter(databases)
+    delays: list[float] = []
+
+    async def _connect(*_args: object, **_kwargs: object) -> _LockedDatabase:
+        return next(pending_databases)
+
+    async def _sleep(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(idempotency_module.aiosqlite, "connect", _connect)
+    monkeypatch.setattr(idempotency_module.asyncio, "sleep", _sleep)
+    store = SQLiteToolIdempotencyStore(tmp_path / "locked-idempotency.db")
+
+    with pytest.raises(sqlite3.OperationalError, match="database is locked") as exc_info:
+        await store.setup()
+
+    assert exc_info.value is databases[-1].error
+    assert all(database.closed for database in databases)
+    assert delays == [0.05, 0.1]
 
 
 async def test_cancelled_side_effect_remains_indeterminate() -> None:
@@ -559,6 +629,22 @@ async def test_grep_finds_match(tmp_path: Path) -> None:
     (tmp_path / "a.txt").write_text("hello world\nfoo bar\n", encoding="utf-8")
     result = await grep_tool.execute(GrepInput(pattern="foo", path=str(tmp_path)), CTX)
     assert "foo" in result.data
+
+
+async def test_grep_uses_absolute_path_when_relative_path_is_unavailable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    match = tmp_path / "a.txt"
+    match.write_text("foo bar\n", encoding="utf-8")
+    monkeypatch.setattr("anycode.tools.grep._has_ripgrep", lambda: False)
+
+    def _cross_drive_error(_path: object) -> str:
+        raise ValueError("path is on a different drive")
+
+    monkeypatch.setattr("anycode.tools.grep.os.path.relpath", _cross_drive_error)
+
+    result = await grep_tool.execute(GrepInput(pattern="foo", path=str(tmp_path)), CTX)
+
+    assert result.is_error is not True
+    assert str(match) in result.data
 
 
 # -- list_files --------------------------------------------------------------

@@ -79,13 +79,21 @@ def _python_search(regex: re.Pattern[str], search_path: str, *, glob: str | None
             if len(hits) >= max_results:
                 break
             if regex.search(line):
-                rel = os.path.relpath(file) if file.is_absolute() else str(file)
-                hits.append(f"{rel}:{i + 1}:{line}")
+                hits.append(f"{_display_path(file)}:{i + 1}:{line}")
 
     if not hits:
         return ToolResult(data="No matches.", is_error=False)
     note = f"\n\n(results capped at {max_results} — increase max_results for more)" if len(hits) >= max_results else ""
     return ToolResult(data="\n".join(hits) + note, is_error=False)
+
+
+def _display_path(file: Path) -> str:
+    if not file.is_absolute():
+        return str(file)
+    try:
+        return os.path.relpath(file)
+    except ValueError:
+        return str(file)
 
 
 def _gather_files(directory: Path, glob_pattern: str | None) -> list[Path]:
