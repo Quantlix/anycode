@@ -7,6 +7,7 @@ from anycode.collaboration.kv_store import InMemoryStore
 from anycode.collaboration.message_bus import MessageBus
 from anycode.collaboration.shared_mem import SharedMemory
 from anycode.collaboration.team import Team
+from anycode.config.loader import UnknownConfigFieldError, UnsupportedConfigVersionError
 from anycode.constants import (
     ORCH_EVENT_AGENT_COMPLETE,
     ORCH_EVENT_AGENT_START,
@@ -407,7 +408,9 @@ __all__ = [
     "TurnCheckpoint",
     "BudgetSnapshot",
     "UnsupportedCheckpointVersionError",
+    "UnsupportedConfigVersionError",
     "UnsupportedRunStoreVersionError",
+    "UnknownConfigFieldError",
     # Session chaining
     "SessionChain",
     "GoalContract",
@@ -455,7 +458,6 @@ __all__ = [
     # Memory
     "CompositeMemory",
     "InMemoryVectorStore",
-    "create_memory_store",
     # Checkpoint
     "CheckpointManager",
     "FilesystemCheckpointStore",

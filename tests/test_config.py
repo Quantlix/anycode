@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from anycode.config.loader import load_config
+from anycode.config.loader import UnknownConfigFieldError, UnsupportedConfigVersionError, load_config
 from anycode.config.validator import validate_config
+from anycode.types import OrchestratorConfig
 
 _YAML_BASIC = """\
 name: demo-team
@@ -107,6 +108,60 @@ def test_load_toml(tmp_path: Path) -> None:
     loaded = load_config(p)
     assert loaded.team.name == "toml-team"
     assert loaded.team.agents[0].name == "alice"
+
+
+def test_unversioned_config_loads_as_v1(tmp_path: Path) -> None:
+    path = tmp_path / "legacy.yaml"
+    path.write_text(_YAML_BASIC, encoding="utf-8")
+
+    assert load_config(path).format_version == 1
+
+
+def test_future_config_version_fails_clearly(tmp_path: Path) -> None:
+    path = tmp_path / "future.yaml"
+    path.write_text(f"format_version: 2\n{_YAML_BASIC}", encoding="utf-8")
+
+    with pytest.raises(UnsupportedConfigVersionError, match="config format version 2"):
+        load_config(path)
+
+
+@pytest.mark.parametrize(
+    "payload, field",
+    [
+        (f"future_root: true\n{_YAML_BASIC}", "future_root"),
+        (_YAML_BASIC.replace("    tools: []", "    tools: []\n    future_agent: true"), "future_agent"),
+        (_YAML_BASIC.replace("    assignee: alice", "    assignee: alice\n    future_task: true"), "future_task"),
+        (f"context_engineering:\n  future_context: true\n{_YAML_BASIC}", "future_context"),
+        (f"context_engineering:\n  window:\n    future_window: true\n{_YAML_BASIC}", "future_window"),
+        (
+            f"context_engineering:\n  sections:\n    tool_results:\n      future_section: true\n{_YAML_BASIC}",
+            "future_section",
+        ),
+        (
+            f"routing:\n  rules:\n    - condition: complex\n      target_model: gpt-4o-mini\n      future_rule: true\n{_YAML_BASIC}",
+            "future_rule",
+        ),
+        (
+            _YAML_PROVIDER_CAPACITY.replace(
+                "  max_concurrency: 3",
+                "  max_concurrency: 3\n  retry:\n    future_retry_option: true",
+            ),
+            "future_retry_option",
+        ),
+    ],
+)
+def test_unknown_config_fields_fail_closed(tmp_path: Path, payload: str, field: str) -> None:
+    path = tmp_path / "unknown.yaml"
+    path.write_text(payload, encoding="utf-8")
+
+    with pytest.raises(UnknownConfigFieldError, match=field):
+        load_config(path)
+
+
+def test_programmatic_config_extra_behavior_is_unchanged() -> None:
+    config = OrchestratorConfig.model_validate({"future_only": True})
+
+    assert "future_only" not in config.model_dump()
 
 
 def test_env_substitution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

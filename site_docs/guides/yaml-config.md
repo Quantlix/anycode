@@ -19,6 +19,7 @@ A config is a single YAML document with a small set of top-level keys. You add o
 
 | Top-level key | Purpose |
 | --- | --- |
+| `format_version` | Declarative config contract. Use `1`; omitted files are treated as legacy v1. |
 | `name` | Human-readable team name. |
 | `agents` | The agents on the team — each has a `name`, `provider`, `model`, `system_prompt`, and `tools`. |
 | `tasks` | Work items and their wiring — each has a `title`, `description`, `assignee`, and optional `depends_on`. |
@@ -39,6 +40,7 @@ A config is a single YAML document with a small set of top-level keys. You add o
 Start with one agent and one task. This is a complete, runnable config.
 
 ```yaml title="team.yaml"
+format_version: 1
 name: docs-crew
 agents:
   - name: writer
@@ -54,6 +56,8 @@ tasks:
 ```
 
 Each agent needs a `provider` and `model`; the `assignee` on a task must match an agent `name`. Give an agent an empty `tools: []` list when it only needs to reason and write.
+
+Unknown root, agent, task, and nested configuration fields fail validation. This catches misspellings and prevents an older runtime from silently ignoring a setting written for a newer release. See the [compatibility policy](../reference/compatibility.md) before changing a persisted config format.
 
 ## Run the config
 

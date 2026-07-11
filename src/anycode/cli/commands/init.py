@@ -9,6 +9,7 @@ from rich.console import Console
 
 TEMPLATE_TEAM_YAML = """\
 # AnyCode team configuration
+format_version: 1
 name: backend-crew
 
 agents:

@@ -37,6 +37,7 @@ def test_init_creates_project(tmp_path: Path) -> None:
     result = runner.invoke(app, ["init", str(project)])
     assert result.exit_code == 0, result.stdout
     assert (project / "team.yaml").exists()
+    assert "format_version: 1" in (project / "team.yaml").read_text(encoding="utf-8")
     assert (project / "main.py").exists()
     assert (project / ".env.example").exists()
     assert (project / ".gitignore").exists()

@@ -122,6 +122,8 @@ EXIT_CODE_NOT_FOUND = 127
 CHECKPOINT_MIN_FORMAT_VERSION = 1
 CHECKPOINT_FORMAT_VERSION = 2
 RUN_STORE_FORMAT_VERSION = 1
+CONFIG_MIN_FORMAT_VERSION = 1
+CONFIG_FORMAT_VERSION = 1
 
 # ---------------------------------------------------------------------------
 # Encoding

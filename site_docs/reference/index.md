@@ -26,6 +26,14 @@ Reference pages are **information-oriented**: exhaustive, accurate descriptions 
 
     [:octicons-arrow-right-24: Built-in tools](built-in-tools.md)
 
+-   **Compatibility**
+
+    ---
+
+    Public API stability, config and storage formats, upgrades, and rollbacks.
+
+    [:octicons-arrow-right-24: Compatibility](compatibility.md)
+
 -   **Configuration**
 
     ---

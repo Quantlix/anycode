@@ -8,7 +8,7 @@ keywords: AnyCode, AnyCode Python, public API, orchestrator, TaskSpec, AgentConf
 
 This page is the stable, importable surface of the AnyCode Python framework, generated directly from source docstrings so signatures and fields stay in sync with the code. Use it to look up exact arguments, methods, and model attributes.
 
-Every symbol below is exported from the package root, so `from anycode import AnyCode, TaskSpec, AgentConfig` is the supported import style — treat internal submodule paths as private.
+Every symbol below is exported from the package root, so `from anycode import AnyCode, TaskSpec, AgentConfig` is the supported import style. Treat internal submodule paths as private. The [compatibility policy](compatibility.md) defines additive patch releases, pre-1.0 breaking changes, and persisted-format guarantees.
 
 !!! tip "New here? Read the concepts first"
     This reference lists signatures, not tutorials. For how these pieces fit together, start with the [Concepts overview](../concepts/overview.md), then the [YAML config guide](../guides/yaml-config.md) and [Tools guide](../guides/tools.md).

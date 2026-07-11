@@ -117,6 +117,7 @@ nav:
   - Reference:
       - reference/index.md
       - Public API: reference/public-api.md
+      - Compatibility: reference/compatibility.md
       - Built-in Tools: reference/built-in-tools.md
       - Configuration: reference/configuration.md
       - CLI: reference/cli.md

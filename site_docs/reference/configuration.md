@@ -6,7 +6,7 @@ keywords: AnyCode configuration, OrchestratorConfig, AgentConfig, TeamConfig, Ta
 
 # Configuration
 
-The engine accepts `AnyCode(config=...)` as an `OrchestratorConfig`, a plain `dict` (validated into one), or `None`. All configuration models are frozen Pydantic models — invalid keys or values raise a `ValidationError` at construction, not at run time.
+The engine accepts `AnyCode(config=...)` as an `OrchestratorConfig`, a plain `dict` (validated into one), or `None`. All configuration models are frozen Pydantic models; invalid values raise a `ValidationError` at construction, not at run time.
 
 ```python
 from anycode import AnyCode, OrchestratorConfig
@@ -15,6 +15,8 @@ engine = AnyCode(config={"max_concurrency": 3, "default_provider": "anthropic"})
 # equivalent:
 engine = AnyCode(config=OrchestratorConfig(max_concurrency=3, default_provider="anthropic"))
 ```
+
+Declarative YAML and TOML files use `format_version: 1`; an absent marker is treated as legacy v1. The file loader rejects future format versions and unknown fields instead of discarding them. Programmatic Pydantic construction retains its existing behavior. See [Compatibility and versioning](compatibility.md) for upgrade and rollback rules.
 
 ## `OrchestratorConfig`
 
