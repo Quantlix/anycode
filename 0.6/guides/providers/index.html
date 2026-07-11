@@ -3039,7 +3039,7 @@
 </tbody>
 </table>
 <h2 id="resilience-is-on-by-default">Resilience is on by default<a class="headerlink" href="#resilience-is-on-by-default" title="Permanent link">&para;</a></h2>
-<p>Every adapter from <code>create_adapter</code> (and every agent run) is wrapped in a <code>ResilientAdapter</code>: automatic retries with exponential backoff and full jitter, a circuit breaker, and a per-call deadline. You get this without configuring anything.</p>
+<p>Every adapter from <code>create_adapter</code> (and every agent run) is wrapped in a <code>ResilientAdapter</code>: a concurrency bulkhead, optional request pacing, automatic retries with exponential backoff and full jitter, a circuit breaker, and a per-call deadline. You get the default concurrency bound without configuring anything.</p>
 <table>
 <thead>
 <tr>
@@ -3079,19 +3079,59 @@
 <td><code>120.0</code></td>
 <td>Wait before a half-open probe</td>
 </tr>
+<tr>
+<td><code>ProviderResilienceConfig.max_concurrency</code></td>
+<td><code>8</code></td>
+<td>Simultaneous provider attempts per event loop and capacity scope; <code>None</code> disables</td>
+</tr>
+<tr>
+<td><code>ProviderResilienceConfig.requests_per_minute</code></td>
+<td><code>None</code></td>
+<td>Evenly paced request starts; retries count; <code>None</code> disables</td>
+</tr>
+<tr>
+<td><code>ProviderResilienceConfig.capacity_scope</code></td>
+<td>provider name</td>
+<td>Adapters that share this value share one limiter</td>
+</tr>
+<tr>
+<td><code>ProviderResilienceConfig.capacity_wait_timeout_seconds</code></td>
+<td><code>300.0</code></td>
+<td>Queue wait before load shedding; <code>None</code> waits indefinitely</td>
+</tr>
 </tbody>
 </table>
+<p>The limiter is shared by adapters with the same scope and settings in one event loop, which is how agents in a normal team obey one local provider cap. Use distinct scopes for independent API-key quotas. Configuring different limits for one scope raises an error instead of silently creating a second pool. A stream holds its concurrency slot until it completes or is closed, and every retry reacquires both the concurrency and request-rate gates. When the queue wait expires, <code>ProviderCapacityError</code> (a <code>ProviderUnavailableError</code>) load-sheds without opening the provider circuit.</p>
 <p>Retryable failures include timeouts, connection errors, and HTTP <code>408/409/429/500/502/503/504/529</code>; the layer honors a <code>Retry-After</code> header. Authentication and invalid-request errors are treated as terminal and never retried. When retries are exhausted or the circuit is open, <code>chat()</code> raises <code>ProviderUnavailableError</code>; a streaming call instead emits a terminal <code>error</code> event.</p>
 <div class="language-python highlight"><span class="filename">resilience.py</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProviderResilienceConfig</span><span class="p">,</span> <span class="n">RetryPolicy</span><span class="p">,</span> <span class="n">create_adapter</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Tighten the deadline and attempts for a latency-sensitive path.</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Bound parallel calls, pace request starts, and tighten retries.</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">adapter</span> <span class="o">=</span> <span class="k">await</span> <span class="n">create_adapter</span><span class="p">(</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="s2">&quot;anthropic&quot;</span><span class="p">,</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">resilience</span><span class="o">=</span><span class="n">ProviderResilienceConfig</span><span class="p">(</span><span class="n">retry</span><span class="o">=</span><span class="n">RetryPolicy</span><span class="p">(</span><span class="n">max_attempts</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">call_timeout_seconds</span><span class="o">=</span><span class="mf">60.0</span><span class="p">)),</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">)</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># Or opt out entirely for a bare adapter.</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">raw</span> <span class="o">=</span> <span class="k">await</span> <span class="n">create_adapter</span><span class="p">(</span><span class="s2">&quot;anthropic&quot;</span><span class="p">,</span> <span class="n">resilience</span><span class="o">=</span><span class="n">ProviderResilienceConfig</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">resilience</span><span class="o">=</span><span class="n">ProviderResilienceConfig</span><span class="p">(</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="n">max_concurrency</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="n">requests_per_minute</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="n">capacity_scope</span><span class="o">=</span><span class="s2">&quot;anthropic-production-key&quot;</span><span class="p">,</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="n">retry</span><span class="o">=</span><span class="n">RetryPolicy</span><span class="p">(</span><span class="n">max_attempts</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">call_timeout_seconds</span><span class="o">=</span><span class="mf">60.0</span><span class="p">),</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="p">),</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">)</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="c1"># Or opt out entirely for a bare adapter.</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="n">raw</span> <span class="o">=</span> <span class="k">await</span> <span class="n">create_adapter</span><span class="p">(</span><span class="s2">&quot;anthropic&quot;</span><span class="p">,</span> <span class="n">resilience</span><span class="o">=</span><span class="n">ProviderResilienceConfig</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</span></code></pre></div>
+<p>The request pacer controls request starts, not tokens per minute. Provider-side token quotas, organization-wide quotas, and traffic from other processes remain authoritative. In a multi-process or multi-host deployment, enforce the aggregate limit in your provider gateway or a distributed rate limiter as well as using this local bulkhead.</p>
+<p>Set one policy for all agents in Python, then override it only where a separate quota is intentional:</p>
+<div class="language-python highlight"><span class="filename">team-capacity.py</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnyCode</span><span class="p">,</span> <span class="n">OrchestratorConfig</span><span class="p">,</span> <span class="n">ProviderResilienceConfig</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">AnyCode</span><span class="p">(</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">OrchestratorConfig</span><span class="p">(</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="n">provider_resilience</span><span class="o">=</span><span class="n">ProviderResilienceConfig</span><span class="p">(</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>            <span class="n">max_concurrency</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>            <span class="n">requests_per_minute</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>            <span class="n">capacity_scope</span><span class="o">=</span><span class="s2">&quot;shared-production-key&quot;</span><span class="p">,</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>        <span class="p">)</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="p">)</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Register your own provider</p>

@@ -2971,6 +2971,12 @@
 <td>Team-level quality sensors</td>
 </tr>
 <tr>
+<td><code>provider_resilience</code></td>
+<td><code>ProviderResilienceConfig \| None</code></td>
+<td><code>None</code></td>
+<td>Global provider capacity/retry policy inherited by agents</td>
+</tr>
+<tr>
 <td><code>approval_handler</code></td>
 <td><code>ApprovalGate \| None</code></td>
 <td><code>None</code></td>
@@ -3073,6 +3079,12 @@
 <td><code>None</code></td>
 <td>Runtime tool, path, shell, and environment restrictions</td>
 </tr>
+<tr>
+<td><code>provider_resilience</code></td>
+<td><code>ProviderResilienceConfig \| None</code></td>
+<td><code>None</code></td>
+<td>Per-agent override of the orchestrator provider policy</td>
+</tr>
 </tbody>
 </table>
 <div class="admonition note">
@@ -3111,7 +3123,7 @@
 </tbody>
 </table>
 <p>Related runtime configs:</p>
-<p><strong><code>ProviderResilienceConfig</code></strong> — <code>enabled=True</code>, <code>retry: RetryPolicy</code>, <code>circuit_failure_threshold=5</code>, <code>circuit_reset_seconds=120.0</code>, <code>enable_prompt_cache=True</code>.</p>
+<p><strong><code>ProviderResilienceConfig</code></strong> — <code>enabled=True</code>, <code>retry: RetryPolicy</code>, <code>circuit_failure_threshold=5</code>, <code>circuit_reset_seconds=120.0</code>, <code>enable_prompt_cache=True</code>, <code>max_concurrency=8</code>, <code>requests_per_minute=None</code>, <code>capacity_scope=None</code> (provider name), <code>capacity_wait_timeout_seconds=300.0</code>. <code>None</code> disables the corresponding concurrency/rate/timeout control. Capacity is shared by matching scopes within one event loop; one scope cannot use conflicting limits.</p>
 <p><strong><code>RetryPolicy</code></strong> — <code>max_attempts=6</code>, <code>base_delay_seconds=1.0</code>, <code>max_delay_seconds=60.0</code>, <code>jitter=True</code>, <code>respect_retry_after=True</code>, <code>call_timeout_seconds=300.0</code>.</p>
 <p><strong><code>DurabilityConfig</code></strong> — <code>enabled=False</code>, <code>run_root=".anycode/runs"</code>, <code>checkpoint_every_turns=5</code>, <code>keep_last_checkpoints=3</code>, <code>heartbeat_seconds=30.0</code>, <code>redact_sensitive_data=True</code>.</p>
 <p><strong><code>RunRetentionPolicy</code></strong> — <code>max_age_days=None</code>, <code>max_runs=None</code>, <code>statuses=("completed", "failed", "cancelled")</code>. Pass it to <code>sweep_once(..., retention_policy=...)</code> or <code>RunScheduler(..., retention_policy=...)</code>; without a policy, runs are never pruned.</p>
@@ -3133,6 +3145,11 @@
 <td><code>DEFAULT_MAX_CONCURRENCY</code></td>
 <td><code>5</code></td>
 <td>Agent pool size</td>
+</tr>
+<tr>
+<td><code>DEFAULT_PROVIDER_CONCURRENCY</code></td>
+<td><code>8</code></td>
+<td>Concurrent provider attempts per local scope</td>
 </tr>
 <tr>
 <td><code>DEFAULT_TOOL_CONCURRENCY</code></td>

@@ -2966,6 +2966,10 @@
 <td>Cap how many agents run at once.</td>
 </tr>
 <tr>
+<td><code>provider_resilience</code></td>
+<td>Provider concurrency, request pacing, retry, deadline, and circuit settings.</td>
+</tr>
+<tr>
 <td><code>cost</code></td>
 <td>Spend budget and overspend behavior.</td>
 </tr>
@@ -3063,6 +3067,12 @@
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="nt">block_on_failure</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">      </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run python -m pytest</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="nt">provider_resilience</span><span class="p">:</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">  </span><span class="nt">max_concurrency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">  </span><span class="nt">requests_per_minute</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">120</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">  </span><span class="nt">capacity_scope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shared-production-key</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">  </span><span class="nt">capacity_wait_timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
 </span></code></pre></div>
 <p>The keys above map to the controls you tune most often:</p>
 <table>
@@ -3114,9 +3124,30 @@
 <td><code>options</code></td>
 <td>Sensor-specific settings, such as <code>command</code>, <code>pattern</code>, and <code>expect</code>.</td>
 </tr>
+<tr>
+<td><code>provider_resilience</code></td>
+<td><code>max_concurrency</code></td>
+<td>Simultaneous provider attempts shared by agents in one scope.</td>
+</tr>
+<tr>
+<td><code>provider_resilience</code></td>
+<td><code>requests_per_minute</code></td>
+<td>Evenly paced request starts; every retry counts.</td>
+</tr>
+<tr>
+<td><code>provider_resilience</code></td>
+<td><code>capacity_scope</code></td>
+<td>Quota identity shared by adapters; use separate values for separate API-key quotas.</td>
+</tr>
+<tr>
+<td><code>provider_resilience</code></td>
+<td><code>capacity_wait_timeout_seconds</code></td>
+<td>Queue wait before the call is load-shed.</td>
+</tr>
 </tbody>
 </table>
 <p>For the full catalog of budgets, gates, and durable-run controls, see <a href="../production-controls/">Production Controls</a>.</p>
+<p>An agent can override the top-level policy with its own <code>provider_resilience</code> mapping. Give that override a distinct <code>capacity_scope</code> when it represents an independent quota; conflicting settings under one scope are rejected.</p>
 <h2 id="add-context-engineering">Add context engineering<a class="headerlink" href="#add-context-engineering" title="Permanent link">&para;</a></h2>
 <p>When a run may carry large tool outputs, long histories, or model-specific context windows, declare a <code>context_engineering</code> block. It budgets the context window and sets how each section behaves under pressure.</p>
 <div class="language-yaml highlight"><span class="filename">team.yaml</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">context_engineering</span><span class="p">:</span>

@@ -1990,6 +1990,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#bound-provider-traffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bound provider traffic
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gate-sensitive-work-with-human-approval" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2775,6 +2786,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#bound-provider-traffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bound provider traffic
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gate-sensitive-work-with-human-approval" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2972,6 +2994,10 @@
 <td>A hard ceiling on spend and turns before a run touches live providers.</td>
 </tr>
 <tr>
+<td>Provider capacity limits</td>
+<td>Shared concurrency bulkheads, request pacing, and bounded queue waits around provider calls.</td>
+</tr>
+<tr>
 <td>HITL approval gates</td>
 <td>A human checkpoint before sensitive or irreversible tasks execute.</td>
 </tr>
@@ -3057,6 +3083,15 @@
 <p class="admonition-title">Set limits before live calls</p>
 <p>Budgets and turn limits are cheapest to add first. Configure them before pointing an agent at a paid provider, then test the same workflow against a <code>FakeAdapter</code> to confirm behavior without spending tokens.</p>
 </div>
+<h2 id="bound-provider-traffic">Bound provider traffic<a class="headerlink" href="#bound-provider-traffic" title="Permanent link">&para;</a></h2>
+<p><code>ProviderResilienceConfig</code> caps simultaneous SDK attempts across agents that share a provider scope. Set <code>requests_per_minute</code> when a vendor publishes a request quota, and keep <code>capacity_wait_timeout_seconds</code> bounded so overload is shed as <code>ProviderCapacityError</code> rather than accumulating an unbounded queue.</p>
+<div class="language-yaml highlight"><span class="filename">team.yaml</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">provider_resilience</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="nt">max_concurrency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">requests_per_minute</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">120</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">capacity_scope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shared-production-key</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">capacity_wait_timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+</span></code></pre></div>
+<p>Retries consume capacity and request-rate reservations just like first attempts. The limiter is local to one event loop; use a provider gateway or distributed limiter for aggregate quotas across worker processes or hosts. Request pacing does not enforce tokens-per-minute limits.</p>
 <h2 id="gate-sensitive-work-with-human-approval">Gate sensitive work with human approval<a class="headerlink" href="#gate-sensitive-work-with-human-approval" title="Permanent link">&para;</a></h2>
 <p>Human-in-the-loop (HITL) approval gates intercept a task before it executes and wait for a person to allow or deny it. Reach for them whenever an action is hard to undo or crosses a trust boundary:</p>
 <ul>
@@ -3099,24 +3134,24 @@
 </tbody>
 </table>
 <p>Declare sensors in a <code>verification</code> block. Here, a <code>regex</code> sensor runs after each task and blocks the run unless the output matches <code>DONE</code>:</p>
-<div class="language-yaml highlight"><span class="filename">team.yaml</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">verification</span><span class="p">:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">regex</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">computational</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">phases</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">after_task</span><span class="p p-Indicator">]</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">block_on_failure</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DONE</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">match</span>
+<div class="language-yaml highlight"><span class="filename">team.yaml</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">verification</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">regex</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">computational</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">phases</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">after_task</span><span class="p p-Indicator">]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">block_on_failure</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">      </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DONE</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">match</span>
 </span></code></pre></div>
 <p>Set <code>block_on_failure: true</code> for gates that must pass, and use <code>phases</code> to place the check where it matters — for example, running <code>pytest</code> <code>after_team</code> before you trust a full workflow. See <a href="../yaml-config/">Use YAML Config</a> for the surrounding config structure.</p>
 <h2 id="preserve-state-with-checkpoints-and-durable-runs">Preserve state with checkpoints and durable runs<a class="headerlink" href="#preserve-state-with-checkpoints-and-durable-runs" title="Permanent link">&para;</a></h2>
 <p>Checkpointing records task state and agent results so a team run can resume after a failure instead of restarting from zero. Durable runs extend this with run metadata, transcript events, heartbeats, wake conditions, and turn checkpoints — the foundation for long or resumable workflows.</p>
 <p>Use checkpoints for any workflow where rerunning completed tasks would waste time, money, or external rate limits. For durable runs operated from the terminal, the CLI exposes the full lifecycle:</p>
-<div class="language-bash highlight"><span class="filename">Inspect durable runs</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>anycode<span class="w"> </span>runs<span class="w"> </span>list
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>anycode<span class="w"> </span>runs<span class="w"> </span>show
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>anycode<span class="w"> </span>runs<span class="w"> </span>tail
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>anycode<span class="w"> </span>runs<span class="w"> </span>audit
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>anycode<span class="w"> </span>runs<span class="w"> </span>sweep
+<div class="language-bash highlight"><span class="filename">Inspect durable runs</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>anycode<span class="w"> </span>runs<span class="w"> </span>list
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>anycode<span class="w"> </span>runs<span class="w"> </span>show
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>anycode<span class="w"> </span>runs<span class="w"> </span>tail
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>anycode<span class="w"> </span>runs<span class="w"> </span>audit
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>anycode<span class="w"> </span>runs<span class="w"> </span>sweep
 </span></code></pre></div>
 <h2 id="manage-context-pressure">Manage context pressure<a class="headerlink" href="#manage-context-pressure" title="Permanent link">&para;</a></h2>
 <p>Context policies define how AnyCode responds as conversation history grows. A policy can trim, mask, offload, compact, or hand off context while preserving what matters — task state and verification failures survive even as lower-priority content is reduced. This keeps long runs inside a model's context window without silently dropping the information a downstream agent needs.</p>
