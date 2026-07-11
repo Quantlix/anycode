@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-11
+
 ### Added
 
 - **MCP, plugin, and tool trust hardening** - agent tool allowlists are now enforced again at execution, including an explicit empty list, so a provider cannot invoke an unadvertised registered tool. MCP tools require exact per-agent server opt-in, remain bound to discovery ownership across prebuilt agents and reconnects, always use side-effect idempotency, fail closed when configured auth is missing, and clean up partial initialization without masking cancellation. Plugin entry points are filtered before import and plugin contributions are preflighted before shared registry mutation. The security threat model and production-readiness checklist define the remaining host, network, identity, storage, and operational responsibilities.
@@ -209,7 +211,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four examples: solo worker, crew workflow, staged pipeline, hybrid tooling.
 - Pydantic-based immutable type system (`frozen=True` on all models).
 
-[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Quantlix/anycode/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Quantlix/anycode/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Quantlix/anycode/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Quantlix/anycode/compare/v0.3.0...v0.4.0
