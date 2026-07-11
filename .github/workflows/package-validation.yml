@@ -14,6 +14,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:
@@ -38,20 +39,8 @@ jobs:
       - name: Check version consistency
         run: python scripts/check_versions.py
 
-      - name: Install project and dev dependencies
-        run: uv sync --group dev
-
-      - name: Lint source
-        run: uv run ruff check src/
-
-      - name: Check formatting
-        run: uv run ruff format --check src/
-
-      - name: Run type checking
-        run: uv run pyright
-
-      - name: Run test suite
-        run: uv run python -m pytest
+      - name: Verify locked build environment
+        run: uv sync --locked --group dev
 
       - name: Build distributions
         run: |
@@ -61,12 +50,13 @@ jobs:
       - name: Verify distribution metadata
         run: uv run twine check --strict dist/*
 
-      - name: Smoke test installed wheel
+      - name: Smoke test core and CLI wheel installs
         run: |
           python -m venv .pkgtest
           . .pkgtest/bin/activate
           python -m pip install --upgrade pip
           wheel="$(ls dist/*.whl)"
+          python -m pip install "${wheel}"
+          python -c "from anycode import AnyCode; print(AnyCode.__name__)"
           python -m pip install "${wheel}[cli]"
           anycode version
-          python -c "from anycode import AnyCode; print(AnyCode.__name__)"

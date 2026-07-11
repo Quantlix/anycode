@@ -1,0 +1,222 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Verify locked development environment
+        run: uv sync --locked --group dev
+
+      - name: Check version consistency
+        run: uv run python scripts/check_versions.py
+
+      - name: Lint repository
+        run: uv run python -m ruff check .
+
+      - name: Check source formatting
+        run: uv run python -m ruff format --check src/
+
+      - name: Run type checking
+        run: uv run python -m pyright
+
+  tests:
+    name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        python-version:
+          - "3.12"
+          - "3.13"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Verify locked development environment
+        run: uv sync --locked --group dev
+
+      - name: Run test suite
+        run: uv run python -m pytest --strict-markers --tb=short
+
+  optional-extras:
+    name: Optional extra (${{ matrix.extra }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - extra: core
+            sync-args: ""
+            imports: anycode
+          - extra: anthropic
+            sync-args: --extra anthropic
+            imports: anthropic anycode.providers.anthropic
+          - extra: openai
+            sync-args: --extra openai
+            imports: openai anycode.providers.openai
+          - extra: google
+            sync-args: --extra google
+            imports: google.genai anycode.providers.google
+          - extra: ollama
+            sync-args: --extra ollama
+            imports: httpx anycode.providers.ollama
+          - extra: bedrock
+            sync-args: --extra bedrock
+            imports: boto3 anycode.providers.bedrock
+          - extra: azure
+            sync-args: --extra azure
+            imports: openai anycode.providers.azure
+          - extra: telemetry
+            sync-args: --extra telemetry
+            imports: opentelemetry.sdk anycode.telemetry.tracer
+          - extra: persistence
+            sync-args: --extra persistence
+            imports: aiosqlite anycode.memory.sqlite_store
+          - extra: redis
+            sync-args: --extra redis
+            imports: redis anycode.memory.redis_store
+          - extra: tokens
+            sync-args: --extra tokens
+            imports: tiktoken anycode.context.tokenizer
+          - extra: vector
+            sync-args: --extra vector
+            imports: chromadb anycode.memory.chromadb_store
+          - extra: providers
+            sync-args: --extra providers
+            imports: anthropic openai google.genai httpx boto3 anycode.providers
+          - extra: mcp
+            sync-args: --extra mcp
+            imports: mcp anycode.mcp.client
+          - extra: cli
+            sync-args: --extra cli
+            imports: typer rich yaml anycode.cli.main
+          - extra: all
+            sync-args: --extra all
+            imports: anycode
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Sync isolated dependency set
+        run: uv sync --locked --no-dev ${{ matrix.sync-args }}
+
+      - name: Smoke-test imports
+        run: >-
+          uv run --no-sync python -c
+          "import importlib, sys; [importlib.import_module(name) for name in sys.argv[1:]]"
+          ${{ matrix.imports }}
+
+  integration:
+    name: Integration services
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+      chromadb:
+        image: chromadb/chroma:1.5.5
+        ports:
+          - 8100:8000
+        env:
+          CHROMA_HOST_ADDR: "0.0.0.0"
+          CHROMA_HOST_PORT: "8000"
+        options: >-
+          --health-cmd "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8000'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 10s
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Verify locked development environment
+        run: uv sync --locked --group dev
+
+      - name: Verify service endpoints
+        run: >-
+          python -c
+          "import socket, urllib.request;
+          socket.create_connection(('localhost', 6380), timeout=5).close();
+          urllib.request.urlopen('http://localhost:8100/api/v2/heartbeat', timeout=10).read()"
+
+      - name: Run integration suite
+        run: uv run python -m pytest tests/integration -m integration --strict-markers --tb=short
