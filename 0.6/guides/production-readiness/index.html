@@ -6,19 +6,19 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Render an AnyCode task DAG as Mermaid, Graphviz DOT, JSON, or ASCII with render_dag, and chart per-agent activity from a TeamRunResult with render_timeline.">
+        <meta name="description" content="A go or no-go checklist for deploying AnyCode with scoped tools, isolated workers, durable state, idempotent side effects, monitoring, and rollback controls.">
       
       
         <meta name="author" content="Quantlix">
       
       
-        <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/guides/visualization/">
+        <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/guides/production-readiness/">
       
       
-        <link rel="prev" href="../plugins/">
+        <link rel="prev" href="../production-controls/">
       
       
-        <link rel="next" href="../yaml-config/">
+        <link rel="next" href="../mcp/">
       
       
         
@@ -33,7 +33,7 @@
     
     
       
-        <title>Visualize AnyCode Task Graphs and Team Runs - AnyCode</title>
+        <title>AnyCode Production Readiness Checklist - AnyCode</title>
       
     
     
@@ -93,19 +93,19 @@
   <meta name="apple-mobile-web-app-title" content="AnyCode">
   <meta name="generator" content="AnyCode Docs">
   
-  <meta name="keywords" content="anycode visualization, render_dag, render_timeline, task graph mermaid, dag graphviz dot, ascii dag, team run timeline, TaskQueue">
+  <meta name="keywords" content="AnyCode production readiness, AI agent deployment checklist, agent security checklist, MCP production, LLM operations, go no-go review">
   
-  <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/guides/visualization/">
+  <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/guides/production-readiness/">
 
   <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AnyCode">
   <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Visualize AnyCode Task Graphs and Team Runs">
-  <meta property="og:description" content="Render an AnyCode task DAG as Mermaid, Graphviz DOT, JSON, or ASCII with render_dag, and chart per-agent activity from a TeamRunResult with render_timeline.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.6/guides/visualization/">
-  <meta name="twitter:title" content="Visualize AnyCode Task Graphs and Team Runs">
-  <meta name="twitter:description" content="Render an AnyCode task DAG as Mermaid, Graphviz DOT, JSON, or ASCII with render_dag, and chart per-agent activity from a TeamRunResult with render_timeline.">
+  <meta property="og:title" content="AnyCode Production Readiness Checklist">
+  <meta property="og:description" content="A go or no-go checklist for deploying AnyCode with scoped tools, isolated workers, durable state, idempotent side effects, monitoring, and rollback controls.">
+  <meta property="og:url" content="https://quantlix.github.io/anycode/0.6/guides/production-readiness/">
+  <meta name="twitter:title" content="AnyCode Production Readiness Checklist">
+  <meta name="twitter:description" content="A go or no-go checklist for deploying AnyCode with scoped tools, isolated workers, durable state, idempotent side effects, monitoring, and rollback controls.">
 
   <script type="application/ld+json">
   {
@@ -145,9 +145,9 @@
       },
       {
         "@type": "TechArticle",
-        "headline": "Visualize AnyCode Task Graphs and Team Runs",
-        "description": "Render an AnyCode task DAG as Mermaid, Graphviz DOT, JSON, or ASCII with render_dag, and chart per-agent activity from a TeamRunResult with render_timeline.",
-        "url": "https://quantlix.github.io/anycode/0.6/guides/visualization/",
+        "headline": "AnyCode Production Readiness Checklist",
+        "description": "A go or no-go checklist for deploying AnyCode with scoped tools, isolated workers, durable state, idempotent side effects, monitoring, and rollback controls.",
+        "url": "https://quantlix.github.io/anycode/0.6/guides/production-readiness/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.6#website" },
         "author": { "@id": "https://quantlix.github.io/anycode/0.6#org" },
@@ -159,17 +159,17 @@
 
   
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Visualize AnyCode Task Graphs and Team Runs - AnyCode" />
-<meta property="og:description" content="Render an AnyCode task DAG as Mermaid, Graphviz DOT, JSON, or ASCII with render_dag, and chart per-agent activity from a TeamRunResult with render_timeline." />
-<meta property="og:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/guides/visualization.png" />
+<meta property="og:title" content="AnyCode Production Readiness Checklist - AnyCode" />
+<meta property="og:description" content="A go or no-go checklist for deploying AnyCode with scoped tools, isolated workers, durable state, idempotent side effects, monitoring, and rollback controls." />
+<meta property="og:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/guides/production-readiness.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:url" content="https://quantlix.github.io/anycode/0.6/guides/visualization/" />
+<meta property="og:url" content="https://quantlix.github.io/anycode/0.6/guides/production-readiness/" />
 <meta property="twitter:card" content="summary_large_image" />
-<meta property="twitter:title" content="Visualize AnyCode Task Graphs and Team Runs - AnyCode" />
-<meta property="twitter:description" content="Render an AnyCode task DAG as Mermaid, Graphviz DOT, JSON, or ASCII with render_dag, and chart per-agent activity from a TeamRunResult with render_timeline." />
-<meta property="twitter:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/guides/visualization.png" />
+<meta property="twitter:title" content="AnyCode Production Readiness Checklist - AnyCode" />
+<meta property="twitter:description" content="A go or no-go checklist for deploying AnyCode with scoped tools, isolated workers, durable state, idempotent side effects, monitoring, and rollback controls." />
+<meta property="twitter:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/guides/production-readiness.png" />
 </head>
   
   
@@ -189,7 +189,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#visualize-runs" class="md-skip">
+        <a href="#production-readiness-checklist" class="md-skip">
           Skip to content
         </a>
       
@@ -252,7 +252,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Visualize AnyCode Task Graphs and Team Runs
+              AnyCode Production Readiness Checklist
             
           </span>
         </div>
@@ -1662,6 +1662,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1695,11 +1697,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
         
           
           <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="">
@@ -1720,7 +1722,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1931,10 +1933,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../production-readiness/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Readiness
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1950,6 +1979,221 @@
   
 
       </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#current-readiness-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current readiness assessment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stop-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stop conditions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mandatory-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mandatory controls
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mandatory controls">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-workload-and-data-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Workload and data classification
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-release-and-compatibility-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Release and compatibility control
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-worker-isolation-and-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Worker isolation and identity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-tool-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Tool authorization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-mcp-and-plugin-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. MCP and plugin trust
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-side-effects-and-approval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Side effects and approval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-data-protection-and-durable-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Data protection and durable state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-limits-reliability-and-shutdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Limits, reliability, and shutdown
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-verification-and-model-risk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Verification and model risk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-observability-and-incident-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Observability and incident response
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-release-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required release evidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decide-go-conditional-go-or-no-go" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decide go, conditional go, or no-go
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reassess-after-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reassess after change
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1967,8 +2211,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1994,11 +2236,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
           <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="">
@@ -2019,7 +2261,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2090,37 +2332,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Visualize Runs
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../visualization/" class="md-nav__link">
         
   
   
@@ -2136,61 +2351,6 @@
   
 
       </a>
-      
-        
-
-  
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#render-a-task-dag" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Render a task DAG
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#chart-a-team-run-timeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Chart a team-run timeline
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next steps
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2807,10 +2967,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#render-a-task-dag" class="md-nav__link">
+  <a href="#current-readiness-assessment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Render a task DAG
+        Current readiness assessment
       
     </span>
   </a>
@@ -2818,10 +2978,170 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#chart-a-team-run-timeline" class="md-nav__link">
+  <a href="#stop-conditions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Chart a team-run timeline
+        Stop conditions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mandatory-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mandatory controls
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mandatory controls">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-workload-and-data-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Workload and data classification
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-release-and-compatibility-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Release and compatibility control
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-worker-isolation-and-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Worker isolation and identity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-tool-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Tool authorization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-mcp-and-plugin-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. MCP and plugin trust
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-side-effects-and-approval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Side effects and approval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-data-protection-and-durable-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Data protection and durable state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-limits-reliability-and-shutdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Limits, reliability, and shutdown
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-verification-and-model-risk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Verification and model risk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-observability-and-incident-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Observability and incident response
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-release-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required release evidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decide-go-conditional-go-or-no-go" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decide go, conditional go, or no-go
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reassess-after-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reassess after change
       
     </span>
   </a>
@@ -2900,10 +3220,10 @@
     
     
       <li class="md-path__item">
-        <a href="../mcp/" class="md-path__link">
+        <a href="../durability/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Integrate and Extend
+    Reliability and Ops
   </span>
 
         </a>
@@ -2922,7 +3242,7 @@
 
 
   
-    <a href="https://github.com/Quantlix/anycode/edit/main/site_docs/guides/visualization.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Quantlix/anycode/edit/main/site_docs/guides/production-readiness.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -2931,86 +3251,215 @@
     
       
     
-    <a href="https://github.com/Quantlix/anycode/raw/main/site_docs/guides/visualization.md" title="View source of this page" class="md-content__button md-icon">
+    <a href="https://github.com/Quantlix/anycode/raw/main/site_docs/guides/production-readiness.md" title="View source of this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5 5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"/></svg>
     </a>
   
 
 
-<h1 id="visualize-runs">Visualize Runs<a class="headerlink" href="#visualize-runs" title="Permanent link">&para;</a></h1>
-<p>Seeing the shape of a workflow makes it easier to debug and to explain. AnyCode ships two pure-Python renderers: <code>render_dag</code> turns a task queue into a dependency diagram, and <code>render_timeline</code> charts per-agent activity after a team run. Both return strings — drop them into a terminal, a Markdown file, or a Mermaid block in these docs.</p>
-<h2 id="render-a-task-dag">Render a task DAG<a class="headerlink" href="#render-a-task-dag" title="Permanent link">&para;</a></h2>
-<p><code>render_dag</code> takes a <code>TaskQueue</code> and returns the graph in one of four formats. It reads each task's <code>status</code>, <code>assignee</code>, and <code>depends_on</code>, so the diagram reflects live state.</p>
-<div class="language-python highlight"><span class="filename">dag.py</span><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_dag</span><span class="p">,</span> <span class="n">TaskQueue</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.tasks.task</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_task</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">queue</span> <span class="o">=</span> <span class="n">TaskQueue</span><span class="p">()</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">plan</span> <span class="o">=</span> <span class="n">create_task</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Plan&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Outline the change&quot;</span><span class="p">,</span> <span class="n">assignee</span><span class="o">=</span><span class="s2">&quot;planner&quot;</span><span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">queue</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">queue</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="s2">&quot;completed&quot;</span><span class="p">)</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">build</span> <span class="o">=</span> <span class="n">create_task</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Build&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Implement it&quot;</span><span class="p">,</span> <span class="n">assignee</span><span class="o">=</span><span class="s2">&quot;builder&quot;</span><span class="p">,</span> <span class="n">depends_on</span><span class="o">=</span><span class="p">[</span><span class="n">plan</span><span class="o">.</span><span class="n">id</span><span class="p">])</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">queue</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">build</span><span class="p">)</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="nb">print</span><span class="p">(</span><span class="n">render_dag</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;ascii&quot;</span><span class="p">))</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nb">print</span><span class="p">(</span><span class="n">render_dag</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;mermaid&quot;</span><span class="p">))</span>
-</span></code></pre></div>
-<p>Choose a format for the destination:</p>
+<h1 id="production-readiness-checklist">Production Readiness Checklist<a class="headerlink" href="#production-readiness-checklist" title="Permanent link">&para;</a></h1>
+<p>AnyCode is conditionally suitable for bounded production workloads. A deployment is a <strong>go</strong> only when every mandatory control below is satisfied, no no-go condition applies, and the team has tested rollback and incident response. The package remains alpha: pin the exact version, rely only on the documented compatibility contract, and repeat this review whenever the model, tools, extensions, data, or deployment topology changes.</p>
+<div class="admonition danger">
+<p class="admonition-title">This checklist is a gate, not a guarantee</p>
+<p>Passing the checklist does not certify a system or transfer responsibility to the framework. The deploying organization owns infrastructure security, identity, data governance, downstream authorization, legal review, and operational response. Start with the <a href="../../reference/security/">security and threat model</a>.</p>
+</div>
+<h2 id="current-readiness-assessment">Current readiness assessment<a class="headerlink" href="#current-readiness-assessment" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th><code>format</code></th>
-<th>Output</th>
-<th>Use it for</th>
+<th>Workload</th>
+<th>Current assessment</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>"mermaid"</code> (default)</td>
-<td><code>graph TD</code> with status-colored nodes</td>
-<td>Markdown docs, GitHub, these pages</td>
+<td>Local experiments and deterministic evaluation</td>
+<td>Supported. Use fake providers and disposable data where possible.</td>
 </tr>
 <tr>
-<td><code>"dot"</code></td>
-<td>Graphviz <code>digraph</code></td>
-<td><code>dot -Tpng</code> rendering</td>
+<td>Bounded internal automation with reversible actions</td>
+<td>Eligible after every mandatory control passes. Prefer read-only tools and low-sensitivity data for the first deployment.</td>
 </tr>
 <tr>
-<td><code>"json"</code></td>
-<td><code>{"nodes": [...], "edges": [...]}</code></td>
-<td>Feeding another tool</td>
+<td>Customer-facing, multi-tenant, or sensitive-data workflows</td>
+<td>Conditional. Requires application-owned authentication and tenancy isolation, protected storage, privacy review, stronger abuse testing, and staffed operations.</td>
 </tr>
 <tr>
-<td><code>"ascii"</code></td>
-<td>Unicode tree with status markers</td>
-<td>Terminals and logs</td>
+<td>Irreversible external actions</td>
+<td>Conditional only with downstream idempotency, durable claim storage, explicit authorization, human approval, and an operator reconciliation runbook.</td>
+</tr>
+<tr>
+<td>Direct safety-critical control, critical infrastructure control, or autonomous high-impact decisions</td>
+<td>No-go as the sole decision or control system. Keep a separate authoritative system and qualified human in control.</td>
 </tr>
 </tbody>
 </table>
-<p><code>show_status=True</code> (the default) colors or marks nodes by task status: completed, failed, blocked, in-progress, and pending each get a distinct color in Mermaid/DOT and a marker (✓ ✗ ⊘ ▶ ○) in ASCII. An unsupported <code>format</code> raises <code>ValueError</code>.</p>
-<p>The Mermaid output drops straight into a fenced block:</p>
-<pre class="mermaid"><code>graph TD
-    plan["Plan (planner)"]:::completed --&gt; build["Build (builder)"]:::pending</code></pre>
-<h2 id="chart-a-team-run-timeline">Chart a team-run timeline<a class="headerlink" href="#chart-a-team-run-timeline" title="Permanent link">&para;</a></h2>
-<p>After <code>run_tasks</code>, pass the <code>TeamRunResult</code> to <code>render_timeline</code> for a per-agent bar chart of token activity.</p>
-<div class="language-python highlight"><span class="filename">timeline.py</span><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_timeline</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">engine</span><span class="o">.</span><span class="n">run_tasks</span><span class="p">(</span><span class="n">team</span><span class="p">,</span> <span class="n">tasks</span><span class="p">)</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">render_timeline</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">40</span><span class="p">))</span>
-</span></code></pre></div>
-<p>Each row shows the agent name, a success/failure marker, a bar, and the total tokens the agent used. <code>width</code> sets the maximum bar length in characters.</p>
-<div class="admonition warning">
-<p class="admonition-title">Bars are token proxies, not durations</p>
-<p><code>AgentRunResult</code> carries no timestamps, so the bars scale to each agent's <strong>token usage</strong>, not wall-clock time. Read the timeline as "who did the most work," not "who took the longest."</p>
-</div>
+<p>Alpha describes release maturity, not an automatic deployment decision. AnyCode has explicit public API and persisted-format contracts plus production-oriented runtime controls, but pre-1.0 minor releases may contain documented breaking changes. A pinned, tested deployment can be eligible while an unrestricted deployment of the same package remains unsafe.</p>
+<h2 id="stop-conditions">Stop conditions<a class="headerlink" href="#stop-conditions" title="Permanent link">&para;</a></h2>
+<p>A deployment is a <strong>no-go</strong> when any statement below is true:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The process can run unrestricted shell commands, read the host filesystem, or reach arbitrary networks while holding production credentials.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> A model can trigger an irreversible action without durable idempotency, downstream authorization, and human approval where required.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Unreviewed custom Python, plugins, or stdio MCP servers execute inside the trusted worker.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Sensitive or regulated data has no approved classification, provider policy, storage protection, retention rule, and deletion process.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The workflow directly controls safety-critical equipment, critical infrastructure, or a high-impact decision without a separate authoritative control and qualified human review.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Operators cannot stop new runs, revoke credentials, inspect outcomes, reconcile uncertain side effects, and roll back the release.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The team cannot reproduce the release from a pinned dependency set or cannot restore its persisted state from backup.</li>
+</ul>
+<p>Treat this as a stop list. A checked item blocks release until the architecture changes or an independent authoritative system removes AnyCode from that consequence path.</p>
+<h2 id="mandatory-controls">Mandatory controls<a class="headerlink" href="#mandatory-controls" title="Permanent link">&para;</a></h2>
+<h3 id="1-workload-and-data-classification">1. Workload and data classification<a class="headerlink" href="#1-workload-and-data-classification" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Document every input source, retrieved corpus, model provider, tool, MCP server, plugin, persistence backend, telemetry sink, and external destination.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Classify the data that may enter prompts, tool results, memory, checkpoints, logs, traces, and evaluation artifacts.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Enumerate every possible external side effect and mark whether it is reversible, idempotent, approval-gated, and auditable.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Define the service objective, concurrency target, maximum acceptable spend, recovery time objective, and recovery point objective.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Identify tenant boundaries and prompt-injection sources. Decide which content is allowed to influence a tool-enabled agent.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Assign a named owner for security, operations, data governance, and each irreversible integration.</li>
+</ul>
+<h3 id="2-release-and-compatibility-control">2. Release and compatibility control<a class="headerlink" href="#2-release-and-compatibility-control" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Pin the AnyCode version, Python version, selected extras, provider SDKs, MCP SDK, plugins, and transitive dependencies in a reviewed lockfile or immutable image.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Build from a trusted source and retain the package or image digest used by the release.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Run Ruff, Pyright, the complete non-integration suite, relevant service integrations, and built-wheel smoke tests in the deployment environment.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Load representative declarative configs, workflow checkpoints, durable runs, idempotency records, and memory data with the candidate release.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Review the <a href="../../reference/compatibility/">compatibility and versioning policy</a> and release notes for every upgrade.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Keep the previous executable and a compatible data snapshot for the full rollback window.</li>
+</ul>
+<h3 id="3-worker-isolation-and-identity">3. Worker isolation and identity<a class="headerlink" href="#3-worker-isolation-and-identity" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Run tool-enabled agents as a dedicated non-root identity in a container, VM, or equivalent operating-system boundary.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Mount only the required workspace and data. Prefer a read-only root filesystem and an ephemeral writable workspace.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Give the worker identity only the API, storage, queue, and network permissions needed by this workflow.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Enforce outbound network policy at the firewall, proxy, service mesh, or container layer. Do not rely on prompt instructions or URL validation alone.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Inject secrets from an approved secret manager or protected environment. Keep them out of prompts, config files, images, source control, and broad parent environments.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Separate development, staging, and production identities, stores, provider keys, MCP endpoints, and telemetry destinations.</li>
+</ul>
+<h3 id="4-tool-authorization">4. Tool authorization<a class="headerlink" href="#4-tool-authorization" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Set <code>AgentConfig.tools</code> explicitly for every production agent. Use <code>tools=[]</code> for agents that need no ordinary tools.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Attach a <code>ToolSecurityPolicy</code> to every tool-enabled agent. Set explicit tool allowlists or denylists and filesystem roots.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Set <code>allow_shell=False</code> unless shell execution is essential and isolated. If enabled, use a narrow executable allowlist and still treat interpreters and launchers as arbitrary-code capability.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Set <code>inherit_environment=False</code> and allow only the environment variable names required by child processes.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Review custom tools as trusted application code. Confirm input validation, authorization, timeouts, cancellation, output limits, and redacted errors.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Confirm the downstream service independently authorizes each action. Tool visibility is not a substitute for business authorization.</li>
+</ul>
+<h3 id="5-mcp-and-plugin-trust">5. MCP and plugin trust<a class="headerlink" href="#5-mcp-and-plugin-trust" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Scope each agent to the exact MCP server names it needs. Confirm an agent with omitted or empty <code>mcp_servers</code> receives none.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Use HTTPS and <code>allowed_hosts</code> for remote MCP. Supply bearer credentials through <code>auth_token_env</code> and verify missing credentials fail before connection.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Enforce DNS and network egress policy outside AnyCode, including private, link-local, metadata-service, and internal control-plane ranges.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Set <code>allow_stdio=False</code> unless the command and every argument are reviewed operator-controlled code running in an isolated worker.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Monitor MCP connection errors and verify the application handles per-server capability loss without unsafe fallback behavior.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Pass an explicit fail-closed <code>PluginTrustPolicy</code> to production entry-point discovery. Pin and review approved distributions.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Treat approved plugins as host-process code with access to files, environment, imports, and networking. Isolate code that cannot receive that trust.</li>
+</ul>
+<h3 id="6-side-effects-and-approval">6. Side effects and approval<a class="headerlink" href="#6-side-effects-and-approval" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Mark every mutating custom tool <code>side_effecting=True</code>. Treat all MCP tools as mutating unless a separate operator-owned wrapper proves otherwise.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Use SQLite or an application-supplied shared <code>ToolIdempotencyStore</code> when a run can restart. Do not use the in-memory store for cross-process or restart guarantees.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Carry the same idempotency key into the downstream API whenever that API supports native idempotency.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Test replay, key conflict, concurrent claim, process crash, store outage, and completion-record failure.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Define a runbook for <code>side_effect_unknown</code>. Operators must inspect the external system before completing or deleting an uncertain claim.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Require a real human approval handler for sensitive or irreversible actions. Demonstration handlers that auto-approve are not production controls.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Put irreversible authorization in the downstream service as well as the agent workflow.</li>
+</ul>
+<h3 id="7-data-protection-and-durable-state">7. Data protection and durable state<a class="headerlink" href="#7-data-protection-and-durable-state" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Keep default redaction enabled for telemetry, checkpoints, run stores, memory, evaluation, and evidence unless an independently protected store requires exact replay.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Test redaction with organization-specific token formats and sensitive field names. Treat it as a backstop, not data-loss prevention.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Confirm that prompts and active in-memory conversations contain only data the selected model provider is approved to receive.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Encrypt durable run payloads with an application-supplied <code>RunPayloadProtector</code> or an equivalent protected backend. Restrict filesystem and service permissions.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Protect workflow checkpoint storage at the storage layer when exact, unredacted replay is enabled.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Configure and test retention for runs, transcripts, checkpoints, memory, telemetry, idempotency records, and backups.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Test backup, restore, corruption fallback, key rotation, and deletion against representative data volume.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> For a custom <code>RunStore</code>, verify atomic metadata updates, ordered event sequence numbers, checkpoint recovery, and mutually exclusive sweep locks.</li>
+</ul>
+<h3 id="8-limits-reliability-and-shutdown">8. Limits, reliability, and shutdown<a class="headerlink" href="#8-limits-reliability-and-shutdown" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Set per-agent turn and token limits plus a workflow cost budget with a stop policy appropriate to the workload.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Configure provider deadlines, bounded retries, circuit breaking, concurrency limits, request pacing, and queue-wait timeouts.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Use a provider gateway or distributed limiter for aggregate multi-process or multi-host quotas. Local capacity controls cover one event loop and scope.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Exercise provider timeout, rate limit, malformed response, partial stream, MCP outage, storage outage, and verification failure paths.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Verify custom tools and integrations re-raise <code>asyncio.CancelledError</code> and release resources in <code>finally</code> blocks or async context managers.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Call <code>await engine.close()</code> or use <code>async with AnyCode(...)</code> and verify shutdown drains work, terminates subprocesses, disconnects MCP, and flushes telemetry.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Load test at expected concurrency and at the configured overload boundary. Confirm queues remain bounded and rejection is observable.</li>
+</ul>
+<h3 id="9-verification-and-model-risk">9. Verification and model risk<a class="headerlink" href="#9-verification-and-model-risk" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Build deterministic regression scenarios with <code>FakeAdapter</code> for routing, tool calls, failures, retries, approvals, cancellation, and terminal outcomes.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Test representative prompt injection, malicious retrieved content, forged tool names, path escapes, shell control operators, and oversized output.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Use independent computational verification for consequential output. Do not accept model self-evaluation as the final gate.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Set verification failures to block or escalate where accepting an unchecked result would be unsafe.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Measure quality by workload slice and provider/model version. Define a rollback threshold before release.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Keep a qualified human authoritative for high-impact decisions and ambiguous verification outcomes.</li>
+</ul>
+<h3 id="10-observability-and-incident-response">10. Observability and incident response<a class="headerlink" href="#10-observability-and-incident-response" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Correlate run IDs and trace IDs across application logs, JSONL or OTLP telemetry, run stores, provider requests, and downstream side effects.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Alert on non-success outcomes, provider unavailability, retry growth, latency, dropped telemetry, missing ingestion, cost thresholds, and every <code>side_effect_unknown</code> result.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Restrict access to logs, traces, transcripts, and run stores as sensitive data systems.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Provide a kill switch that stops admission, cancels active work, disables tools or integrations, and revokes credentials.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Write and rehearse runbooks for uncertain side effects, provider compromise, MCP compromise, plugin or dependency compromise, credential leakage, data deletion, and rollback.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Define who can approve a restart after an incident and what evidence must be reviewed first.</li>
+</ul>
+<h2 id="required-release-evidence">Required release evidence<a class="headerlink" href="#required-release-evidence" title="Permanent link">&para;</a></h2>
+<p>A release decision should link to durable evidence, not a verbal assurance:</p>
+<table>
+<thead>
+<tr>
+<th>Evidence</th>
+<th>Minimum record</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Release identity</td>
+<td>AnyCode version, Python version, lockfile or image digest, provider/model identifiers, plugin and MCP inventory.</td>
+</tr>
+<tr>
+<td>Test gate</td>
+<td>CI run plus workload-specific deterministic, integration, abuse, load, cancellation, and recovery results.</td>
+</tr>
+<tr>
+<td>Data review</td>
+<td>Approved classification, provider use, retention, encryption, backup, deletion, and access-control decisions.</td>
+</tr>
+<tr>
+<td>Side-effect review</td>
+<td>Tool inventory, idempotency design, downstream authorization, approval policy, and <code>side_effect_unknown</code> drill result.</td>
+</tr>
+<tr>
+<td>Threat review</td>
+<td>Accepted threat-model revision, deployment diagram, trust exceptions, owners, expiry dates, and compensating controls.</td>
+</tr>
+<tr>
+<td>Operations review</td>
+<td>Dashboards, alerts, on-call ownership, kill-switch test, restore drill, credential-revocation drill, and rollback result.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decide-go-conditional-go-or-no-go">Decide go, conditional go, or no-go<a class="headerlink" href="#decide-go-conditional-go-or-no-go" title="Permanent link">&para;</a></h2>
+<p><strong>Go</strong> requires all mandatory controls, no stop condition, passing release evidence, a tested rollback, and explicit approval from the workload, security, data, and operations owners.</p>
+<p><strong>Conditional go</strong> still requires every mandatory security, side-effect, data, and recovery control. Use it only for a non-critical operational follow-up with a compensating control, named owner, expiry date, and automatic rollback threshold. It is not a way to waive a stop condition.</p>
+<p><strong>No-go</strong> is the decision when a stop condition applies, a mandatory control is missing, evidence is stale, an uncertain side effect is unresolved, or the team cannot contain and reverse a failed release.</p>
+<h2 id="reassess-after-change">Reassess after change<a class="headerlink" href="#reassess-after-change" title="Permanent link">&para;</a></h2>
+<p>Repeat the decision when any of these changes:</p>
+<ul>
+<li>AnyCode, Python, provider SDK, MCP SDK, plugin, or persistence version.</li>
+<li>Model provider, model identifier, system prompt, context source, or verification policy.</li>
+<li>Tool code, side-effect behavior, downstream authorization, MCP server, or plugin allowlist.</li>
+<li>Data classification, tenant model, region, retention, encryption, or telemetry destination.</li>
+<li>Worker identity, network policy, concurrency, process count, host count, or deployment platform.</li>
+</ul>
+<p>The useful question is not whether the package is production-ready in the abstract. It is whether this pinned release, workload, data path, extension set, and operating environment meet a reviewed boundary with evidence.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../multi-agent-team/">Run a multi-agent team</a> — build the task graph you'll visualize.</li>
-<li><a href="../production-controls/">Track and cap cost</a> — pair the timeline with token budgets.</li>
-<li><a href="../../concepts/agents-and-teams/">Concepts: agents and teams</a> — the task-graph model behind the DAG.</li>
-<li><a href="../../reference/public-api/">Public API</a> — signatures for <code>render_dag</code> and <code>render_timeline</code>.</li>
+<li>Read the <a href="../../reference/security/">security and threat model</a> with the deployment diagram in hand.</li>
+<li>Configure <a href="../production-controls/">production controls</a> and <a href="../tools/#enforce-a-workspace-security-policy">tool security</a>.</li>
+<li>Review <a href="../durability/">durable storage</a>, <a href="../observability/">observability</a>, <a href="../mcp/">MCP</a>, and <a href="../plugins/">plugins</a> as separate trust boundaries.</li>
+<li>Use the <a href="../../reference/compatibility/#upgrade-procedure">compatibility upgrade and rollback procedure</a> for every release.</li>
 </ul>
 
 
@@ -3104,7 +3553,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../plugins/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Extend With Plugins">
+          <a href="../production-controls/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Production Controls">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3114,20 +3563,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Extend With Plugins
+                Production Controls
               </div>
             </div>
           </a>
         
         
           
-          <a href="../yaml-config/" class="md-footer__link md-footer__link--next" aria-label="Next: Use YAML Config">
+          <a href="../mcp/" class="md-footer__link md-footer__link--next" aria-label="Next: Connect MCP Servers">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Use YAML Config
+                Connect MCP Servers
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -1664,6 +1664,8 @@
       
         
       
+        
+      
     
     
     
@@ -1892,6 +1894,34 @@
     
   
     Production Controls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/production-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Readiness
   
 
     
@@ -2412,6 +2442,8 @@
       
         
       
+        
+      
     
     
     
@@ -2481,6 +2513,34 @@
     
   
     Public API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security and Threat Model
   
 
     
@@ -2976,8 +3036,8 @@
 <p>AnyCode is an async-first orchestration layer that coordinates LLM agents, tools, and tasks behind one runtime you can inspect. The framework owns the harness: agent configuration, tool execution, task scheduling, shared memory, lifecycle events, and verification all run through the same path. Provider adapters and tools stay replaceable.</p>
 <p>A single model call answers a single prompt. Real work usually needs several: a plan, an implementation, a review, and a check that the result holds up. AnyCode treats that as an explicit graph of agents and tasks instead of a chain of hand-wired prompts, so you can see where work is, why each step ran, and what it cost. This page maps the pieces of that runtime and how they connect.</p>
 <div class="admonition warning">
-<p class="admonition-title">Alpha, and moving</p>
-<p>AnyCode is alpha software. APIs, defaults, and configuration formats can change between releases. It is built for prototypes, evaluation harnesses, and research, not yet for production workloads.</p>
+<p class="admonition-title">Alpha with workload-specific readiness</p>
+<p>AnyCode remains alpha software. Supported public APIs and persisted formats have explicit compatibility contracts, while pre-1.0 minor releases may require migration. Bounded production deployments are eligible only after the <a href="../../guides/production-readiness/">readiness checklist</a> passes; critical or unrestricted autonomous workloads remain outside the supported boundary.</p>
 </div>
 <h2 id="the-anycode-runtime-model">The AnyCode Runtime Model<a class="headerlink" href="#the-anycode-runtime-model" title="Permanent link">&para;</a></h2>
 <p>The AnyCode runtime is a small set of components with clear ownership. The orchestrator sits at the top, a team coordinates agents, and each agent runs through a provider adapter and a tool executor.</p>

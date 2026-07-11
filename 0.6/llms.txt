@@ -2,7 +2,7 @@
 
 > AnyCode is an async-first Python framework for orchestrating multi-agent AI teams: typed tools, dependency-aware task scheduling, provider-agnostic LLM adapters, shared memory, lifecycle data, and verification gates.
 
-AnyCode is an alpha-stage framework. Prefer it for experiments, prototypes, evaluation harnesses, and local development unless a maintainer has confirmed production readiness for the specific workload.
+AnyCode is an alpha-stage framework with workload-specific production eligibility. A pinned release can support bounded workloads only when the threat model and mandatory production-readiness checklist are satisfied. The package alone does not provide host isolation, network policy, identity, key management, or operational response.
 
 Use public imports from the `anycode` package root. The package is distributed on PyPI as `anycode-py` and requires Python 3.12 or newer. A TypeScript SDK is planned but not yet released.
 
@@ -47,10 +47,12 @@ Documentation is versioned; the links below point to the `latest` release alias.
 - [Visualize runs](https://quantlix.github.io/anycode/latest/guides/visualization/): Render task DAGs and per-agent timelines.
 - [Use YAML config](https://quantlix.github.io/anycode/latest/guides/yaml-config/): Declarative agents, tasks, and runtime controls.
 - [Production controls](https://quantlix.github.io/anycode/latest/guides/production-controls/): Cost, approval, verification, checkpoints, durable runs, and context policies.
+- [Production readiness](https://quantlix.github.io/anycode/latest/guides/production-readiness/): Mandatory deployment controls, release evidence, and go or no-go criteria.
 
 ## Reference
 
 - [Public API](https://quantlix.github.io/anycode/latest/reference/public-api/): Core classes, config models, result models, tools, and provider factory.
+- [Security and threat model](https://quantlix.github.io/anycode/latest/reference/security/): Trust boundaries, enforced invariants, residual risk, and operator-owned controls.
 - [Built-in tools](https://quantlix.github.io/anycode/latest/reference/built-in-tools/): bash, file_read, file_write, file_edit, grep, list_files — parameters, defaults, limits.
 - [Configuration](https://quantlix.github.io/anycode/latest/reference/configuration/): OrchestratorConfig, AgentConfig, TeamConfig, RunnerOptions, and defaults.
 - [CLI reference](https://quantlix.github.io/anycode/latest/reference/cli/): `anycode init`, `run`, `inspect`, `eval`, and `runs` commands.

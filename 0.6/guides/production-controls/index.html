@@ -18,7 +18,7 @@
         <link rel="prev" href="../observability/">
       
       
-        <link rel="next" href="../mcp/">
+        <link rel="next" href="../production-readiness/">
       
       
         
@@ -1683,6 +1683,8 @@
       
         
       
+        
+      
     
     
     
@@ -2108,6 +2110,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../production-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production Readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2465,6 +2495,8 @@
       
         
       
+        
+      
     
     
     
@@ -2534,6 +2566,34 @@
     
   
     Public API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security and Threat Model
   
 
     
@@ -3077,11 +3137,11 @@
 
 
 <h1 id="production-controls">Production Controls<a class="headerlink" href="#production-controls" title="Permanent link">&para;</a></h1>
-<p>Add cost budgets, human approval gates, verification gates, and durable checkpoints to your AnyCode workflows so prototypes behave more like production systems — with limits, audit trails, and resumable state.</p>
-<p>AnyCode is alpha-stage software, so treat these as production-<em>oriented</em> controls, not a production guarantee. They exist so you can test production-like behavior in prototypes and internal tools: cap spend, require a human on sensitive steps, gate output on real quality checks, and resume long runs after a failure instead of paying to redo finished work.</p>
+<p>Add cost budgets, human approval gates, verification gates, and durable checkpoints to AnyCode workflows that need limits, audit trails, and resumable state.</p>
+<p>AnyCode remains alpha-stage software. These controls are building blocks for bounded production deployments, but they do not supply operating-system isolation, network policy, identity, key management, or incident response. Production eligibility depends on the complete workload and operating environment.</p>
 <div class="admonition warning">
-<p class="admonition-title">Production-oriented, not production-ready</p>
-<p>These controls harden a run, but AnyCode is not yet meant for production systems — especially those handling sensitive data, irreversible actions, or customer workloads. Keep agents in disposable workspaces and scope tool access tightly.</p>
+<p class="admonition-title">Necessary, not sufficient</p>
+<p>These controls harden a run, but the package alone is not a production boundary. Review the <a href="../../reference/security/">security and threat model</a>, then require every applicable item in the <a href="../production-readiness/">production readiness checklist</a> before release.</p>
 </div>
 <h2 id="what-production-controls-does-anycode-ship">What production controls does AnyCode ship?<a class="headerlink" href="#what-production-controls-does-anycode-ship" title="Permanent link">&para;</a></h2>
 <p>Each control below is available today and can be layered onto a single agent run or a whole team. Start with limits, then add gates and durability as a workflow grows.</p>
@@ -3353,6 +3413,8 @@
 <p>Because results are structured, you can turn any run into a test assertion or a telemetry event rather than eyeballing logs.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../production-readiness/">Production readiness checklist</a> — make a workload-specific go or no-go decision.</li>
+<li><a href="../../reference/security/">Security and threat model</a> — review trust boundaries, enforced invariants, and residual risks.</li>
 <li><a href="../yaml-config/">Use YAML Config</a> — declare budgets, routing, and verification gates in one file.</li>
 <li><a href="../multi-agent-team/">Run a Multi-Agent Team</a> — the team runtime these controls wrap around.</li>
 <li><a href="../../reference/cli/">CLI reference</a> — the <code>anycode runs</code> commands for durable, resumable runs.</li>
@@ -3467,13 +3529,13 @@
         
         
           
-          <a href="../mcp/" class="md-footer__link md-footer__link--next" aria-label="Next: Connect MCP Servers">
+          <a href="../production-readiness/" class="md-footer__link md-footer__link--next" aria-label="Next: Production Readiness">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Connect MCP Servers
+                Production Readiness
               </div>
             </div>
             <div class="md-footer__button md-icon">
