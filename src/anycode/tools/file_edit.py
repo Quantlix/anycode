@@ -74,4 +74,5 @@ file_edit_tool = define_tool(
     description="Modify a file by swapping a specific string with new content. The old_string must match verbatim within the file.",
     input_model=FileEditInput,
     execute=_execute,
+    side_effecting=True,
 )

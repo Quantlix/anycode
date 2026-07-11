@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import logging
 from typing import Any
 
@@ -46,6 +47,7 @@ from anycode.tasks.task import create_task, get_task_dependency_order, validate_
 from anycode.telemetry.tracer import Tracer
 from anycode.tools.built_in import register_built_in_tools
 from anycode.tools.executor import ToolExecutor
+from anycode.tools.idempotency import ToolIdempotencyStore, create_tool_idempotency_store
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
     AgentConfig,
@@ -103,6 +105,7 @@ class AnyCode:
         self._tracer: Tracer | None = None
         self._checkpoint_manager: CheckpointManager | None = None
         self._approval_manager: ApprovalManager | None = None
+        self._tool_idempotency_store = create_tool_idempotency_store(self._config.tool_idempotency)
 
         # MCP clients for external tool servers
         self._mcp_clients: dict[str, Any] = {}
@@ -162,6 +165,7 @@ class AnyCode:
         guardrails: GuardrailConfig | None = None,
         hooks: list[TurnHook] | None = None,
         output_validators: list[OutputValidator] | None = None,
+        tool_idempotency_store: ToolIdempotencyStore | None = None,
     ) -> None:
         """Set telemetry, guardrails, hooks, and output validators for all agents."""
         if trace is not None:
@@ -173,6 +177,8 @@ class AnyCode:
             self._hooks = hooks
         if output_validators is not None:
             self._output_validators = output_validators
+        if tool_idempotency_store is not None:
+            self._tool_idempotency_store = tool_idempotency_store
 
     # -- MCP lifecycle --
 
@@ -207,7 +213,16 @@ class AnyCode:
         return self
 
     async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        await self.close()
+
+    async def close(self) -> None:
+        """Release MCP clients and persistent tool-idempotency resources."""
         await self.disconnect_mcp_servers()
+        teardown = getattr(self._tool_idempotency_store, "teardown", None)
+        if teardown is not None:
+            result = teardown()
+            if inspect.isawaitable(result):
+                await result
 
     def build_agent(
         self,
@@ -249,7 +264,7 @@ class AnyCode:
         if self._hooks or plugin_hooks:
             merged_hooks = [*(self._hooks or []), *plugin_hooks]
 
-        executor = ToolExecutor(registry)
+        executor = ToolExecutor(registry, idempotency_store=self._tool_idempotency_store)
         return Agent(
             typed_config,
             registry,

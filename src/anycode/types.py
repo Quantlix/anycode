@@ -115,6 +115,7 @@ StopReasonCode = Literal[
     "user_cancelled",
     "doom_loop",
     "provider_unavailable",
+    "side_effect_unknown",
     "unknown",
 ]
 
@@ -409,6 +410,7 @@ class ToolResult(BaseModel):
     model_config = ConfigDict(frozen=True)
     data: str
     is_error: bool | None = None
+    retry_safe: bool | None = None
 
 
 class AgentInfo(BaseModel):
@@ -443,6 +445,15 @@ class ToolSecurityPolicy(BaseModel):
     allowed_environment_variables: tuple[str, ...] = ()
 
 
+class ToolIdempotencyConfig(BaseModel):
+    """Shared claim-store settings for side-effecting tools."""
+
+    model_config = ConfigDict(frozen=True)
+    backend: Literal["memory", "sqlite"] = "memory"
+    path: str = Field(default=".anycode/tool-idempotency.db", min_length=1)
+    redact_sensitive_data: bool = True
+
+
 class ToolUseContext(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
     agent: AgentInfo
@@ -450,6 +461,7 @@ class ToolUseContext(BaseModel):
     cwd: str | None = None
     metadata: dict[str, Any] | None = None
     security_policy: ToolSecurityPolicy | None = None
+    idempotency_key: str | None = None
 
 
 class ToolDefinition(BaseModel):
@@ -460,6 +472,8 @@ class ToolDefinition(BaseModel):
     description: str
     input_model: type[BaseModel]
     execute: Callable[..., Awaitable[ToolResult]]
+    side_effecting: bool = False
+    idempotency_key_field: str | None = "idempotency_key"
 
 
 # -- Agent configuration --
@@ -467,6 +481,8 @@ class ToolDefinition(BaseModel):
 
 class RetryPolicy(BaseModel):
     """Backoff/retry behavior for transient provider failures."""
+
+    """Tool output with an optional explicit judgment about retry safety."""
 
     model_config = ConfigDict(frozen=True)
     max_attempts: int = 6
@@ -523,6 +539,7 @@ class ToolCallRecord(BaseModel):
     input: dict[str, Any]
     output: str
     duration: float
+    retry_safe: bool = True
 
 
 class AgentRunResult(BaseModel):
@@ -618,6 +635,7 @@ class OrchestratorConfig(BaseModel):
     rag: RAGConfig | None = None
     verification: tuple[VerificationSensorConfig, ...] = ()
     provider_resilience: ProviderResilienceConfig | None = None
+    tool_idempotency: ToolIdempotencyConfig = ToolIdempotencyConfig()
 
 
 # -- Memory --
@@ -1150,6 +1168,7 @@ class MCPToolInfo(BaseModel):
     name: str
     description: str
     input_schema: dict[str, Any]
+    side_effecting: bool = True
 
 
 # -- Agent handoff --

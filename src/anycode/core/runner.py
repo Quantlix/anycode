@@ -28,6 +28,9 @@ from anycode.core.stop_reason import (
     provider_unavailable as stop_provider_unavailable,
 )
 from anycode.core.stop_reason import (
+    side_effect_unknown as stop_side_effect_unknown,
+)
+from anycode.core.stop_reason import (
     success as stop_success,
 )
 from anycode.core.stop_reason import (
@@ -574,7 +577,12 @@ class AgentRunner:
                         break
 
                     ctx = self._build_context()
-                    results = await self._execute_tool_blocks(tool_blocks, turn_span, ctx)
+                    results = await self._execute_tool_blocks(
+                        tool_blocks,
+                        turn_span,
+                        ctx,
+                        idempotency_scope=f"{run_id}:{turn_count}",
+                    )
 
                     self._budget.record_tool_call(len(results))
                     for _rb, _record in results:
@@ -587,6 +595,16 @@ class AgentRunner:
                                 "duration": _record.duration,
                             },
                         )
+
+                    indeterminate = next((record for _, record in results if not record.retry_safe), None)
+                    if indeterminate is not None:
+                        terminal_stop = stop_side_effect_unknown(indeterminate.output)
+                        turn_span.set_attribute("stop_reason", terminal_stop.code)
+                        turn_span.set_attribute("recoverable", terminal_stop.recoverable)
+                        for _, record in results:
+                            tool_calls.append(record)
+                            yield StreamEvent(type="tool_result", data=record)
+                        break
 
                     post_decision = await self._evaluate_tool_gate(
                         phase="after_tool",
@@ -858,6 +876,8 @@ class AgentRunner:
         blocks: list[ToolUseBlock],
         turn_span: Span,
         ctx: ToolUseContext,
+        *,
+        idempotency_scope: str,
     ) -> list[tuple[ToolResultBlock, ToolCallRecord]]:
         """Execute a batch of tool calls concurrently, respecting budget guardrails.
 
@@ -870,27 +890,30 @@ class AgentRunner:
 
         gate = Semaphore(min(DEFAULT_TOOL_CONCURRENCY, len(blocks)))
 
-        async def _run(block: ToolUseBlock) -> tuple[ToolResultBlock, ToolCallRecord]:
+        async def _run(index: int, block: ToolUseBlock) -> tuple[ToolResultBlock, ToolCallRecord]:
             if self._budget.is_tool_blocked(block.name):
                 message = f'Tool "{block.name}" is blocked by guardrail policy.'
                 return (
                     ToolResultBlock(tool_use_id=block.id, content=message, is_error=True),
                     ToolCallRecord(tool_name=block.name, input=block.input, output=message, duration=0.0),
                 )
-            return await gate.run(lambda: self._run_single_tool_block(block, turn_span, ctx))
+            idempotency_key = f"{idempotency_scope}:{index}"
+            return await gate.run(lambda: self._run_single_tool_block(block, turn_span, ctx, idempotency_key=idempotency_key))
 
-        return list(await asyncio.gather(*[_run(block) for block in blocks]))
+        return list(await asyncio.gather(*[_run(index, block) for index, block in enumerate(blocks)]))
 
     async def _run_single_tool_block(
         self,
         block: ToolUseBlock,
         turn_span: Span,
         ctx: ToolUseContext,
+        *,
+        idempotency_key: str,
     ) -> tuple[ToolResultBlock, ToolCallRecord]:
         began = time.monotonic()
         async with self._tracer.async_span(f"anycode.tool.{block.name}", parent=turn_span) as tool_span:
             try:
-                result = await self._executor.execute(block.name, block.input, ctx)
+                result = await self._executor.execute(block.name, block.input, ctx, idempotency_key=idempotency_key)
             except Exception as e:
                 message = safe_exception_message(e)
                 result = ToolResult(data=message, is_error=True)
@@ -903,7 +926,13 @@ class AgentRunner:
 
         return (
             ToolResultBlock(tool_use_id=block.id, content=result.data, is_error=result.is_error),
-            ToolCallRecord(tool_name=block.name, input=block.input, output=result.data, duration=duration),
+            ToolCallRecord(
+                tool_name=block.name,
+                input=block.input,
+                output=result.data,
+                duration=duration,
+                retry_safe=result.retry_safe is not False,
+            ),
         )
 
     @staticmethod

@@ -34,6 +34,13 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _is_read_only_tool(tool: object) -> bool:
+    annotations = getattr(tool, "annotations", None)
+    if annotations is None:
+        return False
+    return bool(getattr(annotations, "readOnlyHint", False) or getattr(annotations, "read_only_hint", False))
+
+
 def resolve_auth_headers(config: MCPServerConfig) -> dict[str, str] | None:
     """Merge static headers with a Bearer token read from the environment.
 
@@ -168,6 +175,7 @@ class MCPClient:
                 name=tool.name,
                 description=tool.description or "",
                 input_schema=dict(tool.inputSchema) if tool.inputSchema else {},
+                side_effecting=not _is_read_only_tool(tool),
             )
             for tool in result.tools
         ]

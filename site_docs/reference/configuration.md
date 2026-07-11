@@ -31,6 +31,7 @@ engine = AnyCode(config=OrchestratorConfig(max_concurrency=3, default_provider="
 | `mcp_servers` | `list[MCPServerConfig] \| None` | `None` | MCP servers to connect — see [Connect MCP servers](../guides/mcp.md) |
 | `verification` | `tuple[VerificationSensorConfig, ...]` | `()` | Team-level quality sensors |
 | `provider_resilience` | `ProviderResilienceConfig \| None` | `None` | Global provider capacity/retry policy inherited by agents |
+| `tool_idempotency` | `ToolIdempotencyConfig` | memory store | Atomic claims for explicitly side-effecting tools |
 | `approval_handler` | `ApprovalGate \| None` | `None` | Gate implementation; required for approval to activate |
 
 ### Feature configs
@@ -40,6 +41,8 @@ Each is `None`/disabled by default; set it to switch the feature on.
 **`memory: MemoryConfig`** — `backend` (`"memory"` \| `"sqlite"` \| `"redis"`, default `"memory"`), `path`, `url`, `vector_backend` (`"none"` \| `"memory"` \| `"chromadb"`, default `"none"`), `vector_path`, `redact_sensitive_data=True`.
 
 **`checkpoint: CheckpointConfig`** — `enabled=False`, `backend` (`"filesystem"` \| `"sqlite"`, default `"filesystem"`), `path=".anycode/checkpoints"`, `keep_last=5`, `redact_sensitive_data=True`.
+
+**`tool_idempotency: ToolIdempotencyConfig`** — `backend` (`"memory"` \| `"sqlite"`, default `"memory"`), `path=".anycode/tool-idempotency.db"`, `redact_sensitive_data=True`. Use SQLite for claims that must survive a process restart; install the `persistence` extra.
 
 **`approval: ApprovalConfig`** — `enabled=False`, `timeout_seconds=300.0`, `default_on_timeout` (`"approve"` \| `"reject"`, default `"reject"`), `require_approval_tools=None`, `require_approval_tasks=False`.
 

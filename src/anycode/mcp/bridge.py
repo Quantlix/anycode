@@ -112,6 +112,7 @@ def mcp_tool_to_definition(
         description=f"[MCP:{server_name}] {tool_info.description}",
         input_model=input_model,
         execute=_execute,
+        side_effecting=tool_info.side_effecting,
     )
 
 

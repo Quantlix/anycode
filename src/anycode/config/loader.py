@@ -25,6 +25,7 @@ from anycode.types import (
     ReflectionConfig,
     RoutingConfig,
     TeamConfig,
+    ToolIdempotencyConfig,
     VerificationSensorConfig,
 )
 
@@ -54,6 +55,7 @@ class LoadedConfig:
     context_policy: ContextPolicy | None = None
     max_handoff_depth: int | None = None
     provider_resilience: ProviderResilienceConfig | None = None
+    tool_idempotency: ToolIdempotencyConfig = ToolIdempotencyConfig()
 
     def to_orchestrator_config(self) -> OrchestratorConfig:
         if self.max_handoff_depth is not None:
@@ -66,6 +68,7 @@ class LoadedConfig:
                 verification=self.verification,
                 max_handoff_depth=self.max_handoff_depth,
                 provider_resilience=self.provider_resilience,
+                tool_idempotency=self.tool_idempotency,
             )
         return OrchestratorConfig(
             max_concurrency=self.team.max_concurrency,
@@ -75,6 +78,7 @@ class LoadedConfig:
             rag=self.rag,
             verification=self.verification,
             provider_resilience=self.provider_resilience,
+            tool_idempotency=self.tool_idempotency,
         )
 
 
@@ -217,6 +221,7 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
     reflection = ReflectionConfig.model_validate(raw["reflection"]) if "reflection" in raw else None
     rag = RAGConfig.model_validate(raw["rag"]) if "rag" in raw else None
     provider_resilience = ProviderResilienceConfig.model_validate(raw["provider_resilience"]) if "provider_resilience" in raw else None
+    tool_idempotency = ToolIdempotencyConfig.model_validate(raw.get("tool_idempotency", {}))
 
     raw_handoff_depth = raw.get("max_handoff_depth")
     if raw_handoff_depth is not None and not isinstance(raw_handoff_depth, int):
@@ -234,4 +239,5 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
         context_policy=global_context_policy,
         max_handoff_depth=raw_handoff_depth,
         provider_resilience=provider_resilience,
+        tool_idempotency=tool_idempotency,
     )

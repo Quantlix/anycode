@@ -5,7 +5,11 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+import pytest
+from pydantic import BaseModel
 
 from anycode.tools.bash import BashInput, bash_tool
 from anycode.tools.executor import ToolExecutor
@@ -13,6 +17,7 @@ from anycode.tools.file_edit import FileEditInput, file_edit_tool
 from anycode.tools.file_read import FileReadInput, file_read_tool
 from anycode.tools.file_write import FileWriteInput, file_write_tool
 from anycode.tools.grep import GrepInput, grep_tool
+from anycode.tools.idempotency import IdempotencyClaim, SQLiteToolIdempotencyStore
 from anycode.tools.list_files import ListFilesInput, list_files_tool
 from anycode.tools.registry import ToolRegistry, define_tool
 from anycode.types import AgentInfo, ToolResult, ToolSecurityPolicy, ToolUseContext
@@ -21,10 +26,13 @@ CTX = ToolUseContext(agent=AgentInfo(name="t", role="assistant", model="m"))
 PY = "python"
 
 
+class _SideEffectInput(BaseModel):
+    value: str
+    idempotency_key: str | None = None
+
+
 async def test_executor_enforces_security_policy_for_custom_tools() -> None:
     registry = ToolRegistry()
-
-    from pydantic import BaseModel
 
     class _Input(BaseModel):
         pass
@@ -45,8 +53,6 @@ async def test_executor_enforces_security_policy_for_custom_tools() -> None:
 async def test_executor_redacts_secrets_from_tool_exceptions() -> None:
     registry = ToolRegistry()
 
-    from pydantic import BaseModel
-
     class _Input(BaseModel):
         pass
 
@@ -60,6 +66,355 @@ async def test_executor_redacts_secrets_from_tool_exceptions() -> None:
     assert result.is_error is True
     assert "Bearer" not in result.data
     assert "<redacted-secret>" in result.data
+
+
+async def test_side_effecting_tool_requires_idempotency_key() -> None:
+    calls = 0
+
+    async def _execute(_input: _SideEffectInput, _context: ToolUseContext) -> ToolResult:
+        nonlocal calls
+        calls += 1
+        return ToolResult(data="executed")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="charge",
+            description="charge",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+
+    result = await ToolExecutor(registry).execute("charge", {"value": "10"}, CTX)
+
+    assert result.is_error is True
+    assert "requires a non-empty idempotency key" in result.data
+    assert calls == 0
+
+
+async def test_completed_side_effect_replays_and_conflicting_input_fails() -> None:
+    calls = 0
+    seen_keys: list[str | None] = []
+
+    async def _execute(tool_input: _SideEffectInput, context: ToolUseContext) -> ToolResult:
+        nonlocal calls
+        calls += 1
+        seen_keys.append(context.idempotency_key)
+        return ToolResult(data=f"charged {tool_input.value}")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="charge",
+            description="charge",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+    executor = ToolExecutor(registry)
+
+    first = await executor.execute("charge", {"value": "10", "idempotency_key": "order-1"}, CTX)
+    replay = await executor.execute("charge", {"value": "10", "idempotency_key": "order-1"}, CTX)
+    conflict = await executor.execute("charge", {"value": "20", "idempotency_key": "order-1"}, CTX)
+
+    assert first == replay
+    assert conflict.is_error is True
+    assert conflict.retry_safe is False
+    assert "different input" in conflict.data
+    assert calls == 1
+    assert seen_keys == ["order-1"]
+
+
+async def test_concurrent_side_effect_claim_executes_once() -> None:
+    calls = 0
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _execute(_input: _SideEffectInput, _context: ToolUseContext) -> ToolResult:
+        nonlocal calls
+        calls += 1
+        entered.set()
+        await release.wait()
+        return ToolResult(data="done")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="publish",
+            description="publish",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+    executor = ToolExecutor(registry)
+    first_task = asyncio.create_task(executor.execute("publish", {"value": "post"}, CTX, idempotency_key="publish-1"))
+    await entered.wait()
+    duplicate = await executor.execute("publish", {"value": "post"}, CTX, idempotency_key="publish-1")
+    release.set()
+    first = await first_task
+
+    assert first.is_error is not True
+    assert duplicate.is_error is True
+    assert duplicate.retry_safe is False
+    assert "already in progress" in duplicate.data
+    assert calls == 1
+
+
+async def test_sqlite_idempotency_replays_across_executor_restart(tmp_path: Path) -> None:
+    calls = 0
+
+    async def _execute(tool_input: _SideEffectInput, _context: ToolUseContext) -> ToolResult:
+        nonlocal calls
+        calls += 1
+        return ToolResult(data=f"sent {tool_input.value}")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="send",
+            description="send",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+    path = tmp_path / "idempotency.db"
+    first_store = SQLiteToolIdempotencyStore(path)
+    first = await ToolExecutor(registry, idempotency_store=first_store).execute("send", {"value": "notice"}, CTX, idempotency_key="message-1")
+    await first_store.teardown()
+
+    reopened_store = SQLiteToolIdempotencyStore(path)
+    replay = await ToolExecutor(registry, idempotency_store=reopened_store).execute("send", {"value": "notice"}, CTX, idempotency_key="message-1")
+    pruned = await reopened_store.prune_completed(datetime.now(UTC) + timedelta(seconds=1))
+    await reopened_store.teardown()
+
+    assert first == replay
+    assert calls == 1
+    assert pruned == 1
+
+
+async def test_sqlite_claim_is_atomic_across_store_connections(tmp_path: Path) -> None:
+    path = tmp_path / "shared-idempotency.db"
+    first_store = SQLiteToolIdempotencyStore(path)
+    second_store = SQLiteToolIdempotencyStore(path)
+
+    first, second = await asyncio.gather(
+        first_store.claim("publish", "post-1", "same-input"),
+        second_store.claim("publish", "post-1", "same-input"),
+    )
+
+    await first_store.teardown()
+    await second_store.teardown()
+    assert {first.outcome, second.outcome} == {"execute", "in_progress"}
+
+
+async def test_cancelled_side_effect_remains_indeterminate() -> None:
+    entered = asyncio.Event()
+
+    async def _execute(_input: _SideEffectInput, _context: ToolUseContext) -> ToolResult:
+        entered.set()
+        await asyncio.Future()
+        return ToolResult(data="unreachable")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="publish",
+            description="publish",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+    executor = ToolExecutor(registry)
+    task = asyncio.create_task(executor.execute("publish", {"value": "post"}, CTX, idempotency_key="post-1"))
+    await entered.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    retry = await executor.execute("publish", {"value": "post"}, CTX, idempotency_key="post-1")
+
+    assert retry.is_error is True
+    assert retry.retry_safe is False
+    assert "already in progress" in retry.data
+
+
+async def test_side_effect_exception_is_recorded_as_not_retry_safe() -> None:
+    calls = 0
+
+    async def _execute(_input: _SideEffectInput, _context: ToolUseContext) -> ToolResult:
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("remote outcome unavailable")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="publish",
+            description="publish",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+    executor = ToolExecutor(registry)
+
+    first = await executor.execute("publish", {"value": "post"}, CTX, idempotency_key="post-1")
+    replay = await executor.execute("publish", {"value": "post"}, CTX, idempotency_key="post-1")
+
+    assert first == replay
+    assert first.is_error is True
+    assert first.retry_safe is False
+    assert calls == 1
+
+
+async def test_side_effect_can_mark_pre_execution_error_retry_safe() -> None:
+    async def _execute(_input: _SideEffectInput, _context: ToolUseContext) -> ToolResult:
+        return ToolResult(data="validation failed before request", is_error=True, retry_safe=True)
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="publish",
+            description="publish",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+
+    result = await ToolExecutor(registry).execute("publish", {"value": "post"}, CTX, idempotency_key="post-1")
+
+    assert result.is_error is True
+    assert result.retry_safe is True
+
+
+async def test_sqlite_pruning_retains_unknown_outcome(tmp_path: Path) -> None:
+    store = SQLiteToolIdempotencyStore(tmp_path / "unknown.db")
+    claim = await store.claim("publish", "post-1", "same-input")
+    await store.complete(
+        "publish",
+        "post-1",
+        ToolResult(data="remote outcome unavailable", is_error=True, retry_safe=False),
+    )
+
+    pruned = await store.prune_completed(datetime.now(UTC) + timedelta(seconds=1))
+    replay = await store.claim("publish", "post-1", "same-input")
+    await store.teardown()
+
+    assert claim.outcome == "execute"
+    assert pruned == 0
+    assert replay.outcome == "replay"
+    assert replay.result is not None and replay.result.retry_safe is False
+
+
+async def test_sqlite_hashes_keys_and_redacts_persisted_results(tmp_path: Path) -> None:
+    path = tmp_path / "protected-claims.db"
+    store = SQLiteToolIdempotencyStore(path)
+    await store.claim("send", "customer-order-123", "same-input")
+    await store.complete(
+        "send",
+        "customer-order-123",
+        ToolResult(data="Bearer abcdefghijklmnop", retry_safe=True),
+    )
+    replay = await store.claim("send", "customer-order-123", "same-input")
+    await store.teardown()
+
+    persisted = path.read_bytes()
+    assert b"customer-order-123" not in persisted
+    assert b"abcdefghijklmnop" not in persisted
+    assert replay.result is not None
+    assert "<redacted-secret>" in replay.result.data
+
+
+async def test_idempotency_store_failure_prevents_execution() -> None:
+    calls = 0
+
+    class _UnavailableStore:
+        async def claim(self, tool_name: str, key: str, input_fingerprint: str) -> IdempotencyClaim:
+            del tool_name, key, input_fingerprint
+            raise RuntimeError("database offline")
+
+        async def complete(self, tool_name: str, key: str, result: ToolResult) -> None:
+            del tool_name, key, result
+            raise AssertionError("complete must not be called")
+
+        async def delete(self, tool_name: str, key: str) -> None:
+            del tool_name, key
+
+        async def prune_completed(self, before: datetime) -> int:
+            del before
+            return 0
+
+    async def _execute(_input: _SideEffectInput, _context: ToolUseContext) -> ToolResult:
+        nonlocal calls
+        calls += 1
+        return ToolResult(data="unsafe")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="transfer",
+            description="transfer",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+
+    result = await ToolExecutor(registry, idempotency_store=_UnavailableStore()).execute(
+        "transfer", {"value": "10"}, CTX, idempotency_key="transfer-1"
+    )
+
+    assert result.is_error is True
+    assert "tool was not executed" in result.data
+    assert result.retry_safe is True
+    assert calls == 0
+
+
+async def test_idempotency_completion_failure_is_not_retry_safe() -> None:
+    class _CompletionFailureStore:
+        async def claim(self, tool_name: str, key: str, input_fingerprint: str) -> IdempotencyClaim:
+            del tool_name, key, input_fingerprint
+            return IdempotencyClaim(outcome="execute")
+
+        async def complete(self, tool_name: str, key: str, result: ToolResult) -> None:
+            del tool_name, key, result
+            raise RuntimeError("disk full")
+
+        async def delete(self, tool_name: str, key: str) -> None:
+            del tool_name, key
+
+        async def prune_completed(self, before: datetime) -> int:
+            del before
+            return 0
+
+    async def _execute(_input: _SideEffectInput, _context: ToolUseContext) -> ToolResult:
+        return ToolResult(data="effect committed")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="transfer",
+            description="transfer",
+            input_model=_SideEffectInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+
+    result = await ToolExecutor(registry, idempotency_store=_CompletionFailureStore()).execute(
+        "transfer", {"value": "10"}, CTX, idempotency_key="transfer-1"
+    )
+
+    assert result.is_error is True
+    assert result.retry_safe is False
+    assert "outcome is unknown" in result.data
 
 
 # -- file tools -------------------------------------------------------------
@@ -221,8 +576,6 @@ async def test_runner_executes_independent_tools_concurrently() -> None:
         await asyncio.sleep(0.2)
         spans.append((start, time.monotonic()))
         return ToolResult(data="done")
-
-    from pydantic import BaseModel
 
     class _Empty(BaseModel):
         pass

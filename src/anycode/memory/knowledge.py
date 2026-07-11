@@ -237,6 +237,7 @@ def build_knowledge_tools(store: KnowledgeStore) -> list[ToolDefinition]:
             ),
             input_model=KnowledgeSaveInput,
             execute=_save,
+            side_effecting=True,
         ),
         ToolDefinition(
             name="memory_search",

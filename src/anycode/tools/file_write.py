@@ -47,4 +47,5 @@ file_write_tool = define_tool(
     ),
     input_model=FileWriteInput,
     execute=_execute,
+    side_effecting=True,
 )

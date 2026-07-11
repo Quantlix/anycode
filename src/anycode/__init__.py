@@ -139,6 +139,13 @@ from anycode.telemetry.metrics import MetricsCollector, Timer
 from anycode.telemetry.tracer import ConsoleExporter, Span, Tracer
 from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
 from anycode.tools.executor import ToolExecutor
+from anycode.tools.idempotency import (
+    IdempotencyClaim,
+    InMemoryToolIdempotencyStore,
+    SQLiteToolIdempotencyStore,
+    ToolIdempotencyStore,
+    create_tool_idempotency_store,
+)
 from anycode.tools.registry import ToolRegistry, define_tool
 from anycode.types import (
     AcceptanceThresholds,
@@ -268,6 +275,7 @@ from anycode.types import (
     TokenUsage,
     ToolCallRecord,
     ToolDefinition,
+    ToolIdempotencyConfig,
     ToolResult,
     ToolResultBlock,
     ToolSecurityPolicy,
@@ -465,6 +473,11 @@ __all__ = [
     # Tools
     "ToolRegistry",
     "ToolExecutor",
+    "IdempotencyClaim",
+    "InMemoryToolIdempotencyStore",
+    "SQLiteToolIdempotencyStore",
+    "ToolIdempotencyStore",
+    "create_tool_idempotency_store",
     "define_tool",
     "BUILT_IN_TOOLS",
     "register_built_in_tools",
@@ -514,6 +527,7 @@ __all__ = [
     "ToolResult",
     "ToolSecurityPolicy",
     "ToolDefinition",
+    "ToolIdempotencyConfig",
     "AgentConfig",
     "AgentState",
     "ToolCallRecord",

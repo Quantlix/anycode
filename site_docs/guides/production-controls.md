@@ -21,6 +21,7 @@ Each control below is available today and can be layered onto a single agent run
 | --- | --- |
 | Cost and token budgets | A hard ceiling on spend and turns before a run touches live providers. |
 | Provider capacity limits | Shared concurrency bulkheads, request pacing, and bounded queue waits around provider calls. |
+| Side-effect idempotency | Atomic claims, replay, conflict detection, and fail-closed restart behavior for mutating tools. |
 | HITL approval gates | A human checkpoint before sensitive or irreversible tasks execute. |
 | Output validators | Programmatic checks on agent output before it is accepted. |
 | Turn hooks | Callbacks around each turn for logging, mutation, or early stops. |
@@ -90,6 +91,44 @@ provider_resilience:
 ```
 
 Retries consume capacity and request-rate reservations just like first attempts. The limiter is local to one event loop; use a provider gateway or distributed limiter for aggregate quotas across worker processes or hosts. Request pacing does not enforce tokens-per-minute limits.
+
+## Make side effects idempotent
+
+Mark a custom tool with `side_effecting=True` to claim an idempotency key before it executes. Completed calls replay their stored `ToolResult`; a reused key with different validated input is rejected. Concurrent or crash-interrupted claims are treated as indeterminate, and the runner stops with `side_effect_unknown` instead of asking the model to try again.
+
+```python title="idempotent_tool.py"
+from pydantic import BaseModel
+
+from anycode import ToolResult, ToolUseContext, define_tool
+
+
+class ChargeInput(BaseModel):
+    amount_cents: int
+    idempotency_key: str
+
+
+async def charge(input: ChargeInput, context: ToolUseContext) -> ToolResult:
+    await payment_api.charge(  # application-owned client
+        amount_cents=input.amount_cents,
+        idempotency_key=context.idempotency_key,
+    )
+    return ToolResult(data="charged")
+
+
+charge_tool = define_tool(
+    name="charge",
+    description="Charge a payment method once.",
+    input_model=ChargeInput,
+    execute=charge,
+    side_effecting=True,
+)
+```
+
+An explicit validated `idempotency_key` field takes precedence. Otherwise, the runner supplies a deterministic key derived from the run, turn, and tool-call position so a durable restart claims the same operation. Storage keys and input fingerprints are SHA-256 hashes; persisted results are redacted by default. After invocation starts, an exception or error result is non-retryable unless the tool explicitly returns `ToolResult(..., retry_safe=True)` because it knows no external effect occurred.
+
+The default in-memory store protects one engine process only. Configure `ToolIdempotencyConfig(backend="sqlite")` or inject a shared `ToolIdempotencyStore` for restart or multi-worker coordination. `prune_completed()` removes only outcomes explicitly marked retry-safe; in-progress and uncertain terminal records require operator reconciliation. Call `complete()` with the verified result when the external effect is confirmed, or `delete()` only after confirming no effect occurred. Keep the same key at the downstream API boundary whenever that API supports native idempotency.
+
+AnyCode classifies `bash`, file writes, file edits, and knowledge saves as side-effecting. MCP tools are side-effecting by default and become read-only only when the server publishes the standard `readOnlyHint` annotation.
 
 ## Gate sensitive work with human approval
 

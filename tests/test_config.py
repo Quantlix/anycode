@@ -79,6 +79,18 @@ agents:
       capacity_scope: isolated-openai
 """
 
+_YAML_TOOL_IDEMPOTENCY = """\
+name: durable-tools
+tool_idempotency:
+  backend: sqlite
+  path: .state/tool-claims.db
+  redact_sensitive_data: false
+agents:
+  - name: operator
+    model: gpt-4o-mini
+    provider: openai
+"""
+
 
 def test_load_yaml(tmp_path: Path) -> None:
     p = tmp_path / "team.yaml"
@@ -146,3 +158,15 @@ def test_loads_global_and_per_agent_provider_capacity(tmp_path: Path) -> None:
     assert loaded.team.agents[0].provider_resilience is None
     assert loaded.team.agents[1].provider_resilience is not None
     assert loaded.team.agents[1].provider_resilience.max_concurrency == 1
+
+
+def test_loads_tool_idempotency_store_config(tmp_path: Path) -> None:
+    path = tmp_path / "idempotency.yaml"
+    path.write_text(_YAML_TOOL_IDEMPOTENCY, encoding="utf-8")
+
+    loaded = load_config(path)
+    config = loaded.to_orchestrator_config()
+
+    assert config.tool_idempotency.backend == "sqlite"
+    assert config.tool_idempotency.path == ".state/tool-claims.db"
+    assert config.tool_idempotency.redact_sensitive_data is False

@@ -74,6 +74,18 @@ Define custom tools with `define_tool`, manage them through the `ToolRegistry`, 
 
 ::: anycode.tools.executor.ToolExecutor
 
+Side-effecting tools use atomic claims to prevent duplicate execution. The in-memory store coordinates one process; the SQLite store persists claims and results across restarts.
+
+::: anycode.tools.idempotency.ToolIdempotencyStore
+
+::: anycode.tools.idempotency.InMemoryToolIdempotencyStore
+
+::: anycode.tools.idempotency.SQLiteToolIdempotencyStore
+
+::: anycode.tools.idempotency.IdempotencyClaim
+
+::: anycode.types.ToolIdempotencyConfig
+
 ## Provider API
 
 `create_adapter` resolves the right provider adapter for a configured model — Anthropic, OpenAI, Google, Bedrock, Azure OpenAI, Ollama, or a plugin-registered backend — giving the runtime a uniform interface across providers.

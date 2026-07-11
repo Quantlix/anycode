@@ -164,4 +164,5 @@ bash_tool = define_tool(
     ),
     input_model=BashInput,
     execute=_execute,
+    side_effecting=True,
 )

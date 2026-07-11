@@ -16,9 +16,18 @@ def define_tool(
     description: str,
     input_model: type[BaseModel],
     execute: Callable[..., Awaitable[ToolResult]],
+    side_effecting: bool = False,
+    idempotency_key_field: str | None = "idempotency_key",
 ) -> ToolDefinition:
     """Create a typed tool definition."""
-    return ToolDefinition(name=name, description=description, input_model=input_model, execute=execute)
+    return ToolDefinition(
+        name=name,
+        description=description,
+        input_model=input_model,
+        execute=execute,
+        side_effecting=side_effecting,
+        idempotency_key_field=idempotency_key_field,
+    )
 
 
 class ToolRegistry:

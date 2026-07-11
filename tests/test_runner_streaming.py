@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 from anycode.core.runner import AgentRunner
 from anycode.providers.fake import FakeAdapter, FakeResponse
 from anycode.tools.executor import ToolExecutor
+from anycode.tools.idempotency import IdempotencyClaim, InMemoryToolIdempotencyStore
 from anycode.tools.registry import ToolRegistry, define_tool
 from anycode.types import (
+    AgentInfo,
     LLMMessage,
     LLMResponse,
     RunnerOptions,
@@ -18,6 +21,7 @@ from anycode.types import (
     TokenUsage,
     ToolResult,
     ToolUseContext,
+    TurnCheckpoint,
 )
 
 MESSAGES = [LLMMessage(role="user", content=[TextBlock(text="hi")])]
@@ -83,6 +87,121 @@ async def test_streaming_tool_call_executes_once() -> None:
     result = await _runner(adapter, registry).run(MESSAGES)
     assert calls["n"] == 1
     assert result.output == "finished"
+
+
+async def test_indeterminate_side_effect_stops_before_another_provider_turn() -> None:
+
+    from pydantic import BaseModel
+
+    class _Empty(BaseModel):
+        pass
+
+    class _InProgressStore:
+        async def claim(self, tool_name: str, key: str, input_fingerprint: str) -> IdempotencyClaim:
+            return IdempotencyClaim(outcome="in_progress")
+
+        async def complete(self, tool_name: str, key: str, result: ToolResult) -> None:
+            raise AssertionError("an in-progress claim cannot complete")
+
+        async def delete(self, tool_name: str, key: str) -> None:
+            return None
+
+        async def prune_completed(self, before: datetime) -> int:
+            return 0
+
+    async def _execute(_input: object, _ctx: ToolUseContext) -> ToolResult:
+        raise AssertionError("an in-progress claim cannot execute")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="publish",
+            description="publish",
+            input_model=_Empty,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+    adapter = FakeAdapter(
+        responses=[
+            FakeResponse(tool_calls=(("publish", {}),)),
+            FakeResponse(text="must not run"),
+        ]
+    )
+    runner = AgentRunner(
+        adapter,
+        registry,
+        ToolExecutor(registry, idempotency_store=_InProgressStore()),
+        RunnerOptions(model="fake", agent_name="t", max_turns=3),
+    )
+
+    result = await runner.run(MESSAGES)
+
+    assert result.stop_reason is not None
+    assert result.stop_reason.code == "side_effect_unknown"
+    assert result.stop_reason.recoverable is False
+    assert result.turns == 1
+    assert adapter._cursor == 1
+
+
+async def test_resume_reuses_claim_when_provider_regenerates_tool_id() -> None:
+    from pydantic import BaseModel
+
+    class _PublishInput(BaseModel):
+        value: str
+
+    calls = 0
+
+    async def _execute(_input: _PublishInput, _ctx: ToolUseContext) -> ToolResult:
+        nonlocal calls
+        calls += 1
+        return ToolResult(data="published")
+
+    registry = ToolRegistry()
+    registry.register(
+        define_tool(
+            name="publish",
+            description="publish",
+            input_model=_PublishInput,
+            execute=_execute,
+            side_effecting=True,
+        )
+    )
+    store = InMemoryToolIdempotencyStore()
+    executor = ToolExecutor(registry, idempotency_store=store)
+    context = ToolUseContext(agent=AgentInfo(name="t", role="assistant", model="fake"))
+    first = await executor.execute(
+        "publish",
+        {"value": "post"},
+        context,
+        idempotency_key="durable-run:1:0",
+    )
+    checkpoint = TurnCheckpoint(
+        run_id="durable-run",
+        turn=0,
+        messages=MESSAGES,
+        token_usage=TokenUsage(),
+        created_at=datetime.now(UTC),
+    )
+    adapter = FakeAdapter(
+        responses=[
+            FakeResponse(tool_calls=(("publish", {"value": "post"}),)),
+            FakeResponse(text="finished"),
+        ]
+    )
+    runner = AgentRunner(
+        adapter,
+        registry,
+        ToolExecutor(registry, idempotency_store=store),
+        RunnerOptions(model="fake", agent_name="t", max_turns=3),
+        resume_from=checkpoint,
+    )
+
+    result = await runner.run([])
+
+    assert first.data == "published"
+    assert result.output == "finished"
+    assert calls == 1
 
 
 async def test_stream_failure_falls_back_to_chat() -> None:

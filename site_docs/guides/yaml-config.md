@@ -25,6 +25,7 @@ A config is a single YAML document with a small set of top-level keys. You add o
 | `shared_memory` | Share memory across agents on the team. |
 | `max_concurrency` | Cap how many agents run at once. |
 | `provider_resilience` | Provider concurrency, request pacing, retry, deadline, and circuit settings. |
+| `tool_idempotency` | Process-local or restart-safe claims for side-effecting tools. |
 | `cost` | Spend budget and overspend behavior. |
 | `routing` | Model routing across providers and models. |
 | `verification` | Quality-gate sensors that run at defined phases. |
@@ -131,6 +132,11 @@ provider_resilience:
   requests_per_minute: 120
   capacity_scope: shared-production-key
   capacity_wait_timeout_seconds: 30
+
+tool_idempotency:
+  backend: sqlite
+  path: .anycode/tool-idempotency.db
+  redact_sensitive_data: true
 ```
 
 The keys above map to the controls you tune most often:
@@ -149,6 +155,8 @@ The keys above map to the controls you tune most often:
 | `provider_resilience` | `requests_per_minute` | Evenly paced request starts; every retry counts. |
 | `provider_resilience` | `capacity_scope` | Quota identity shared by adapters; use separate values for separate API-key quotas. |
 | `provider_resilience` | `capacity_wait_timeout_seconds` | Queue wait before the call is load-shed. |
+| `tool_idempotency` | `backend` | `memory` for one process or `sqlite` for restart-safe claims. |
+| `tool_idempotency` | `path` | SQLite database path when the persistent backend is selected. |
 
 For the full catalog of budgets, gates, and durable-run controls, see [Production Controls](production-controls.md).
 
