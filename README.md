@@ -12,7 +12,7 @@
 
 > Developed and maintained by [Quantlix](https://github.com/Quantlix).
 
-> **Active development warning:** AnyCode is an alpha-stage framework under active development. APIs, defaults, runtime behavior, and configuration formats may change between releases. It is not meant to be used for production systems yet, especially systems that handle sensitive data, irreversible actions, customer workloads, or critical infrastructure.
+> **Alpha status and production boundary:** AnyCode is under active development. Supported top-level APIs and persisted formats have explicit compatibility contracts, but pre-1.0 minor releases may require migration. Production use is workload-specific: bounded deployments are eligible only after the [production readiness checklist](https://quantlix.github.io/anycode/latest/guides/production-readiness/) passes and the operator supplies host and network isolation, identity, durable storage, secrets management, monitoring, and incident controls. Direct safety-critical, critical-infrastructure, or unrestricted irreversible use is a no-go.
 
 AnyCode is a Python framework for building coordinated AI agent teams. It helps developers compose autonomous LLM agents, connect them to typed tools, schedule dependent tasks, share memory, stream output, route work across providers, and inspect long-running agent workflows with explicit lifecycle and verification data.
 
@@ -30,7 +30,7 @@ The framework focuses on practical harness engineering:
 - Pydantic-validated tool calls and immutable runtime models.
 - Observability, guardrails, structured output, checkpointing, HITL approval, MCP tools, routing, cost tracking, RAG memory, and verification gates.
 
-AnyCode is built for experimentation, evaluation, local development, research prototypes, and early-stage product exploration. It is not yet a stable production platform.
+AnyCode is built for experimentation, evaluation, local development, research prototypes, and bounded automation. A pinned deployment can be eligible for production when its workload-specific controls and evidence pass the readiness review; the package alone is not a production guarantee.
 
 ## Current Package
 
@@ -434,20 +434,21 @@ The default pytest configuration excludes integration tests. Integration tests m
 
 AnyCode agents can be connected to tools that read files, write files, execute commands, call providers, and access external systems through MCP. Treat every tool-enabled agent as a privileged automation process.
 
-Recommended safeguards while the framework is alpha:
+Required safeguards for any deployment:
 
-- Run agents in disposable workspaces.
-- Scope tool access to the minimum needed tools.
+- Run tool-enabled agents as a non-root identity inside a container, VM, or equivalent isolation boundary.
+- Set explicit agent tool lists and apply `ToolSecurityPolicy` with narrow path, shell, and environment access.
 - Use fake adapters or deterministic evaluation before live model calls.
-- Keep API keys in environment variables or `.env` files that are not committed.
-- Add human approval gates for sensitive or irreversible actions.
-- Avoid production workloads until the security roadmap has landed and been independently reviewed.
+- Inject API keys from a protected secret source and keep them out of prompts, source, images, and logs.
+- Use durable idempotency plus human approval for sensitive or irreversible actions.
+- Allowlist production plugins and MCP endpoints, then enforce network egress outside the framework.
+- Review the [security and threat model](https://quantlix.github.io/anycode/latest/reference/security/) and complete the [production readiness checklist](https://quantlix.github.io/anycode/latest/guides/production-readiness/).
 
 ## FAQ
 
 ### Is AnyCode production ready?
 
-No. AnyCode is under active development and currently marked alpha. It includes production-oriented ideas such as telemetry, guardrails, checkpoints, approvals, and quality gates, but the project is not meant for production use yet.
+Production readiness is workload-specific. AnyCode remains alpha, but a pinned release can support bounded, reversible, operator-monitored workloads when every mandatory readiness control passes. Customer-facing, multi-tenant, sensitive-data, or irreversible workflows require stronger application-owned isolation, authorization, storage, and operations. Direct safety-critical control, critical infrastructure control, and autonomous high-impact decisions are no-go uses for AnyCode as the sole decision or control system.
 
 ### What makes AnyCode different from a single-agent loop?
 

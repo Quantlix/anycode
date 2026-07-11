@@ -108,6 +108,10 @@ How-to guides are **task-oriented**: each one solves a specific problem and assu
 
     [:octicons-arrow-right-24: Production controls](production-controls.md)
 
+-   **Production readiness** — decide go or no-go with evidence.
+
+    [:octicons-arrow-right-24: Readiness checklist](production-readiness.md)
+
 </div>
 
 ## Integrate and extend

@@ -10,8 +10,8 @@ AnyCode is an async-first orchestration layer that coordinates LLM agents, tools
 
 A single model call answers a single prompt. Real work usually needs several: a plan, an implementation, a review, and a check that the result holds up. AnyCode treats that as an explicit graph of agents and tasks instead of a chain of hand-wired prompts, so you can see where work is, why each step ran, and what it cost. This page maps the pieces of that runtime and how they connect.
 
-!!! warning "Alpha, and moving"
-    AnyCode is alpha software. APIs, defaults, and configuration formats can change between releases. It is built for prototypes, evaluation harnesses, and research, not yet for production workloads.
+!!! warning "Alpha with workload-specific readiness"
+    AnyCode remains alpha software. Supported public APIs and persisted formats have explicit compatibility contracts, while pre-1.0 minor releases may require migration. Bounded production deployments are eligible only after the [readiness checklist](../guides/production-readiness.md) passes; critical or unrestricted autonomous workloads remain outside the supported boundary.
 
 ## The AnyCode Runtime Model
 

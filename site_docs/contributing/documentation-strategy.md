@@ -25,7 +25,7 @@ The stack is **MkDocs Material** with Markdown source under `site_docs/`, publis
 | Analytics | Google, via `GOOGLE_ANALYTICS_KEY` | Configured |
 
 !!! note "Alpha honesty"
-    AnyCode is alpha-stage. Docs should say so plainly and steer readers toward experiments, prototypes, and evaluation harnesses unless a maintainer has confirmed production readiness for a specific workload.
+    AnyCode is alpha-stage. Docs should say so plainly and describe production readiness as a workload-specific decision backed by the threat model, mandatory checklist, and release evidence. Never turn runtime controls into a general production guarantee.
 
 ## Tooling decision
 

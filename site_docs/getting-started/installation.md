@@ -11,7 +11,7 @@ Install AnyCode in any Python 3.12+ project with a single command — `uv add an
 AnyCode ships as the `anycode-py` distribution on PyPI and imports as the `anycode` package. The core install stays deliberately light: provider SDKs, persistence backends, the CLI, and MCP support are opt-in [extras](#optional-extras) you add only when a workflow needs them.
 
 !!! info "Alpha software"
-    AnyCode is an alpha-stage framework under active development. APIs, defaults, and configuration formats can change between releases. It is well suited to prototypes, evaluation harnesses, and research — not yet to production workloads.
+    AnyCode is an alpha-stage framework under active development. Pin the exact version and follow the documented compatibility contract. Production eligibility is workload-specific and requires the [readiness checklist](../guides/production-readiness.md); installing the package does not supply host isolation, identity, storage protection, or operations.
 
 ## Requirements
 

@@ -6,12 +6,12 @@ keywords: AnyCode production controls, cost budgets, token budgets, HITL approva
 
 # Production Controls
 
-Add cost budgets, human approval gates, verification gates, and durable checkpoints to your AnyCode workflows so prototypes behave more like production systems — with limits, audit trails, and resumable state.
+Add cost budgets, human approval gates, verification gates, and durable checkpoints to AnyCode workflows that need limits, audit trails, and resumable state.
 
-AnyCode is alpha-stage software, so treat these as production-*oriented* controls, not a production guarantee. They exist so you can test production-like behavior in prototypes and internal tools: cap spend, require a human on sensitive steps, gate output on real quality checks, and resume long runs after a failure instead of paying to redo finished work.
+AnyCode remains alpha-stage software. These controls are building blocks for bounded production deployments, but they do not supply operating-system isolation, network policy, identity, key management, or incident response. Production eligibility depends on the complete workload and operating environment.
 
-!!! warning "Production-oriented, not production-ready"
-    These controls harden a run, but AnyCode is not yet meant for production systems — especially those handling sensitive data, irreversible actions, or customer workloads. Keep agents in disposable workspaces and scope tool access tightly.
+!!! warning "Necessary, not sufficient"
+    These controls harden a run, but the package alone is not a production boundary. Review the [security and threat model](../reference/security.md), then require every applicable item in the [production readiness checklist](production-readiness.md) before release.
 
 ## What production controls does AnyCode ship?
 
@@ -223,6 +223,8 @@ Because results are structured, you can turn any run into a test assertion or a 
 
 ## Next steps
 
+- [Production readiness checklist](production-readiness.md) — make a workload-specific go or no-go decision.
+- [Security and threat model](../reference/security.md) — review trust boundaries, enforced invariants, and residual risks.
 - [Use YAML Config](yaml-config.md) — declare budgets, routing, and verification gates in one file.
 - [Run a Multi-Agent Team](multi-agent-team.md) — the team runtime these controls wrap around.
 - [CLI reference](../reference/cli.md) — the `anycode runs` commands for durable, resumable runs.

@@ -105,6 +105,7 @@ nav:
           - Evaluate Agents: guides/evaluation.md
           - Observability: guides/observability.md
           - Production Controls: guides/production-controls.md
+          - Production Readiness: guides/production-readiness.md
       - Integrate and Extend:
           - Connect MCP Servers: guides/mcp.md
           - Extend With Plugins: guides/plugins.md
@@ -117,6 +118,7 @@ nav:
   - Reference:
       - reference/index.md
       - Public API: reference/public-api.md
+      - Security and Threat Model: reference/security.md
       - Compatibility: reference/compatibility.md
       - Built-in Tools: reference/built-in-tools.md
       - Configuration: reference/configuration.md

@@ -34,6 +34,14 @@ Reference pages are **information-oriented**: exhaustive, accurate descriptions 
 
     [:octicons-arrow-right-24: Compatibility](compatibility.md)
 
+-   **Security and threat model**
+
+    ---
+
+    Trust boundaries, enforced invariants, residual risks, and operator-owned controls.
+
+    [:octicons-arrow-right-24: Security model](security.md)
+
 -   **Configuration**
 
     ---
