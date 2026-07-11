@@ -2259,6 +2259,8 @@
       
         
       
+        
+      
     
     
     
@@ -2331,6 +2333,34 @@
     
   
     Public API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
   
 
     
@@ -2903,13 +2933,14 @@
 
 
 <h1 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h1>
-<p>The engine accepts <code>AnyCode(config=...)</code> as an <code>OrchestratorConfig</code>, a plain <code>dict</code> (validated into one), or <code>None</code>. All configuration models are frozen Pydantic models — invalid keys or values raise a <code>ValidationError</code> at construction, not at run time.</p>
+<p>The engine accepts <code>AnyCode(config=...)</code> as an <code>OrchestratorConfig</code>, a plain <code>dict</code> (validated into one), or <code>None</code>. All configuration models are frozen Pydantic models; invalid values raise a <code>ValidationError</code> at construction, not at run time.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnyCode</span><span class="p">,</span> <span class="n">OrchestratorConfig</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">AnyCode</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;max_concurrency&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;default_provider&quot;</span><span class="p">:</span> <span class="s2">&quot;anthropic&quot;</span><span class="p">})</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># equivalent:</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">AnyCode</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">OrchestratorConfig</span><span class="p">(</span><span class="n">max_concurrency</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">default_provider</span><span class="o">=</span><span class="s2">&quot;anthropic&quot;</span><span class="p">))</span>
 </span></code></pre></div>
+<p>Declarative YAML and TOML files use <code>format_version: 1</code>; an absent marker is treated as legacy v1. The file loader rejects future format versions and unknown fields instead of discarding them. Programmatic Pydantic construction retains its existing behavior. See <a href="../compatibility/">Compatibility and versioning</a> for upgrade and rollback rules.</p>
 <h2 id="orchestratorconfig"><code>OrchestratorConfig</code><a class="headerlink" href="#orchestratorconfig" title="Permanent link">&para;</a></h2>
 <h3 id="core">Core<a class="headerlink" href="#core" title="Permanent link">&para;</a></h3>
 <table>

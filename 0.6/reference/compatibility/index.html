@@ -6,19 +6,19 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Contribute to the AnyCode docs — run the MkDocs Material site with uv, add pages and nav, write SEO frontmatter, and ship versioned pages with mike and CI.">
+        <meta name="description" content="Understand AnyCode public API stability, declarative config versions, checkpoint compatibility, durable run formats, and safe upgrade or rollback procedures.">
       
       
         <meta name="author" content="Quantlix">
       
       
-        <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/contributing/docs-guide/">
+        <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/reference/compatibility/">
       
       
-        <link rel="prev" href="../../reference/cli/">
+        <link rel="prev" href="../public-api/">
       
       
-        <link rel="next" href="../documentation-strategy/">
+        <link rel="next" href="../built-in-tools/">
       
       
         
@@ -33,7 +33,7 @@
     
     
       
-        <title>Contributing to AnyCode Docs — MkDocs Material Guide - AnyCode</title>
+        <title>AnyCode Compatibility and Versioning Policy - AnyCode</title>
       
     
     
@@ -93,19 +93,19 @@
   <meta name="apple-mobile-web-app-title" content="AnyCode">
   <meta name="generator" content="AnyCode Docs">
   
-  <meta name="keywords" content="anycode documentation, contribute mkdocs material, versioned docs mike, mkdocstrings python, docs frontmatter seo, mkdocs admonitions tabs mermaid">
+  <meta name="keywords" content="AnyCode compatibility, semantic versioning, public API stability, config format version, checkpoint migration, run store schema">
   
-  <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/contributing/docs-guide/">
+  <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/reference/compatibility/">
 
   <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AnyCode">
   <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Contributing to AnyCode Docs — MkDocs Material Guide">
-  <meta property="og:description" content="Contribute to the AnyCode docs — run the MkDocs Material site with uv, add pages and nav, write SEO frontmatter, and ship versioned pages with mike and CI.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.6/contributing/docs-guide/">
-  <meta name="twitter:title" content="Contributing to AnyCode Docs — MkDocs Material Guide">
-  <meta name="twitter:description" content="Contribute to the AnyCode docs — run the MkDocs Material site with uv, add pages and nav, write SEO frontmatter, and ship versioned pages with mike and CI.">
+  <meta property="og:title" content="AnyCode Compatibility and Versioning Policy">
+  <meta property="og:description" content="Understand AnyCode public API stability, declarative config versions, checkpoint compatibility, durable run formats, and safe upgrade or rollback procedures.">
+  <meta property="og:url" content="https://quantlix.github.io/anycode/0.6/reference/compatibility/">
+  <meta name="twitter:title" content="AnyCode Compatibility and Versioning Policy">
+  <meta name="twitter:description" content="Understand AnyCode public API stability, declarative config versions, checkpoint compatibility, durable run formats, and safe upgrade or rollback procedures.">
 
   <script type="application/ld+json">
   {
@@ -145,9 +145,9 @@
       },
       {
         "@type": "TechArticle",
-        "headline": "Contributing to AnyCode Docs \u2014 MkDocs Material Guide",
-        "description": "Contribute to the AnyCode docs \u2014 run the MkDocs Material site with uv, add pages and nav, write SEO frontmatter, and ship versioned pages with mike and CI.",
-        "url": "https://quantlix.github.io/anycode/0.6/contributing/docs-guide/",
+        "headline": "AnyCode Compatibility and Versioning Policy",
+        "description": "Understand AnyCode public API stability, declarative config versions, checkpoint compatibility, durable run formats, and safe upgrade or rollback procedures.",
+        "url": "https://quantlix.github.io/anycode/0.6/reference/compatibility/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.6#website" },
         "author": { "@id": "https://quantlix.github.io/anycode/0.6#org" },
@@ -159,17 +159,17 @@
 
   
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Contributing to AnyCode Docs — MkDocs Material Guide - AnyCode" />
-<meta property="og:description" content="Contribute to the AnyCode docs — run the MkDocs Material site with uv, add pages and nav, write SEO frontmatter, and ship versioned pages with mike and CI." />
-<meta property="og:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/contributing/docs-guide.png" />
+<meta property="og:title" content="AnyCode Compatibility and Versioning Policy - AnyCode" />
+<meta property="og:description" content="Understand AnyCode public API stability, declarative config versions, checkpoint compatibility, durable run formats, and safe upgrade or rollback procedures." />
+<meta property="og:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/reference/compatibility.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:url" content="https://quantlix.github.io/anycode/0.6/contributing/docs-guide/" />
+<meta property="og:url" content="https://quantlix.github.io/anycode/0.6/reference/compatibility/" />
 <meta property="twitter:card" content="summary_large_image" />
-<meta property="twitter:title" content="Contributing to AnyCode Docs — MkDocs Material Guide - AnyCode" />
-<meta property="twitter:description" content="Contribute to the AnyCode docs — run the MkDocs Material site with uv, add pages and nav, write SEO frontmatter, and ship versioned pages with mike and CI." />
-<meta property="twitter:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/contributing/docs-guide.png" />
+<meta property="twitter:title" content="AnyCode Compatibility and Versioning Policy - AnyCode" />
+<meta property="twitter:description" content="Understand AnyCode public API stability, declarative config versions, checkpoint compatibility, durable run formats, and safe upgrade or rollback procedures." />
+<meta property="twitter:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/reference/compatibility.png" />
 </head>
   
   
@@ -189,7 +189,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#contributing-to-anycode-documentation" class="md-skip">
+        <a href="#compatibility-and-versioning" class="md-skip">
           Skip to content
         </a>
       
@@ -252,7 +252,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Contributing to AnyCode Docs — MkDocs Material Guide
+              AnyCode Compatibility and Versioning Policy
             
           </span>
         </div>
@@ -483,11 +483,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../reference/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -505,13 +507,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../contributing/docs-guide/" class="md-tabs__link">
           
   
   
@@ -2240,6 +2240,8 @@
       
   
   
+    
+  
   
   
     
@@ -2263,20 +2265,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../reference/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -2294,13 +2299,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2320,7 +2325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/public-api/" class="md-nav__link">
+      <a href="../public-api/" class="md-nav__link">
         
   
   
@@ -2345,10 +2350,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../reference/compatibility/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2364,6 +2396,94 @@
   
 
       </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#python-api-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python API contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#declarative-config-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declarative config contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#persisted-schema-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persisted schema contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-procedure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade procedure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rollback-procedure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rollback procedure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2376,7 +2496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/built-in-tools/" class="md-nav__link">
+      <a href="../built-in-tools/" class="md-nav__link">
         
   
   
@@ -2404,7 +2524,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   
@@ -2432,7 +2552,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/" class="md-nav__link">
+      <a href="../cli/" class="md-nav__link">
         
   
   
@@ -2464,10 +2584,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -2479,22 +2597,19 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -2512,7 +2627,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2527,37 +2642,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Documentation Guide
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../contributing/docs-guide/" class="md-nav__link">
         
   
   
@@ -2573,227 +2661,6 @@
   
 
       </a>
-      
-        
-
-  
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-docs-stack-at-a-glance" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The docs stack at a glance
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#run-the-docs-locally" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Run the docs locally
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#choose-the-right-page-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Choose the right page type
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#add-a-new-page" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Add a new page
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Add a new page">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#frontmatter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Frontmatter
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#write-rich-content" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Write rich content
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Write rich content">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#admonitions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Admonitions
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#content-tabs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Content tabs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#diagrams" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Diagrams
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#code-blocks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code blocks
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#api-reference-with-mkdocstrings" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API reference with mkdocstrings
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#seo-and-agent-visibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SEO and agent visibility
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#versioning-and-deployment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Versioning and deployment
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#language-switcher-python-typescript" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Language switcher (Python / TypeScript)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#where-assets-and-overrides-live" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Where assets and overrides live
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pre-pr-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pre-PR checklist
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next steps
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2806,7 +2673,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../documentation-strategy/" class="md-nav__link">
+      <a href="../../contributing/documentation-strategy/" class="md-nav__link">
         
   
   
@@ -2863,10 +2730,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-docs-stack-at-a-glance" class="md-nav__link">
+  <a href="#python-api-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The docs stack at a glance
+        Python API contract
       
     </span>
   </a>
@@ -2874,10 +2741,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#run-the-docs-locally" class="md-nav__link">
+  <a href="#declarative-config-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Run the docs locally
+        Declarative config contract
       
     </span>
   </a>
@@ -2885,10 +2752,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#choose-the-right-page-type" class="md-nav__link">
+  <a href="#persisted-schema-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Choose the right page type
+        Persisted schema contract
       
     </span>
   </a>
@@ -2896,110 +2763,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#add-a-new-page" class="md-nav__link">
+  <a href="#upgrade-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Add a new page
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Add a new page">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#frontmatter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Frontmatter
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#write-rich-content" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Write rich content
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Write rich content">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#admonitions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Admonitions
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#content-tabs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Content tabs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#diagrams" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Diagrams
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#code-blocks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code blocks
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#api-reference-with-mkdocstrings" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API reference with mkdocstrings
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#seo-and-agent-visibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SEO and agent visibility
+        Upgrade procedure
       
     </span>
   </a>
@@ -3007,10 +2774,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#versioning-and-deployment" class="md-nav__link">
+  <a href="#rollback-procedure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Versioning and deployment
+        Rollback procedure
       
     </span>
   </a>
@@ -3018,43 +2785,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#language-switcher-python-typescript" class="md-nav__link">
+  <a href="#release-checklist" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Language switcher (Python / TypeScript)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#where-assets-and-overrides-live" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Where assets and overrides live
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pre-pr-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pre-PR checklist
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next steps
+        Release checklist
       
     </span>
   </a>
@@ -3104,10 +2838,10 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Contributing
+    Reference
   </span>
 
         </a>
@@ -3126,7 +2860,7 @@
 
 
   
-    <a href="https://github.com/Quantlix/anycode/edit/main/site_docs/contributing/docs-guide.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Quantlix/anycode/edit/main/site_docs/reference/compatibility.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -3135,280 +2869,95 @@
     
       
     
-    <a href="https://github.com/Quantlix/anycode/raw/main/site_docs/contributing/docs-guide.md" title="View source of this page" class="md-content__button md-icon">
+    <a href="https://github.com/Quantlix/anycode/raw/main/site_docs/reference/compatibility.md" title="View source of this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5 5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"/></svg>
     </a>
   
 
 
-<h1 id="contributing-to-anycode-documentation">Contributing to AnyCode Documentation<a class="headerlink" href="#contributing-to-anycode-documentation" title="Permanent link">&para;</a></h1>
-<p>This guide shows you how to write, preview, and ship changes to the AnyCode documentation so that every page reads well for developers, ranks in search, and stays useful to coding agents.</p>
-<p>The docs live in Markdown under <code>site_docs/</code>, build with <strong>MkDocs Material</strong>, and deploy to <strong>GitHub Pages</strong> as a versioned site. You never need a Node toolchain — everything runs through <code>uv</code> and Python.</p>
-<h2 id="the-docs-stack-at-a-glance">The docs stack at a glance<a class="headerlink" href="#the-docs-stack-at-a-glance" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Piece</th>
-<th>What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>MkDocs Material</strong></td>
-<td>Static site generator + theme (search, nav tabs, dark mode, code copy).</td>
-</tr>
-<tr>
-<td><strong>mkdocstrings</strong></td>
-<td>Generates the Python API reference from docstrings in <code>src/</code>.</td>
-</tr>
-<tr>
-<td><strong>mike</strong></td>
-<td>Publishes each release as a selectable version with a <code>latest</code> alias.</td>
-</tr>
-<tr>
-<td><strong>social plugin</strong></td>
-<td>Renders Open Graph card images (CI only — needs Cairo system libs).</td>
-</tr>
-<tr>
-<td><strong><code>overrides/main.html</code></strong></td>
-<td>Injects JSON-LD structured data, the canonical URL, and robots meta.</td>
-</tr>
-<tr>
-<td><strong><code>overrides/home.html</code></strong></td>
-<td>The custom hero used by the landing page (<code>index.md</code>).</td>
-</tr>
-<tr>
-<td><strong><code>stylesheets/extra.css</code></strong></td>
-<td>The indigo/violet brand theme (Inter + JetBrains Mono).</td>
-</tr>
-</tbody>
-</table>
-<h2 id="run-the-docs-locally">Run the docs locally<a class="headerlink" href="#run-the-docs-locally" title="Permanent link">&para;</a></h2>
-<p>Install the docs toolchain (it lives in the project's <code>dev</code> dependency group) and start the live-reload server:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--group<span class="w"> </span>dev
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>mkdocs<span class="w"> </span>serve
+<h1 id="compatibility-and-versioning">Compatibility and Versioning<a class="headerlink" href="#compatibility-and-versioning" title="Permanent link">&para;</a></h1>
+<p>AnyCode treats top-level Python imports, declarative config files, workflow checkpoints, and durable run artifacts as separate compatibility contracts. Each contract has an explicit boundary and upgrade rule so a newer writer cannot be mistaken for data an older runtime understands.</p>
+<h2 id="python-api-contract">Python API contract<a class="headerlink" href="#python-api-contract" title="Permanent link">&para;</a></h2>
+<p>Imports declared by <code>anycode.__all__</code> are the supported Python API. Prefer:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentConfig</span><span class="p">,</span> <span class="n">AnyCode</span><span class="p">,</span> <span class="n">ToolRegistry</span>
 </span></code></pre></div>
-<p>Open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>. The server watches <code>site_docs/</code>, <code>src/</code>, and <code>overrides/</code>, so edits to pages, docstrings, and templates all reload automatically.</p>
-<p>Before you open a pull request, run the same <strong>strict</strong> build that CI runs:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
-</span></code></pre></div>
-<p>Strict mode fails on broken internal links, snippet errors, and pages that are missing from the nav — fix every warning before pushing.</p>
-<div class="admonition tip">
-<p class="admonition-title">Social cards stay off locally</p>
-<p>The <code>social</code> plugin is enabled only when <code>CI=true</code> because it needs Cairo imaging libraries. Local <code>serve</code> and <code>build</code> skip card generation, which is expected — CI generates the cards for the published site.</p>
-</div>
-<p>If your change also touches docstrings or anything under <code>src/</code> (the API reference reads from there), run the repository gate too:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>src/<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>--check<span class="w"> </span>src/<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>pyright<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest
-</span></code></pre></div>
-<h2 id="choose-the-right-page-type">Choose the right page type<a class="headerlink" href="#choose-the-right-page-type" title="Permanent link">&para;</a></h2>
-<p>AnyCode follows the <a href="https://diataxis.fr/">Diátaxis</a> model. Pick the type that matches the reader's job, and don't blend all four into one page.</p>
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>Reader need</th>
-<th>Good fit</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Tutorial</td>
-<td>Learn by doing</td>
-<td>Quickstart and first workflow</td>
-</tr>
-<tr>
-<td>How-to guide</td>
-<td>Complete a concrete task</td>
-<td>Add tools, use YAML config, enable gates</td>
-</tr>
-<tr>
-<td>Reference</td>
-<td>Look up exact behavior</td>
-<td>Public API and CLI commands</td>
-</tr>
-<tr>
-<td>Explanation</td>
-<td>Understand the model</td>
-<td>Orchestrator, teams, scheduling, context</td>
-</tr>
-</tbody>
-</table>
-<p>A quickstart should keep moving; a reference page should be predictable. Keeping the types distinct also makes each section cleaner for search engines and agents to retrieve.</p>
-<h2 id="add-a-new-page">Add a new page<a class="headerlink" href="#add-a-new-page" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Create the Markdown file</strong> in the section folder that fits its type, for example <code>site_docs/guides/my-topic.md</code>.</li>
-<li>
-<p><strong>Register it in the nav.</strong> Open <code>mkdocs.yml</code> and add an entry under the right section:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">nav</span><span class="p">:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Guides</span><span class="p">:</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Run a Multi-Agent Team</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guides/multi-agent-team.md</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">My Topic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guides/my-topic.md</span><span class="w">   </span><span class="c1"># new</span>
-</span></code></pre></div>
-</li>
-<li>
-<p><strong>Add frontmatter</strong> (see below), then write the body starting with a single H1.</p>
-</li>
-<li><strong>Rebuild strictly</strong> — a page left out of the nav fails the <code>--strict</code> build.</li>
-</ol>
-<h3 id="frontmatter">Frontmatter<a class="headerlink" href="#frontmatter" title="Permanent link">&para;</a></h3>
-<p>Every page starts with a YAML block. Use it to drive titles, snippets, and metadata:</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Required</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>title</code></td>
-<td>Recommended</td>
-<td>Sets the <code>&lt;title&gt;</code>, the JSON-LD headline, and the browser tab. Include a target keyword and "AnyCode". Falls back to the H1 if omitted.</td>
-</tr>
-<tr>
-<td><code>description</code></td>
-<td><strong>Yes</strong></td>
-<td>The meta description and search snippet. Keep it to <strong>150–160 characters</strong>, plain language, no keyword stuffing.</td>
-</tr>
-<tr>
-<td><code>keywords</code></td>
-<td>Optional</td>
-<td>Injected as <code>&lt;meta name="keywords"&gt;</code> by <code>overrides/main.html</code>. A short, comma-separated list.</td>
-</tr>
-</tbody>
-</table>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nn">---</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Run</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">Multi-Agent</span><span class="nv"> </span><span class="s">Team</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">AnyCode&quot;</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Build a planner, builder, and reviewer team in AnyCode with dependency-aware tasks, shared memory, and typed results in a few dozen lines of Python.</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nt">keywords</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">multi-agent team python, agent task graph, dependency-aware scheduling, shared memory agents</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nn">---</span>
-</span></code></pre></div>
-<h2 id="write-rich-content">Write rich content<a class="headerlink" href="#write-rich-content" title="Permanent link">&para;</a></h2>
-<p>Material and the enabled <code>pymdownx</code> extensions give you the building blocks below. Prefer these native features over raw HTML.</p>
-<h3 id="admonitions">Admonitions<a class="headerlink" href="#admonitions" title="Permanent link">&para;</a></h3>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>!!! note &quot;Optional title&quot;
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    Callout body. Also available: tip, warning, danger, example.
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>??? note &quot;Collapsed by default&quot;
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    Use <span class="sb">`???`</span> for a collapsible block.
-</span></code></pre></div>
-<h3 id="content-tabs">Content tabs<a class="headerlink" href="#content-tabs" title="Permanent link">&para;</a></h3>
-<p>Tabs are ideal for install options or provider variants. <code>content.tabs.link</code> keeps the reader's choice in sync across the page.</p>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>=== &quot;uv&quot;
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="sb">    ```bash</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span>uv<span class="w"> </span>add<span class="w"> </span>anycode-py
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="sb">    ```</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>=== &quot;pip&quot;
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="sb">    ```bash</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span>pip<span class="w"> </span>install<span class="w"> </span>anycode-py
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="sb">    ```</span>
-</span></code></pre></div>
-<h3 id="diagrams">Diagrams<a class="headerlink" href="#diagrams" title="Permanent link">&para;</a></h3>
-<p>Fenced <code>mermaid</code> blocks render natively — no extra plugin:</p>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="sb">```mermaid</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="s">graph LR</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="s">  Planner --&gt; Builder --&gt; Reviewer</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="sb">```</span>
-</span></code></pre></div>
-<h3 id="code-blocks">Code blocks<a class="headerlink" href="#code-blocks" title="Permanent link">&para;</a></h3>
-<p>Fenced code gets a copy button automatically. Use language hints for highlighting and <code># (1)!</code> markers for annotations:</p>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="sb">```python</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">AnyCode</span><span class="p">(</span><span class="n">max_concurrency</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>  <span class="c1"># (1)!</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="sb">```</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">1.</span> Cap how many agents run at once.
-</span></code></pre></div>
-<h3 id="api-reference-with-mkdocstrings">API reference with mkdocstrings<a class="headerlink" href="#api-reference-with-mkdocstrings" title="Permanent link">&para;</a></h3>
-<p>Pull documentation straight from source docstrings with a <code>:::</code> directive. The Python handler reads from <code>src/</code>, so keep Google-style docstrings accurate:</p>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>::: anycode.AnyCode
-</span></code></pre></div>
-<h2 id="seo-and-agent-visibility">SEO and agent visibility<a class="headerlink" href="#seo-and-agent-visibility" title="Permanent link">&para;</a></h2>
-<p>Good structure does most of the SEO work here — the theme handles the rest automatically.</p>
-<ul>
-<li>Put the primary query or task in the H1 <strong>and</strong> the opening sentence.</li>
-<li>Give every page a plain-language <code>description</code>; use descriptive URLs and stable headings.</li>
-<li>Keep sections self-contained with copyable commands so agents can retrieve them cleanly.</li>
-<li>Link related pages together with descriptive anchor text.</li>
-</ul>
-<p>You do <strong>not</strong> hand-write meta tags. <code>overrides/main.html</code> injects the canonical URL, robots directives, and JSON-LD (<code>WebSite</code>, <code>Organization</code>, <code>SoftwareSourceCode</code>, and a per-page <code>TechArticle</code>), while Material emits Open Graph and Twitter cards.</p>
+<p>Internal paths such as <code>anycode.core.runner</code> and private names beginning with <code>_</code> are implementation details. They can change without a compatibility guarantee.</p>
+<p>The v0.6 top-level API is protected by an additive compatibility baseline in CI. Patch releases may add exports, optional parameters, model fields with defaults, and new enum or literal values. They do not remove a baseline export or make an existing call require a new argument.</p>
+<p>Before 1.0, an intentional breaking API change requires a minor version bump and migration notes. After 1.0, it requires a major version bump. Deprecation warnings should precede removal when a practical transition path exists.</p>
 <div class="admonition note">
-<p class="admonition-title">Keep <code>/llms.txt</code> current</p>
-<p><code>site_docs/llms.txt</code> is the curated entry point for coding agents and points at the <code>latest</code> alias. When you add, rename, or move an important page, update its link there in the same pull request.</p>
+<p class="admonition-title">Typed models can grow</p>
+<p>Result and configuration models may gain fields with defaults in a compatible release. Match fields by name, avoid positional construction, and ignore fields your application does not consume when serializing models across service boundaries.</p>
 </div>
-<h2 id="versioning-and-deployment">Versioning and deployment<a class="headerlink" href="#versioning-and-deployment" title="Permanent link">&para;</a></h2>
-<p>The site is <strong>versioned with <code>mike</code></strong>. Published URLs carry the version (for example <code>…/anycode/latest/</code> or <code>…/anycode/0.6/</code>), and readers switch releases from the version dropdown in the header.</p>
-<p>You almost never run <code>mike</code> by hand — CI (<code>.github/workflows/docs.yml</code>) does the work:</p>
-<ul>
-<li><strong>On pull requests</strong> — the <code>validate</code> job installs the Cairo imaging libraries and runs <code>uv run python -m mkdocs build --strict</code> with <code>CI=true</code>, so broken links, missing nav entries, and social-card errors all block the merge.</li>
-<li><strong>On push to <code>main</code> or a <code>v*</code> tag</strong> — the <code>deploy</code> job resolves the version from <code>pyproject.toml</code>, then runs <code>uv run mike deploy --push --update-aliases &lt;minor&gt; latest --title &lt;full&gt;</code> followed by <code>uv run mike set-default --push latest</code>, publishing to the <code>gh-pages</code> branch that GitHub Pages serves.</li>
-</ul>
-<p>To preview the versioned experience locally (optional), use <code>uv run mike serve</code>.</p>
-<h2 id="language-switcher-python-typescript">Language switcher (Python / TypeScript)<a class="headerlink" href="#language-switcher-python-typescript" title="Permanent link">&para;</a></h2>
-<p>The header includes a <strong>Python / TypeScript</strong> language dropdown, configured under <code>extra.alternate</code> in <code>mkdocs.yml</code>. Python is the live SDK; the TypeScript SDK is planned, and its placeholder page lives at <a href="../../typescript/"><code>../typescript/index.md</code></a>. When the TypeScript docs land, mirror the Python page paths so the switcher lines up.</p>
-<h2 id="where-assets-and-overrides-live">Where assets and overrides live<a class="headerlink" href="#where-assets-and-overrides-live" title="Permanent link">&para;</a></h2>
+<h2 id="declarative-config-contract">Declarative config contract<a class="headerlink" href="#declarative-config-contract" title="Permanent link">&para;</a></h2>
+<p>YAML and TOML team files use config format v1. Add the marker to newly maintained files:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">format_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production-team</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">agents</span><span class="p">:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">worker</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpt-4o-mini</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openai</span>
+</span></code></pre></div>
+<p>Files without <code>format_version</code> are treated as legacy v1 files. A runtime rejects versions outside its supported range with <code>UnsupportedConfigVersionError</code>. It also rejects unknown root, agent, task, and nested configuration fields with <code>UnknownConfigFieldError</code> instead of silently discarding a typo or a field written for a newer runtime.</p>
+<p>Adding an optional field does not require a format bump. A bump is required when the same document could otherwise receive a different meaning, when a required field cannot be defaulted safely, or when a field is removed or renamed. AnyCode does not guess at those migrations.</p>
+<h2 id="persisted-schema-contract">Persisted schema contract<a class="headerlink" href="#persisted-schema-contract" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Path</th>
-<th>What it holds</th>
+<th>Artifact</th>
+<th>Writes</th>
+<th>Reads</th>
+<th>Missing version</th>
+<th>Future version</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>site_docs/</code></td>
-<td>All Markdown source (<code>docs_dir</code>).</td>
+<td>Declarative YAML/TOML</td>
+<td>v1</td>
+<td>v1</td>
+<td>Treated as v1</td>
+<td><code>UnsupportedConfigVersionError</code></td>
 </tr>
 <tr>
-<td><code>site_docs/assets/</code></td>
-<td><code>logo.svg</code>, <code>favicon.svg</code>, and images.</td>
+<td>Workflow checkpoint</td>
+<td>v2</td>
+<td>v1-v2</td>
+<td>Treated as v1</td>
+<td><code>UnsupportedCheckpointVersionError</code></td>
 </tr>
 <tr>
-<td><code>site_docs/stylesheets/extra.css</code></td>
-<td>Brand theme (indigo/violet, Inter + JetBrains Mono, hero, nav).</td>
-</tr>
-<tr>
-<td><code>site_docs/llms.txt</code></td>
-<td>Agent-facing index, served at the site root.</td>
-</tr>
-<tr>
-<td><code>site_docs/robots.txt</code></td>
-<td>Crawler rules and the sitemap pointer.</td>
-</tr>
-<tr>
-<td><code>overrides/main.html</code></td>
-<td>JSON-LD, canonical + robots meta, and the alpha announce banner.</td>
-</tr>
-<tr>
-<td><code>overrides/home.html</code></td>
-<td>The custom landing hero (used by <code>index.md</code>).</td>
-</tr>
-<tr>
-<td><code>mkdocs.yml</code></td>
-<td>Site config: nav, theme, plugins, and <code>extra</code>.</td>
-</tr>
-<tr>
-<td><code>site/</code></td>
-<td>Build output — generated, not committed.</td>
+<td>Durable run record, transcript, and turn checkpoint</td>
+<td>v1</td>
+<td>v1</td>
+<td>Treated as v1</td>
+<td><code>UnsupportedRunStoreVersionError</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="pre-pr-checklist">Pre-PR checklist<a class="headerlink" href="#pre-pr-checklist" title="Permanent link">&para;</a></h2>
-<ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> New page has <code>title</code>, a 150–160 char <code>description</code>, and (optionally) <code>keywords</code>.</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Page is registered in the <code>nav</code> in <code>mkdocs.yml</code>.</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>uv run python -m mkdocs build --strict</code> passes with no warnings.</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>/llms.txt</code> updated if you added or moved an important page.</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Docstring or <code>src/</code> changes pass the repository gate (ruff, pyright, pytest).</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Release-affecting changes update the relevant page and changelog together.</li>
-</ul>
-<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<p>Workflow checkpoint v2 added lifecycle, verification, context, retry, and terminal outcome fields. The v1 reader path supplies safe defaults for those absent fields.</p>
+<p>Durable run artifacts use one format version across run metadata, transcript events, and turn checkpoints. Protected payload envelopes have their own protector version; changing encryption or key metadata does not silently change the run schema.</p>
+<h2 id="upgrade-procedure">Upgrade procedure<a class="headerlink" href="#upgrade-procedure" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Stop new work or route it away from the instance being upgraded.</li>
+<li>Back up config, checkpoint, run-store, idempotency, and memory data.</li>
+<li>Install the target AnyCode version in a staging environment.</li>
+<li>Load representative configs and every persisted artifact type before resuming a run.</li>
+<li>Run one deterministic workflow and verify terminal status, accounting, and telemetry.</li>
+<li>Deploy readers before enabling any feature that writes a newer format.</li>
+</ol>
+<p>If a reader raises an unsupported-version exception, stop and use a controlled migration. Do not edit the version number alone; the payload shape and semantics may differ.</p>
+<h2 id="rollback-procedure">Rollback procedure<a class="headerlink" href="#rollback-procedure" title="Permanent link">&para;</a></h2>
+<p>A code rollback is safe only while the older runtime can read every artifact written since the upgrade. If the writer format changed, restore the pre-upgrade data snapshot or run a tested downgrade migration first. Keep old binaries and data backups for the full rollback window.</p>
+<h2 id="release-checklist">Release checklist<a class="headerlink" href="#release-checklist" title="Permanent link">&para;</a></h2>
+<p>A release that changes a public or persisted contract must include:</p>
 <ul>
-<li><a href="../documentation-strategy/">Documentation strategy and case studies</a></li>
-<li><a href="../../reference/public-api/">Public API reference</a></li>
-<li><a href="../../">AnyCode documentation home</a></li>
+<li>A compatible additive API update or the required semantic-version bump.</li>
+<li>An updated public API baseline when a new supported export is intentionally added.</li>
+<li>Reader tests for the oldest supported persisted format.</li>
+<li>A test that rejects the next unsupported format version.</li>
+<li>Migration and rollback notes for any incompatible schema change.</li>
+<li>Strict loading tests for new declarative config fields.</li>
 </ul>
 
 
@@ -3502,7 +3051,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../reference/cli/" class="md-footer__link md-footer__link--prev" aria-label="Previous: CLI">
+          <a href="../public-api/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Public API">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3512,20 +3061,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                CLI
+                Public API
               </div>
             </div>
           </a>
         
         
           
-          <a href="../documentation-strategy/" class="md-footer__link md-footer__link--next" aria-label="Next: Docs Strategy and Case Studies">
+          <a href="../built-in-tools/" class="md-footer__link md-footer__link--next" aria-label="Next: Built-in Tools">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Docs Strategy and Case Studies
+                Built-in Tools
               </div>
             </div>
             <div class="md-footer__button md-icon">

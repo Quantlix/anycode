@@ -18,7 +18,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../built-in-tools/">
+        <link rel="next" href="../compatibility/">
       
       
         
@@ -2257,6 +2257,8 @@
       
         
       
+        
+      
     
     
     
@@ -3027,6 +3029,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -4001,7 +4031,7 @@ keywords: AnyCode, AnyCode Python, public API, orchestrator, TaskSpec, AgentConf
 <hr />
 <h1 id="public-api">Public API<a class="headerlink" href="#public-api" title="Permanent link">&para;</a></h1>
 <p>This page is the stable, importable surface of the AnyCode Python framework, generated directly from source docstrings so signatures and fields stay in sync with the code. Use it to look up exact arguments, methods, and model attributes.</p>
-<p>Every symbol below is exported from the package root, so <code>from anycode import AnyCode, TaskSpec, AgentConfig</code> is the supported import style — treat internal submodule paths as private.</p>
+<p>Every symbol below is exported from the package root, so <code>from anycode import AnyCode, TaskSpec, AgentConfig</code> is the supported import style. Treat internal submodule paths as private. The <a href="../compatibility/">compatibility policy</a> defines additive patch releases, pre-1.0 breaking changes, and persisted-format guarantees.</p>
 <div class="admonition tip">
 <p class="admonition-title">New here? Read the concepts first</p>
 <p>This reference lists signatures, not tutorials. For how these pieces fit together, start with the <a href="../../concepts/overview/">Concepts overview</a>, then the <a href="../../guides/yaml-config/">YAML config guide</a> and <a href="../../guides/tools/">Tools guide</a>.</p>
@@ -5705,13 +5735,13 @@ states behind. Returns the run ids that were transitioned.</p>
         
         
           
-          <a href="../built-in-tools/" class="md-footer__link md-footer__link--next" aria-label="Next: Built-in Tools">
+          <a href="../compatibility/" class="md-footer__link md-footer__link--next" aria-label="Next: Compatibility">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Built-in Tools
+                Compatibility
               </div>
             </div>
             <div class="md-footer__button md-icon">
