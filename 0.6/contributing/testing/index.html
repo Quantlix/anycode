@@ -6,19 +6,19 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Persist AnyCode work with workflow checkpoints and durable runs, resume after a crash, chain calendar-scale goals with SessionChain, and wake paused runs on a schedule.">
+        <meta name="description" content="Run AnyCode quality checks, cross-platform tests, Docker-backed integration tests, optional-extra isolation, and package validation locally and in CI.">
       
       
         <meta name="author" content="Quantlix">
       
       
-        <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/guides/durability/">
+        <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/contributing/testing/">
       
       
-        <link rel="prev" href="../reflection/">
+        <link rel="prev" href="../../reference/cli/">
       
       
-        <link rel="next" href="../human-in-the-loop/">
+        <link rel="next" href="../docs-guide/">
       
       
         
@@ -33,7 +33,7 @@
     
     
       
-        <title>Checkpoint, Resume, and Schedule Durable AnyCode Runs - AnyCode</title>
+        <title>Testing and Continuous Integration - AnyCode</title>
       
     
     
@@ -93,19 +93,19 @@
   <meta name="apple-mobile-web-app-title" content="AnyCode">
   <meta name="generator" content="AnyCode Docs">
   
-  <meta name="keywords" content="anycode durability, checkpointing, durable runs, resume run, FilesystemRunStore, DurabilityConfig, CheckpointManager, SessionChain, scheduled wakeups, anycode runs cli">
+  <meta name="keywords" content="AnyCode tests, pytest, GitHub Actions, CI matrix, optional dependencies, Redis integration, ChromaDB integration">
   
-  <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/guides/durability/">
+  <link rel="canonical" href="https://quantlix.github.io/anycode/0.6/contributing/testing/">
 
   <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AnyCode">
   <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Checkpoint, Resume, and Schedule Durable AnyCode Runs">
-  <meta property="og:description" content="Persist AnyCode work with workflow checkpoints and durable runs, resume after a crash, chain calendar-scale goals with SessionChain, and wake paused runs on a schedule.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.6/guides/durability/">
-  <meta name="twitter:title" content="Checkpoint, Resume, and Schedule Durable AnyCode Runs">
-  <meta name="twitter:description" content="Persist AnyCode work with workflow checkpoints and durable runs, resume after a crash, chain calendar-scale goals with SessionChain, and wake paused runs on a schedule.">
+  <meta property="og:title" content="Testing and Continuous Integration">
+  <meta property="og:description" content="Run AnyCode quality checks, cross-platform tests, Docker-backed integration tests, optional-extra isolation, and package validation locally and in CI.">
+  <meta property="og:url" content="https://quantlix.github.io/anycode/0.6/contributing/testing/">
+  <meta name="twitter:title" content="Testing and Continuous Integration">
+  <meta name="twitter:description" content="Run AnyCode quality checks, cross-platform tests, Docker-backed integration tests, optional-extra isolation, and package validation locally and in CI.">
 
   <script type="application/ld+json">
   {
@@ -145,9 +145,9 @@
       },
       {
         "@type": "TechArticle",
-        "headline": "Checkpoint, Resume, and Schedule Durable AnyCode Runs",
-        "description": "Persist AnyCode work with workflow checkpoints and durable runs, resume after a crash, chain calendar-scale goals with SessionChain, and wake paused runs on a schedule.",
-        "url": "https://quantlix.github.io/anycode/0.6/guides/durability/",
+        "headline": "Testing and Continuous Integration",
+        "description": "Run AnyCode quality checks, cross-platform tests, Docker-backed integration tests, optional-extra isolation, and package validation locally and in CI.",
+        "url": "https://quantlix.github.io/anycode/0.6/contributing/testing/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.6#website" },
         "author": { "@id": "https://quantlix.github.io/anycode/0.6#org" },
@@ -159,17 +159,17 @@
 
   
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Checkpoint, Resume, and Schedule Durable AnyCode Runs - AnyCode" />
-<meta property="og:description" content="Persist AnyCode work with workflow checkpoints and durable runs, resume after a crash, chain calendar-scale goals with SessionChain, and wake paused runs on a schedule." />
-<meta property="og:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/guides/durability.png" />
+<meta property="og:title" content="Testing and Continuous Integration - AnyCode" />
+<meta property="og:description" content="Run AnyCode quality checks, cross-platform tests, Docker-backed integration tests, optional-extra isolation, and package validation locally and in CI." />
+<meta property="og:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/contributing/testing.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:url" content="https://quantlix.github.io/anycode/0.6/guides/durability/" />
+<meta property="og:url" content="https://quantlix.github.io/anycode/0.6/contributing/testing/" />
 <meta property="twitter:card" content="summary_large_image" />
-<meta property="twitter:title" content="Checkpoint, Resume, and Schedule Durable AnyCode Runs - AnyCode" />
-<meta property="twitter:description" content="Persist AnyCode work with workflow checkpoints and durable runs, resume after a crash, chain calendar-scale goals with SessionChain, and wake paused runs on a schedule." />
-<meta property="twitter:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/guides/durability.png" />
+<meta property="twitter:title" content="Testing and Continuous Integration - AnyCode" />
+<meta property="twitter:description" content="Run AnyCode quality checks, cross-platform tests, Docker-backed integration tests, optional-extra isolation, and package validation locally and in CI." />
+<meta property="twitter:image" content="https://quantlix.github.io/anycode/0.6/assets/images/social/contributing/testing.png" />
 </head>
   
   
@@ -189,7 +189,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#durable-and-resumable-runs" class="md-skip">
+        <a href="#testing-and-continuous-integration" class="md-skip">
           Skip to content
         </a>
       
@@ -252,7 +252,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Checkpoint, Resume, and Schedule Durable AnyCode Runs
+              Testing and Continuous Integration
             
           </span>
         </div>
@@ -439,13 +439,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../guides/" class="md-tabs__link">
           
   
   
@@ -507,11 +505,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../contributing/testing/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
           
   
   
@@ -988,8 +988,6 @@
       
   
   
-    
-  
   
   
     
@@ -1015,23 +1013,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../guides/" class="md-nav__link ">
               
   
   
@@ -1049,13 +1044,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1091,20 +1086,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
             
   
   
@@ -1140,7 +1132,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../multi-agent-team/" class="md-nav__link">
+      <a href="../../guides/multi-agent-team/" class="md-nav__link">
         
   
   
@@ -1168,7 +1160,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tools/" class="md-nav__link">
+      <a href="../../guides/tools/" class="md-nav__link">
         
   
   
@@ -1196,7 +1188,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../structured-output/" class="md-nav__link">
+      <a href="../../guides/structured-output/" class="md-nav__link">
         
   
   
@@ -1224,7 +1216,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../providers/" class="md-nav__link">
+      <a href="../../guides/providers/" class="md-nav__link">
         
   
   
@@ -1272,20 +1264,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
             
   
   
@@ -1321,7 +1310,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../streaming/" class="md-nav__link">
+      <a href="../../guides/streaming/" class="md-nav__link">
         
   
   
@@ -1349,7 +1338,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reasoning-models/" class="md-nav__link">
+      <a href="../../guides/reasoning-models/" class="md-nav__link">
         
   
   
@@ -1397,20 +1386,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
             
   
   
@@ -1446,7 +1432,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../memory-and-rag/" class="md-nav__link">
+      <a href="../../guides/memory-and-rag/" class="md-nav__link">
         
   
   
@@ -1474,7 +1460,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../context-engineering/" class="md-nav__link">
+      <a href="../../guides/context-engineering/" class="md-nav__link">
         
   
   
@@ -1524,20 +1510,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
             
   
   
@@ -1573,7 +1556,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../routing/" class="md-nav__link">
+      <a href="../../guides/routing/" class="md-nav__link">
         
   
   
@@ -1601,7 +1584,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../handoff/" class="md-nav__link">
+      <a href="../../guides/handoff/" class="md-nav__link">
         
   
   
@@ -1629,7 +1612,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../reflection/" class="md-nav__link">
+      <a href="../../guides/reflection/" class="md-nav__link">
         
   
   
@@ -1662,10 +1645,8 @@
                 
   
   
-    
   
   
-  
     
     
       
@@ -1688,21 +1669,18 @@
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
         
           
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
             
   
   
@@ -1720,7 +1698,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1735,37 +1713,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Durable and Resumable Runs
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../guides/durability/" class="md-nav__link">
         
   
   
@@ -1781,116 +1732,6 @@
   
 
       </a>
-      
-        
-
-  
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#checkpoint-a-team-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Checkpoint a team workflow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#make-a-single-agent-run-durable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Make a single agent run durable
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#use-a-production-run-store-backend" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Use a production run-store backend
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#bound-durable-run-retention" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Bound durable-run retention
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#inspect-runs-from-the-cli" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Inspect runs from the CLI
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#chain-calendar-scale-goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Chain calendar-scale goals
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#wake-paused-runs-on-a-schedule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Wake paused runs on a schedule
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next steps
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1903,7 +1744,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../human-in-the-loop/" class="md-nav__link">
+      <a href="../../guides/human-in-the-loop/" class="md-nav__link">
         
   
   
@@ -1931,7 +1772,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cost-tracking/" class="md-nav__link">
+      <a href="../../guides/cost-tracking/" class="md-nav__link">
         
   
   
@@ -1959,7 +1800,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../verification-gates/" class="md-nav__link">
+      <a href="../../guides/verification-gates/" class="md-nav__link">
         
   
   
@@ -1987,7 +1828,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../evaluation/" class="md-nav__link">
+      <a href="../../guides/evaluation/" class="md-nav__link">
         
   
   
@@ -2015,7 +1856,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../observability/" class="md-nav__link">
+      <a href="../../guides/observability/" class="md-nav__link">
         
   
   
@@ -2043,7 +1884,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../production-controls/" class="md-nav__link">
+      <a href="../../guides/production-controls/" class="md-nav__link">
         
   
   
@@ -2095,20 +1936,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
-          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
             
   
   
@@ -2144,7 +1982,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp/" class="md-nav__link">
+      <a href="../../guides/mcp/" class="md-nav__link">
         
   
   
@@ -2172,7 +2010,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../plugins/" class="md-nav__link">
+      <a href="../../guides/plugins/" class="md-nav__link">
         
   
   
@@ -2200,7 +2038,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../visualization/" class="md-nav__link">
+      <a href="../../guides/visualization/" class="md-nav__link">
         
   
   
@@ -2228,7 +2066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../yaml-config/" class="md-nav__link">
+      <a href="../../guides/yaml-config/" class="md-nav__link">
         
   
   
@@ -2626,8 +2464,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -2641,19 +2481,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -2671,7 +2514,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2686,10 +2529,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../contributing/testing/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing and CI
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2705,6 +2575,83 @@
   
 
       </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#local-quality-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local quality gate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-integration-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service integration tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-an-optional-extra" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding an optional extra
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-package-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-package checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2717,7 +2664,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/docs-guide/" class="md-nav__link">
+      <a href="../docs-guide/" class="md-nav__link">
         
   
   
@@ -2745,7 +2692,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/documentation-strategy/" class="md-nav__link">
+      <a href="../documentation-strategy/" class="md-nav__link">
         
   
   
@@ -2802,10 +2749,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#checkpoint-a-team-workflow" class="md-nav__link">
+  <a href="#local-quality-gate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Checkpoint a team workflow
+        Local quality gate
       
     </span>
   </a>
@@ -2813,10 +2760,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#make-a-single-agent-run-durable" class="md-nav__link">
+  <a href="#service-integration-tests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Make a single agent run durable
+        Service integration tests
       
     </span>
   </a>
@@ -2824,10 +2771,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#use-a-production-run-store-backend" class="md-nav__link">
+  <a href="#ci-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Use a production run-store backend
+        CI matrix
       
     </span>
   </a>
@@ -2835,10 +2782,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#bound-durable-run-retention" class="md-nav__link">
+  <a href="#adding-an-optional-extra" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Bound durable-run retention
+        Adding an optional extra
       
     </span>
   </a>
@@ -2846,43 +2793,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#inspect-runs-from-the-cli" class="md-nav__link">
+  <a href="#built-package-checks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Inspect runs from the CLI
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#chain-calendar-scale-goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Chain calendar-scale goals
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#wake-paused-runs-on-a-schedule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Wake paused runs on a schedule
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next steps
+        Built-package checks
       
     </span>
   </a>
@@ -2932,28 +2846,10 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    How-to Guides
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
         <a href="./" class="md-path__link">
           
   <span class="md-ellipsis">
-    Reliability and Ops
+    Contributing
   </span>
 
         </a>
@@ -2972,7 +2868,7 @@
 
 
   
-    <a href="https://github.com/Quantlix/anycode/edit/main/site_docs/guides/durability.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Quantlix/anycode/edit/main/site_docs/contributing/testing.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -2981,234 +2877,81 @@
     
       
     
-    <a href="https://github.com/Quantlix/anycode/raw/main/site_docs/guides/durability.md" title="View source of this page" class="md-content__button md-icon">
+    <a href="https://github.com/Quantlix/anycode/raw/main/site_docs/contributing/testing.md" title="View source of this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5 5 5 0 0 1 5-5 5 5 0 0 1 5 5 5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"/></svg>
     </a>
   
 
 
-<h1 id="durable-and-resumable-runs">Durable and Resumable Runs<a class="headerlink" href="#durable-and-resumable-runs" title="Permanent link">&para;</a></h1>
-<p>Long jobs fail — a provider blips, a process is killed, a machine reboots. AnyCode has two independent durability systems so a run can pick up where it left off instead of paying to redo finished work, plus tools for goals that span days or weeks. This guide covers all four: workflow checkpoints, durable single-agent runs, session chains, and scheduled wakeups.</p>
-<div class="admonition note">
-<p class="admonition-title">Two 'checkpoint' systems — don't mix them</p>
-<p><strong>Workflow checkpoints</strong> (<code>CheckpointManager</code>, async, keyed by workflow + wave) snapshot a multi-agent team run. <strong>Durable runs</strong> (<code>FilesystemRunStore</code>, synchronous, keyed by run + turn) snapshot a single <code>AgentRunner</code> loop. They are separate subsystems with separate config.</p>
-</div>
-<h2 id="checkpoint-a-team-workflow">Checkpoint a team workflow<a class="headerlink" href="#checkpoint-a-team-workflow" title="Permanent link">&para;</a></h2>
-<p><code>CheckpointManager</code> saves the state of a wave-based team run — tasks, per-agent results, and token usage — so a fresh process can reload the latest snapshot and continue from the next wave.</p>
-<div class="language-python highlight"><span class="filename">checkpoints.py</span><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointConfig</span><span class="p">,</span> <span class="n">CheckpointManager</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">CheckpointConfig</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;.anycode/checkpoints&quot;</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">manager</span> <span class="o">=</span> <span class="n">CheckpointManager</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># After finishing a wave:</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">auto_save</span><span class="p">(</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">workflow_id</span><span class="o">=</span><span class="s2">&quot;nightly-report&quot;</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">tasks</span><span class="o">=</span><span class="n">tasks</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">agent_results</span><span class="o">=</span><span class="n">results</span><span class="p">,</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">wave_index</span><span class="o">=</span><span class="n">wave</span><span class="p">,</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">total_usage</span><span class="o">=</span><span class="n">usage</span><span class="p">,</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># In a later process, reload and continue:</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">restored</span> <span class="o">=</span> <span class="k">await</span> <span class="n">CheckpointManager</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">load_latest</span><span class="p">(</span><span class="n">workflow_id</span><span class="o">=</span><span class="s2">&quot;nightly-report&quot;</span><span class="p">)</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="k">if</span> <span class="n">restored</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">start_wave</span> <span class="o">=</span> <span class="n">restored</span><span class="o">.</span><span class="n">wave_index</span> <span class="o">+</span> <span class="mi">1</span>
+<h1 id="testing-and-continuous-integration">Testing and Continuous Integration<a class="headerlink" href="#testing-and-continuous-integration" title="Permanent link">&para;</a></h1>
+<p>AnyCode separates source quality, portable behavior, optional dependency packaging, service-backed behavior, and built distributions into distinct CI jobs. This keeps each failure attributable while testing the supported Python and operating-system surface.</p>
+<h2 id="local-quality-gate">Local quality gate<a class="headerlink" href="#local-quality-gate" title="Permanent link">&para;</a></h2>
+<p>Install the locked development environment, then run the same deterministic checks used by CI:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--locked<span class="w"> </span>--group<span class="w"> </span>dev
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/check_versions.py
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>.
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>--check<span class="w"> </span>src/
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pyright
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest
 </span></code></pre></div>
+<p>The default pytest configuration excludes tests marked <code>integration</code>. Unit, runtime, MCP subprocess, CLI, provider-adapter, and persistence tests still run without live provider credentials. Deterministic provider tests use <code>FakeAdapter</code>.</p>
+<h2 id="service-integration-tests">Service integration tests<a class="headerlink" href="#service-integration-tests" title="Permanent link">&para;</a></h2>
+<p>Redis and ChromaDB tests use the host ports declared in <code>docker-compose.yml</code>. Start only the services the current integration suite consumes:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--wait<span class="w"> </span>redis<span class="w"> </span>chromadb
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/integration<span class="w"> </span>-m<span class="w"> </span>integration<span class="w"> </span>--strict-markers<span class="w"> </span>--tb<span class="o">=</span>short
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>down
+</span></code></pre></div>
+<p>An explicit <code>-m integration</code> overrides the default non-integration selection. Service fixtures skip when their endpoint is unavailable, while the CI job also checks both endpoints before pytest starts so missing infrastructure cannot produce a false green build.</p>
+<h2 id="ci-matrix">CI matrix<a class="headerlink" href="#ci-matrix" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th><code>CheckpointConfig</code> field</th>
-<th>Default</th>
-<th>Meaning</th>
+<th>Job</th>
+<th>Environment</th>
+<th>Contract</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>enabled</code></td>
-<td><code>False</code></td>
-<td>Turn checkpointing on</td>
+<td><code>Quality</code></td>
+<td>Ubuntu, Python 3.12</td>
+<td>Version consistency, locked dependencies, Ruff, formatting, and Pyright</td>
 </tr>
 <tr>
-<td><code>path</code></td>
-<td><code>.anycode/checkpoints</code></td>
-<td>Where snapshots are written</td>
+<td><code>Tests</code></td>
+<td>Ubuntu, Windows, and macOS; Python 3.12 and 3.13</td>
+<td>Complete non-integration suite on every supported platform/runtime pair</td>
 </tr>
 <tr>
-<td><code>keep_last</code></td>
-<td><code>5</code></td>
-<td>Snapshots to retain per workflow before pruning</td>
+<td><code>Optional extra</code></td>
+<td>Ubuntu, Python 3.12</td>
+<td>Core-only install plus an isolated install and import smoke test for every declared extra</td>
 </tr>
 <tr>
-<td><code>redact_sensitive_data</code></td>
-<td><code>True</code></td>
-<td>Scrub recognized credentials before persistence</td>
+<td><code>Integration services</code></td>
+<td>Ubuntu, Python 3.12, Redis, and ChromaDB</td>
+<td>All tests marked <code>integration</code>, with healthy external endpoints required</td>
+</tr>
+<tr>
+<td><code>Package Validation</code></td>
+<td>Ubuntu, Python 3.12 and 3.13</td>
+<td>Wheel/sdist build, strict metadata checks, core-only wheel import, and CLI-extra smoke test</td>
 </tr>
 </tbody>
 </table>
-<div class="admonition warning">
-<p class="admonition-title">Resume is manual, and <code>backend</code> is not honored by the manager</p>
-<p>There is no auto-resume — you reload with <code>load_latest</code> and drive the loop yourself. <code>CheckpointManager</code> always writes to the filesystem; to use the SQLite store you must construct <code>SQLiteCheckpointStore(...)</code> (from <code>anycode.checkpoint</code>) and pass it in explicitly.</p>
-</div>
-<h2 id="make-a-single-agent-run-durable">Make a single agent run durable<a class="headerlink" href="#make-a-single-agent-run-durable" title="Permanent link">&para;</a></h2>
-<p>Durable runs persist every turn of an <code>AgentRunner</code> to a <code>FilesystemRunStore</code>. Enable it with a <code>DurabilityConfig</code>; on a crash, reload the last turn checkpoint and hand it to a new runner via <code>resume_from</code>.</p>
-<div class="language-python highlight"><span class="filename">durable.py</span><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentRunner</span><span class="p">,</span> <span class="n">DurabilityConfig</span><span class="p">,</span> <span class="n">FilesystemRunStore</span><span class="p">,</span> <span class="n">RunnerOptions</span><span class="p">,</span> <span class="n">ToolExecutor</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">FilesystemRunStore</span><span class="p">(</span><span class="s2">&quot;.anycode/runs&quot;</span><span class="p">)</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">runner</span> <span class="o">=</span> <span class="n">AgentRunner</span><span class="p">(</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">adapter</span><span class="p">,</span> <span class="n">registry</span><span class="p">,</span> <span class="n">ToolExecutor</span><span class="p">(</span><span class="n">registry</span><span class="p">),</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">RunnerOptions</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span> <span class="n">agent_name</span><span class="o">=</span><span class="s2">&quot;worker&quot;</span><span class="p">,</span> <span class="n">max_turns</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">durability</span><span class="o">=</span><span class="n">DurabilityConfig</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">run_root</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">root</span><span class="p">),</span> <span class="n">checkpoint_every_turns</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">run_store</span><span class="o">=</span><span class="n">store</span><span class="p">,</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">async</span> <span class="k">for</span> <span class="n">_event</span> <span class="ow">in</span> <span class="n">runner</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">messages</span><span class="p">):</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="o">...</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="c1"># In a fresh process — reload the checkpoint and resume:</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">record</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">list_runs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">checkpoint</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">load_latest_checkpoint</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">run_id</span><span class="p">)</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">resumed</span> <span class="o">=</span> <span class="n">AgentRunner</span><span class="p">(</span><span class="n">adapter</span><span class="p">,</span> <span class="n">registry</span><span class="p">,</span> <span class="n">ToolExecutor</span><span class="p">(</span><span class="n">registry</span><span class="p">),</span> <span class="n">options</span><span class="p">,</span> <span class="n">run_store</span><span class="o">=</span><span class="n">store</span><span class="p">,</span> <span class="n">resume_from</span><span class="o">=</span><span class="n">checkpoint</span><span class="p">)</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">resumed</span><span class="o">.</span><span class="n">run</span><span class="p">([])</span>   <span class="c1"># empty seed is fine when resuming</span>
-</span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th><code>DurabilityConfig</code> field</th>
-<th>Default</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>enabled</code></td>
-<td><code>False</code></td>
-<td>Turn durability on</td>
-</tr>
-<tr>
-<td><code>run_root</code></td>
-<td><code>.anycode/runs</code></td>
-<td>Root directory for run records</td>
-</tr>
-<tr>
-<td><code>checkpoint_every_turns</code></td>
-<td><code>5</code></td>
-<td>Save a turn checkpoint every N turns</td>
-</tr>
-<tr>
-<td><code>keep_last_checkpoints</code></td>
-<td><code>3</code></td>
-<td>Turn checkpoints retained per run</td>
-</tr>
-<tr>
-<td><code>heartbeat_seconds</code></td>
-<td><code>30.0</code></td>
-<td>Heartbeat interval for stale-run detection</td>
-</tr>
-<tr>
-<td><code>redact_sensitive_data</code></td>
-<td><code>True</code></td>
-<td>Scrub recognized credentials from records, events, and turn checkpoints</td>
-</tr>
-</tbody>
-</table>
-<p>A durable run that hits a provider outage doesn't fail — it <strong>pauses</strong> with a wake condition to retry later. <code>resume_from</code> takes a loaded <code>TurnCheckpoint</code>, not a run ID.</p>
-<div class="admonition warning">
-<p class="admonition-title">Redaction changes persisted replay data</p>
-<p>Checkpoint and run-store redaction is enabled by default. Recognized credentials are replaced with <code>&lt;redacted-secret&gt;</code> in serialized messages, tool inputs and outputs, metadata, errors, and transcript payloads. A resumed run therefore receives the placeholder rather than the original credential. Pass <code>redact_sensitive_data=False</code> only when exact replay is required and the store is protected with encryption, access control, and an appropriate retention policy.</p>
-</div>
-<p>Low-level constructors expose the same explicit opt-out. For durable runs, pair it with a payload protector rather than relying on filesystem permissions alone:</p>
-<div class="language-python highlight"><span class="filename">protected-store.py</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">EnvelopeProtector</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">protect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="k">return</span> <span class="n">envelope_encryption_service</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">unprotect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="k">return</span> <span class="n">envelope_encryption_service</span><span class="o">.</span><span class="n">decrypt</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">store</span> <span class="o">=</span> <span class="n">FilesystemRunStore</span><span class="p">(</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="s2">&quot;/protected/runs&quot;</span><span class="p">,</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">redact_sensitive_data</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">payload_protector</span><span class="o">=</span><span class="n">EnvelopeProtector</span><span class="p">(),</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="p">)</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">checkpoint_store</span> <span class="o">=</span> <span class="n">FilesystemCheckpointStore</span><span class="p">(</span><span class="s2">&quot;/protected/checkpoints&quot;</span><span class="p">,</span> <span class="n">redact_sensitive_data</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span></code></pre></div>
-<p><code>RunPayloadProtector</code> is a synchronous byte-oriented protocol, so the implementation can use a KMS-backed envelope-encryption library, an HSM, or a platform secret service without coupling AnyCode to one key provider. The filesystem backend wraps protected bytes in a versioned text envelope. Legacy plaintext runs remain readable when a protector is configured; a protected run fails closed when its protector is missing, its key cannot open the payload, or its envelope version is unsupported.</p>
-<p>AnyCode does not generate, store, rotate, or escrow encryption keys. The run ID, directory layout, filenames, and file sizes remain visible. Use restricted filesystem permissions as well as encryption, and test key rotation and disaster recovery against copies of real-size checkpoints before deployment. Workflow <code>FilesystemCheckpointStore</code> remains plaintext and needs storage-layer encryption when exact, unredacted replay is enabled.</p>
-<p>Run records, transcript events, and turn checkpoints include <code>format_version=1</code>. Artifacts written before this field existed are treated as v1. Workflow checkpoints use format v2 and still read explicit v1 snapshots. <code>UnsupportedRunStoreVersionError</code> and <code>UnsupportedCheckpointVersionError</code> are raised for future formats so an older runtime cannot silently misinterpret newer state. When the newest plain turn checkpoint is corrupt, the filesystem store scans backward to the latest valid snapshot.</p>
-<h2 id="use-a-production-run-store-backend">Use a production run-store backend<a class="headerlink" href="#use-a-production-run-store-backend" title="Permanent link">&para;</a></h2>
-<p><code>AgentRunner</code>, <code>sweep_once</code>, and <code>RunScheduler</code> depend on the public <code>RunStore</code> protocol rather than the filesystem class. A custom database or object-store backend can therefore be injected through <code>run_store=</code> without changing the runner. It must preserve atomic run-record updates, ordered event sequence numbers, checkpoint recovery, and mutually exclusive sweep locks; those semantics are part of the contract, not optional optimizations.</p>
-<h2 id="bound-durable-run-retention">Bound durable-run retention<a class="headerlink" href="#bound-durable-run-retention" title="Permanent link">&para;</a></h2>
-<p>No run is deleted unless a retention policy is supplied. <code>RunRetentionPolicy</code> can bound terminal runs by age, count, or both:</p>
-<div class="language-python highlight"><span class="filename">retention.py</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">FilesystemRunStore</span><span class="p">,</span> <span class="n">RunRetentionPolicy</span><span class="p">,</span> <span class="n">sweep_once</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">FilesystemRunStore</span><span class="p">(</span><span class="s2">&quot;.anycode/runs&quot;</span><span class="p">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">RunRetentionPolicy</span><span class="p">(</span><span class="n">max_age_days</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_runs</span><span class="o">=</span><span class="mi">1_000</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">sweep_once</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">retention_policy</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">pruned</span><span class="p">)</span>
-</span></code></pre></div>
-<p>Age pruning runs first; the count bound then keeps the newest remaining terminal runs. Only <code>completed</code>, <code>failed</code>, and <code>cancelled</code> runs are eligible. <code>running</code>, <code>paused</code>, and recoverable <code>interrupted</code> runs are retained. Apply the same policy on every scheduler tick with <code>RunScheduler(..., retention_policy=policy)</code> or from an external scheduler:</p>
-<div class="language-bash highlight"><span class="filename">Prune during a watchdog sweep</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>anycode<span class="w"> </span>runs<span class="w"> </span>sweep<span class="w"> </span>--retention-days<span class="w"> </span><span class="m">30</span><span class="w"> </span>--max-runs<span class="w"> </span><span class="m">1000</span>
-</span></code></pre></div>
-<h2 id="inspect-runs-from-the-cli">Inspect runs from the CLI<a class="headerlink" href="#inspect-runs-from-the-cli" title="Permanent link">&para;</a></h2>
-<p>The <code>anycode runs</code> commands read a run store directly:</p>
-<div class="language-bash highlight"><span class="filename">Inspect durable runs</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>anycode<span class="w"> </span>runs<span class="w"> </span>list<span class="w">                 </span><span class="c1"># table of every run and its status</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>anycode<span class="w"> </span>runs<span class="w"> </span>show<span class="w"> </span>&lt;run_id&gt;<span class="w">        </span><span class="c1"># status, wake condition, recent events</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>anycode<span class="w"> </span>runs<span class="w"> </span>tail<span class="w"> </span>&lt;run_id&gt;<span class="w">        </span><span class="c1"># transcript events after a sequence number</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>anycode<span class="w"> </span>runs<span class="w"> </span>audit<span class="w"> </span>&lt;run_id&gt;<span class="w">       </span><span class="c1"># event-kind digest over a time window</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>anycode<span class="w"> </span>runs<span class="w"> </span>sweep<span class="w">                </span><span class="c1"># watchdog pass; optional explicit retention bounds</span>
-</span></code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">There is no <code>anycode runs resume</code></p>
-<p><code>sweep</code> reports which runs are due to wake but does not resume them. Resuming is programmatic — via <code>AgentRunner(resume_from=...)</code> or a <code>RunScheduler</code>.</p>
-</div>
-<h2 id="chain-calendar-scale-goals">Chain calendar-scale goals<a class="headerlink" href="#chain-calendar-scale-goals" title="Permanent link">&para;</a></h2>
-<p>For work too large for one context window, <code>SessionChain</code> runs a series of <strong>fresh</strong> sessions against a durable <code>GoalContract</code>. Each session gets a clean context, works the next unmet criterion, and an external <code>verifier</code> — never the agent's own say-so — decides whether the criterion passed.</p>
-<div class="language-python highlight"><span class="filename">session_chain.py</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">GoalContract</span><span class="p">,</span> <span class="n">GoalCriterion</span><span class="p">,</span> <span class="n">SessionChain</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">contract</span> <span class="o">=</span> <span class="n">GoalContract</span><span class="p">(</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">goal</span><span class="o">=</span><span class="s2">&quot;Ship the data-export feature&quot;</span><span class="p">,</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">criteria</span><span class="o">=</span><span class="p">(</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Design the export schema&quot;</span><span class="p">),</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;endpoint&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Implement the export endpoint&quot;</span><span class="p">),</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;tests&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Cover the endpoint with tests&quot;</span><span class="p">),</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="p">),</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="p">)</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">SessionChain</span><span class="p">(</span>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="n">runner_factory</span><span class="o">=</span><span class="n">runner_factory</span><span class="p">,</span>   <span class="c1"># returns a NEW AgentRunner (fresh context) each session</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="n">contract</span><span class="o">=</span><span class="n">contract</span><span class="p">,</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    <span class="n">work_dir</span><span class="o">=</span><span class="s2">&quot;export-feature&quot;</span><span class="p">,</span>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>    <span class="n">verifier</span><span class="o">=</span><span class="n">verifier</span><span class="p">,</span>               <span class="c1"># async (criterion, result) -&gt; evidence str | None</span>
-</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>    <span class="n">max_sessions</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="p">)</span>
-</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="n">final</span> <span class="o">=</span> <span class="k">await</span> <span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>            <span class="c1"># loops until final.complete or max_sessions</span>
-</span></code></pre></div>
-<p>Only the contract (<code>contract.json</code>) and an append-only <code>progress.md</code> carry between sessions — the conversation itself does not. This is the mechanism for goals measured in days rather than turns.</p>
-<p>Goal contracts and progress-log output are redacted before they are written by default. Pass <code>redact_sensitive_data=False</code> to <code>SessionChain</code> only for a protected work directory that requires exact persisted text.</p>
-<h2 id="wake-paused-runs-on-a-schedule">Wake paused runs on a schedule<a class="headerlink" href="#wake-paused-runs-on-a-schedule" title="Permanent link">&para;</a></h2>
-<p>A paused run carries a <code>WakeCondition</code>. A <strong>sweep</strong> is the wake mechanism: it finds runs whose wake time has arrived and calls your resume function.</p>
-<div class="language-python highlight"><span class="filename">scheduler.py</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">FilesystemRunStore</span><span class="p">,</span> <span class="n">RunScheduler</span><span class="p">,</span> <span class="n">sweep_once</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">FilesystemRunStore</span><span class="p">(</span><span class="s2">&quot;.anycode/runs&quot;</span><span class="p">)</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">resume</span><span class="p">(</span><span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="o">...</span>   <span class="c1"># load the checkpoint and continue the run</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># One pass:</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">sweep_once</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">resume</span><span class="o">=</span><span class="n">resume</span><span class="p">)</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">woken</span><span class="p">)</span>   <span class="c1"># run IDs resumed this pass</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1"># Or run a background tick loop:</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="n">scheduler</span> <span class="o">=</span> <span class="n">RunScheduler</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">resume</span><span class="o">=</span><span class="n">resume</span><span class="p">,</span> <span class="n">interval_seconds</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
-</span></code></pre></div>
-<p>Only timed wakes (<code>at_time</code>, <code>on_provider_recovery</code>) fire automatically; <code>on_approval</code> and <code>manual</code> wakes resume through their own signal. For lightweight periodic jobs that aren't full agent runs, <code>run_scheduled_task</code> handles <code>notification</code>, <code>script</code>, <code>agent</code>, and <code>hybrid</code> modes.</p>
-<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../../tutorials/resumable-pipeline/">Build a resumable pipeline</a> — durability applied to a real crash-and-resume project.</li>
-<li><a href="../cost-tracking/">Track and cap cost</a> — pair durable runs with a spend ceiling.</li>
-<li><a href="../production-controls/">Production controls</a> — the broader hardening picture.</li>
-<li><a href="../../reference/cli/">CLI reference</a> — the full <code>anycode runs</code> command set.</li>
-</ul>
+<p>Source quality, test, optional-extra, integration, and build environments are resolved from <code>uv.lock</code> with <code>--locked</code>. A pull request whose dependency metadata requires a lockfile update fails instead of silently resolving a different environment. Fresh wheel smoke tests use <code>pip</code> so they also validate the dependency ranges published in wheel metadata.</p>
+<h2 id="adding-an-optional-extra">Adding an optional extra<a class="headerlink" href="#adding-an-optional-extra" title="Permanent link">&para;</a></h2>
+<p>When adding or renaming an entry under <code>[project.optional-dependencies]</code>:</p>
+<ol>
+<li>Update <code>pyproject.toml</code> and regenerate <code>uv.lock</code>.</li>
+<li>Add an isolated entry to the <code>optional-extras</code> matrix in <code>.github/workflows/ci.yml</code>.</li>
+<li>Import both the third-party dependency and the AnyCode module that owns the feature.</li>
+<li>Run <code>uv run python -m pytest tests/test_ci.py</code>.</li>
+</ol>
+<p>The CI contract test compares the workflow matrix with package metadata. Missing and stale extra entries fail locally and in CI.</p>
+<h2 id="built-package-checks">Built-package checks<a class="headerlink" href="#built-package-checks" title="Permanent link">&para;</a></h2>
+<p>Source-tree imports can pass while a wheel omits a module or dependency. <code>Package Validation</code> therefore installs the built wheel into a fresh virtual environment without extras and imports <code>AnyCode</code> before installing the same wheel with <code>[cli]</code> and invoking <code>anycode version</code>. Release workflows retain their own full gate before publishing.</p>
 
 
 
@@ -3301,7 +3044,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../reflection/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Self-Reflection">
+          <a href="../../reference/cli/" class="md-footer__link md-footer__link--prev" aria-label="Previous: CLI">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3311,20 +3054,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Self-Reflection
+                CLI
               </div>
             </div>
           </a>
         
         
           
-          <a href="../human-in-the-loop/" class="md-footer__link md-footer__link--next" aria-label="Next: Human-in-the-Loop Approval">
+          <a href="../docs-guide/" class="md-footer__link md-footer__link--next" aria-label="Next: Documentation Guide">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Human-in-the-Loop Approval
+                Documentation Guide
               </div>
             </div>
             <div class="md-footer__button md-icon">
