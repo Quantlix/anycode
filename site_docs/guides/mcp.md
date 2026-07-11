@@ -58,7 +58,7 @@ pip install "anycode-py[mcp]"
     ```
 
 !!! tip "Secrets stay out of your config"
-    `auth_token_env` stores the *name* of an environment variable. The token value is read from `os.environ` at connect time and sent as `Authorization: Bearer <token>` — it is never stored on the config object, and never appears in prompts or logs. Static `headers` are merged with the resolved auth header.
+    `auth_token_env` stores the *name* of an environment variable. The token value is read from `os.environ` at connect time and sent as `Authorization: Bearer <token>` — it is never stored on the config object, and never appears in prompts or logs. Static `headers` are merged with the resolved auth header. If the configured variable is missing or empty, connection fails before opening the transport rather than falling back to anonymous access.
 
 Configs are validated on construction: `stdio` requires `command`, the HTTP transports require `url`, `timeout` must be positive, and an invalid config raises `ValueError`.
 
@@ -122,6 +122,7 @@ async with MCPClient(config) as client:
 Behavior worth knowing:
 
 - Every step — transport connect, session init, `discover_tools`, `call_tool` — is wrapped in `asyncio.wait_for(..., timeout=config.timeout)`.
+- Engine connection is best-effort per server: one failed server is logged and cleaned up without blocking other servers. Agents that requested the failed server receive none of its tools, so production deployments must monitor MCP connection errors.
 - `call_tool` does not raise on tool failure; it returns `{"content": "<error>", "is_error": True}` so the calling agent sees a normal error result.
 - There is **no auto-reconnect**. A dropped connection surfaces as errors until you reconnect; `disconnect()` is best-effort and resets state.
 

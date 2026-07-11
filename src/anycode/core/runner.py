@@ -273,7 +273,11 @@ class AgentRunner:
                 )
 
         all_defs = self._registry.to_tool_defs()
-        active_defs = [d for d in all_defs if d.name in self._options.allowed_tools] if self._options.allowed_tools else all_defs
+        active_defs = (
+            [definition for definition in all_defs if definition.name in self._options.allowed_tools]
+            if self._options.allowed_tools is not None
+            else all_defs
+        )
 
         if self._output_schema:
             structured_tool = schema_to_tool_def(self._output_schema)
@@ -892,6 +896,12 @@ class AgentRunner:
         gate = Semaphore(min(DEFAULT_TOOL_CONCURRENCY, len(blocks)))
 
         async def _run(index: int, block: ToolUseBlock) -> tuple[ToolResultBlock, ToolCallRecord]:
+            if self._options.allowed_tools is not None and block.name not in self._options.allowed_tools:
+                message = f'Tool "{block.name}" is not allowed for this agent.'
+                return (
+                    ToolResultBlock(tool_use_id=block.id, content=message, is_error=True),
+                    ToolCallRecord(tool_name=block.name, input=block.input, output=message, duration=0.0),
+                )
             if self._budget.is_tool_blocked(block.name):
                 message = f'Tool "{block.name}" is blocked by guardrail policy.'
                 return (

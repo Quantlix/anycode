@@ -41,9 +41,9 @@ def command(
 
 
 async def _run_team(console: Console, config_path: str, goal: str | None) -> None:
-    engine = AnyCode.from_config(config_path)
-    console.print(f"[cyan]Loaded team from[/cyan] {config_path}")
-    result = await engine.run_team_from_config(goal=goal)
+    async with AnyCode.from_config(config_path) as engine:
+        console.print(f"[cyan]Loaded team from[/cyan] {config_path}")
+        result = await engine.run_team_from_config(goal=goal)
     console.print(f"\n[green]Done.[/green] success={result.success}")
     console.print(f"Tokens: in={result.total_token_usage.input_tokens} out={result.total_token_usage.output_tokens}")
     if result.cost_report:
@@ -57,10 +57,10 @@ async def _run_team(console: Console, config_path: str, goal: str | None) -> Non
 
 async def _run_single(console: Console, name: str, model: str, provider: str, prompt: str) -> None:
     cfg = AgentConfig(name=name, model=model, provider=provider, tools=[])  # type: ignore[arg-type]
-    engine = AnyCode()
-    runtime_agent = engine.build_agent(cfg)
-    console.print(f"[cyan]Running agent[/cyan] {name} ({provider}/{model})")
-    result = await runtime_agent.run(prompt)
+    async with AnyCode() as engine:
+        runtime_agent = engine.build_agent(cfg)
+        console.print(f"[cyan]Running agent[/cyan] {name} ({provider}/{model})")
+        result = await runtime_agent.run(prompt)
     console.print(f"\n[bold]Output:[/bold]\n{result.output}")
     console.print(f"\nTokens: in={result.token_usage.input_tokens} out={result.token_usage.output_tokens}")
 

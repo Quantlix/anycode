@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from importlib.metadata import EntryPoint, entry_points
 
+from anycode.security.redaction import safe_exception_message
 from anycode.types import Plugin, PluginTrustPolicy
 
 logger = logging.getLogger(__name__)
@@ -16,8 +17,8 @@ def _load_entry_point(ep: EntryPoint) -> Plugin | None:
     try:
         loaded = ep.load()
         candidate = loaded() if callable(loaded) else loaded
-    except Exception as e:  # pragma: no cover — defensive, depends on third-party code
-        logger.warning("Failed to load anycode plugin entry-point '%s': %s", ep.name, e)
+    except Exception as error:  # pragma: no cover — defensive, depends on third-party code
+        logger.warning("Failed to load anycode plugin entry-point '%s': %s", ep.name, safe_exception_message(error))
         return None
 
     if not isinstance(candidate, Plugin):

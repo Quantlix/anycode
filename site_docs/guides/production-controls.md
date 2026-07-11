@@ -129,7 +129,7 @@ An explicit validated `idempotency_key` field takes precedence. Otherwise, the r
 
 The default in-memory store protects one engine process only. Configure `ToolIdempotencyConfig(backend="sqlite")` or inject a shared `ToolIdempotencyStore` for restart or multi-worker coordination. `prune_completed()` removes only outcomes explicitly marked retry-safe; in-progress and uncertain terminal records require operator reconciliation. Call `complete()` with the verified result when the external effect is confirmed, or `delete()` only after confirming no effect occurred. Keep the same key at the downstream API boundary whenever that API supports native idempotency.
 
-AnyCode classifies `bash`, file writes, file edits, and knowledge saves as side-effecting. MCP tools are side-effecting by default and become read-only only when the server publishes the standard `readOnlyHint` annotation.
+AnyCode classifies `bash`, file writes, file edits, knowledge saves, and all MCP tools as side-effecting. MCP `readOnlyHint` annotations are advisory server metadata and are not trusted to bypass idempotency controls.
 
 ## Gate sensitive work with human approval
 

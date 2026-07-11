@@ -78,8 +78,8 @@ Run the file directly from the terminal, or load it in Python when you want to i
 
 
     async def main() -> None:
-        engine = AnyCode.from_config("team.yaml")
-        result = await engine.run_team_from_config()
+        async with AnyCode.from_config("team.yaml") as engine:
+          result = await engine.run_team_from_config()
         print(result.success)
 
 

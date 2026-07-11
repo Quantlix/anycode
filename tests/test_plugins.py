@@ -116,6 +116,54 @@ class TestPluginRegistry:
         registry.install(P())
         assert registry.turn_hooks() == [hook]
 
+    def test_provider_conflict_does_not_partially_install_plugin(self) -> None:
+        async def registered_factory(**_: object) -> FakeAdapter:
+            return FakeAdapter()
+
+        async def conflicting_factory(**_: object) -> FakeAdapter:
+            return FakeAdapter()
+
+        register_provider_factory("occupied-provider", registered_factory)
+
+        class P(PluginBase):
+            manifest = PluginManifest(name="atomic", version="0.0.1")
+
+            def tools(self) -> Sequence[ToolDefinition]:
+                return (_echo_tool(),)
+
+            def provider_factories(self) -> Mapping[str, ProviderFactory]:
+                return {"occupied-provider": conflicting_factory}
+
+            def sensors(self) -> Sequence[VerificationSensorConfig]:
+                return (VerificationSensorConfig(name="should-not-install", kind="computational"),)
+
+        registry = PluginRegistry()
+        with pytest.raises(ValueError, match="already has a registered factory"):
+            registry.install(P())
+
+        assert not registry.tool_registry.has("echo_plugin_tool")
+        assert registry.sensors() == ()
+        assert registry.installations() == []
+        assert get_provider_factory("occupied-provider") is registered_factory
+
+    def test_invalid_sensor_does_not_partially_install_plugin(self) -> None:
+        class P(PluginBase):
+            manifest = PluginManifest(name="invalid", version="0.0.1")
+
+            def tools(self) -> Sequence[ToolDefinition]:
+                return (_echo_tool(),)
+
+            def sensors(self) -> Sequence[VerificationSensorConfig]:
+                return (object(),)  # type: ignore[return-value]
+
+        registry = PluginRegistry()
+        with pytest.raises(AttributeError):
+            registry.install(P())
+
+        assert not registry.tool_registry.has("echo_plugin_tool")
+        assert registry.sensors() == ()
+        assert registry.installations() == []
+
 
 class TestProviderFactory:
     async def test_register_and_resolve(self) -> None:

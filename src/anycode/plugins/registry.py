@@ -58,40 +58,42 @@ class PluginRegistry:
         if manifest.name in self._installations:
             raise ValueError(f"Plugin '{manifest.name}' is already installed.")
 
-        tool_names: list[str] = []
-        for tool in plugin.tools():
-            if not self._tool_registry.has(tool.name):
-                self._tool_registry.register(tool)
-                tool_names.append(tool.name)
-
-        provider_names: list[str] = []
-        for name, factory in plugin.provider_factories().items():
-            register_provider_factory(name, factory)
-            provider_names.append(name)
-
-        sensor_names: list[str] = []
-        for sensor_cfg in plugin.sensors():
-            self._sensors.append(sensor_cfg)
-            sensor_names.append(sensor_cfg.name)
-
+        tools = list(plugin.tools())
+        provider_factories = dict(plugin.provider_factories())
+        sensors = list(plugin.sensors())
         hooks = list(plugin.turn_hooks())
-        self._hooks.extend(hooks)
+
+        tools_to_register = {tool.name: tool for tool in tools if not self._tool_registry.has(tool.name)}
+        for name, factory in provider_factories.items():
+            existing = get_provider_factory(name)
+            if existing is not None and existing is not factory:
+                raise ValueError(f"Provider '{name}' already has a registered factory.")
 
         installation = PluginInstallation(
             manifest=manifest,
-            tool_names=tuple(tool_names),
-            provider_names=tuple(provider_names),
-            sensor_names=tuple(sensor_names),
+            tool_names=tuple(tools_to_register),
+            provider_names=tuple(provider_factories),
+            sensor_names=tuple(sensor.name for sensor in sensors),
             turn_hook_count=len(hooks),
         )
+
+        for tool in tools_to_register.values():
+            self._tool_registry.register(tool)
+
+        for name, factory in provider_factories.items():
+            register_provider_factory(name, factory)
+
+        self._sensors.extend(sensors)
+        self._hooks.extend(hooks)
+
         self._installations[manifest.name] = installation
         logger.info(
             "Installed plugin '%s' v%s — %d tools, %d providers, %d sensors, %d hooks",
             manifest.name,
             manifest.version,
-            len(tool_names),
-            len(provider_names),
-            len(sensor_names),
+            len(tools_to_register),
+            len(provider_factories),
+            len(sensors),
             len(hooks),
         )
         return installation

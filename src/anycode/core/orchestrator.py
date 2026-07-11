@@ -16,7 +16,6 @@ from anycode.constants import (
     COORDINATOR_ROLE_PREVIEW_LENGTH,
     DEFAULT_MAX_CONCURRENCY,
     DEPENDENCY_CONTEXT_MAX_LENGTH,
-    MCP_TOOL_PREFIX,
     ORCH_EVENT_AGENT_COMPLETE,
     ORCH_EVENT_AGENT_START,
     ORCH_EVENT_ERROR,
@@ -110,6 +109,7 @@ class AnyCode:
         # MCP clients for external tool servers
         self._mcp_clients: dict[str, Any] = {}
         self._mcp_tool_registry: ToolRegistry = ToolRegistry()
+        self._mcp_tools_by_server: dict[str, set[str]] = {}
 
         # Plugin / extension ecosystem
         self._plugin_registry = PluginRegistry()
@@ -188,14 +188,41 @@ class AnyCode:
             return
 
         for server_config in self._config.mcp_servers:
+            if server_config.name in self._mcp_clients:
+                continue
+            client: MCPClient | None = None
             try:
                 client = MCPClient(server_config)
                 await client.connect()
                 tools = await discover_and_register(client, server_config.name, self._mcp_tool_registry)
                 self._mcp_clients[server_config.name] = client
+                self._mcp_tools_by_server[server_config.name] = set(tools)
+                self._attach_mcp_tools_to_agents(server_config.name)
                 logger.info("MCP server '%s': registered %d tools", server_config.name, len(tools))
+            except asyncio.CancelledError:
+                self._remove_mcp_server_registration(server_config.name)
+                if client is not None:
+                    try:
+                        await client.disconnect()
+                    except Exception as cleanup_error:
+                        logger.warning(
+                            "Error cleaning up cancelled MCP server '%s': %s",
+                            server_config.name,
+                            safe_exception_message(cleanup_error),
+                        )
+                raise
             except Exception as e:
-                logger.error("Failed to connect MCP server '%s': %s", server_config.name, e)
+                self._remove_mcp_server_registration(server_config.name)
+                if client is not None:
+                    try:
+                        await client.disconnect()
+                    except Exception as cleanup_error:
+                        logger.warning(
+                            "Error cleaning up MCP server '%s': %s",
+                            server_config.name,
+                            safe_exception_message(cleanup_error),
+                        )
+                logger.error("Failed to connect MCP server '%s': %s", server_config.name, safe_exception_message(e))
 
     async def disconnect_mcp_servers(self) -> None:
         """Disconnect from all MCP servers and clean up tools."""
@@ -204,9 +231,52 @@ class AnyCode:
                 if hasattr(client, "disconnect"):
                     await client.disconnect()
             except Exception as e:
-                logger.warning("Error disconnecting MCP server '%s': %s", name, e)
+                logger.warning("Error disconnecting MCP server '%s': %s", name, safe_exception_message(e))
+        try:
+            self._detach_mcp_tools_from_agents()
+        except Exception as cleanup_error:
+            logger.warning("Error detaching MCP tools: %s", safe_exception_message(cleanup_error))
         self._mcp_clients.clear()
         self._mcp_tool_registry = ToolRegistry()
+        self._mcp_tools_by_server.clear()
+
+    def _attach_mcp_tools_to_agents(self, server_name: str) -> None:
+        tool_names = self._mcp_tools_by_server.get(server_name, ())
+        for agent in self._pool.list():
+            if server_name not in (agent.config.mcp_servers or ()):
+                continue
+            registered_names = set(agent.get_tools())
+            for tool_name in tool_names:
+                tool = self._mcp_tool_registry.get(tool_name)
+                if tool is not None and tool_name not in registered_names:
+                    agent.add_tool(tool)
+                    registered_names.add(tool_name)
+
+    def _detach_mcp_tools_from_agents(self, server_name: str | None = None) -> None:
+        server_names = (server_name,) if server_name is not None else tuple(self._mcp_tools_by_server)
+        for agent in self._pool.list():
+            for current_server_name in server_names:
+                tool_names = self._mcp_tools_by_server.get(current_server_name, ())
+                for tool_name in tool_names:
+                    tool = self._mcp_tool_registry.get(tool_name)
+                    if tool is not None and agent._has_tool_definition(tool):
+                        agent.remove_tool(tool_name)
+
+    def _remove_mcp_server_registration(self, server_name: str) -> None:
+        tool_names = self._mcp_tools_by_server.get(server_name, set())
+        try:
+            self._detach_mcp_tools_from_agents(server_name)
+        except Exception as cleanup_error:
+            logger.warning(
+                "Error detaching tools for MCP server '%s': %s",
+                server_name,
+                safe_exception_message(cleanup_error),
+            )
+        finally:
+            self._mcp_clients.pop(server_name, None)
+            self._mcp_tools_by_server.pop(server_name, None)
+            for tool_name in tool_names:
+                self._mcp_tool_registry.deregister(tool_name)
 
     async def __aenter__(self) -> AnyCode:
         await self.connect_mcp_servers()
@@ -251,16 +321,16 @@ class AnyCode:
                 registry.register(plugin_tool)
 
         # Register MCP tools for this agent
-        if self._mcp_clients:
-            mcp_filter = set(typed_config.mcp_servers) if typed_config.mcp_servers else None
+        scoped_mcp_tool_names: set[str] = set()
+        if self._mcp_clients and typed_config.mcp_servers:
+            allowed_tools = {tool_name for server_name in typed_config.mcp_servers for tool_name in self._mcp_tools_by_server.get(server_name, ())}
             for tool in self._mcp_tool_registry.list():
-                if mcp_filter is not None:
-                    # Only include tools from servers the agent has access to
-                    server_prefix = f"{MCP_TOOL_PREFIX}_"
-                    if not any(tool.name.startswith(f"{server_prefix}{s.replace('-', '_').replace('.', '_')}_") for s in mcp_filter):
-                        continue
-                if not registry.has(tool.name):
+                if tool.name in allowed_tools and not registry.has(tool.name):
                     registry.register(tool)
+                    scoped_mcp_tool_names.add(tool.name)
+
+        if typed_config.tools is not None and scoped_mcp_tool_names:
+            typed_config = typed_config.model_copy(update={"tools": list(dict.fromkeys([*typed_config.tools, *sorted(scoped_mcp_tool_names)]))})
 
         plugin_hooks = self._plugin_registry.turn_hooks()
         merged_hooks: list[TurnHook] | None = None
@@ -845,6 +915,7 @@ class AnyCode:
         team = getattr(self, "_loaded_team", None)
         if team is None:
             raise RuntimeError("AnyCode: no config-loaded team. Use AnyCode.from_config(path) first.")
+        await self.connect_mcp_servers()
         tasks = getattr(self, "_loaded_tasks", None)
         if tasks:
             specs = [TaskSpec(title=t.title, description=t.description, assignee=t.assignee, depends_on=t.depends_on) for t in tasks]

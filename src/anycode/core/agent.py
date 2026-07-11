@@ -153,9 +153,18 @@ class Agent:
 
     def add_tool(self, tool: ToolDefinition) -> None:
         self._registry.register(tool)
+        if self.config.tools is not None and tool.name not in self.config.tools:
+            self.config = self.config.model_copy(update={"tools": [*self.config.tools, tool.name]})
+        self._runner = None
 
     def remove_tool(self, name: str) -> None:
         self._registry.deregister(name)
+        if self.config.tools is not None and name in self.config.tools:
+            self.config = self.config.model_copy(update={"tools": [tool_name for tool_name in self.config.tools if tool_name != name]})
+        self._runner = None
+
+    def _has_tool_definition(self, tool: ToolDefinition) -> bool:
+        return self._registry.get(tool.name) is tool
 
     def get_tools(self) -> list[str]:
         return [t.name for t in self._registry.list()]

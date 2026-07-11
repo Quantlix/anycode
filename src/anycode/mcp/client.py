@@ -34,13 +34,6 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _is_read_only_tool(tool: object) -> bool:
-    annotations = getattr(tool, "annotations", None)
-    if annotations is None:
-        return False
-    return bool(getattr(annotations, "readOnlyHint", False) or getattr(annotations, "read_only_hint", False))
-
-
 def resolve_auth_headers(config: MCPServerConfig) -> dict[str, str] | None:
     """Merge static headers with a Bearer token read from the environment.
 
@@ -48,10 +41,11 @@ def resolve_auth_headers(config: MCPServerConfig) -> dict[str, str] | None:
     prompts, tool output, or audit logs.
     """
     headers: dict[str, str] = dict(config.headers) if config.headers else {}
-    if config.auth_token_env:
+    if config.auth_token_env is not None:
         token = os.environ.get(config.auth_token_env)
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
+        if not token:
+            raise ValueError(f"MCP auth token environment variable '{config.auth_token_env}' is not set or is empty.")
+        headers["Authorization"] = f"Bearer {token}"
     return headers or None
 
 
@@ -87,15 +81,21 @@ class MCPClient:
 
     async def connect(self) -> None:
         """Connect to the MCP server and initialize the session."""
+        if self._connected:
+            return
         if ClientSession is None:
             raise ImportError('mcp package is required for MCP integration. Install it with: pip install "anycode-py[mcp]"')
 
-        if self._config.transport == MCP_TRANSPORT_STDIO:
-            await self._connect_stdio(ClientSession)
-        elif self._config.transport in (MCP_TRANSPORT_SSE, MCP_TRANSPORT_STREAMABLE_HTTP):
-            await self._connect_http(ClientSession)
-        else:
-            raise ValueError(f"Unsupported MCP transport: {self._config.transport}")
+        try:
+            if self._config.transport == MCP_TRANSPORT_STDIO:
+                await self._connect_stdio(ClientSession)
+            elif self._config.transport in (MCP_TRANSPORT_SSE, MCP_TRANSPORT_STREAMABLE_HTTP):
+                await self._connect_http(ClientSession)
+            else:
+                raise ValueError(f"Unsupported MCP transport: {self._config.transport}")
+        except BaseException:
+            await self.disconnect()
+            raise
 
         self._connected = True
         logger.info("MCP client connected to server '%s'", self._config.name)
@@ -120,9 +120,9 @@ class MCPClient:
 
         session_cm = session_cls(read_stream, write_stream)
         await asyncio.wait_for(session_cm.__aenter__(), timeout=self._config.timeout)
+        self._session_cm = session_cm
         await asyncio.wait_for(session_cm.initialize(), timeout=self._config.timeout)
         self._session = session_cm
-        self._session_cm = session_cm
 
     async def _connect_http(self, session_cls: type) -> None:
         """Connect via streamable-HTTP (preferred) or legacy SSE transport."""
@@ -155,9 +155,9 @@ class MCPClient:
 
         session_cm = session_cls(read_stream, write_stream)
         await asyncio.wait_for(session_cm.__aenter__(), timeout=self._config.timeout)
+        self._session_cm = session_cm
         await asyncio.wait_for(session_cm.initialize(), timeout=self._config.timeout)
         self._session = session_cm
-        self._session_cm = session_cm
 
     async def discover_tools(self) -> list[MCPToolInfo]:
         """Discover available tools from the MCP server."""
@@ -175,7 +175,7 @@ class MCPClient:
                 name=tool.name,
                 description=tool.description or "",
                 input_schema=dict(tool.inputSchema) if tool.inputSchema else {},
-                side_effecting=not _is_read_only_tool(tool),
+                side_effecting=True,
             )
             for tool in result.tools
         ]
@@ -211,9 +211,10 @@ class MCPClient:
                 "is_error": is_error,
             }
 
-        except Exception as e:
-            logger.error("MCP tool call '%s' on server '%s' failed: %s", tool_name, self._config.name, e)
-            return {"content": safe_exception_message(e), "is_error": True}
+        except Exception as error:
+            message = safe_exception_message(error)
+            logger.error("MCP tool call '%s' on server '%s' failed: %s", tool_name, self._config.name, message)
+            return {"content": message, "is_error": True}
 
     async def disconnect(self) -> None:
         """Disconnect from the MCP server and clean up resources."""

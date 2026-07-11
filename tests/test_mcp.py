@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import BaseModel
 
+from anycode import AgentConfig, AnyCode
+from anycode.core import orchestrator as orchestrator_module
+from anycode.mcp import client as mcp_client_module
 from anycode.mcp.bridge import _build_tool_name, discover_and_register, mcp_tool_to_definition, schema_to_pydantic_model
 from anycode.mcp.client import MCPClient
 from anycode.mcp.config import validate_server_config
 from anycode.tools.registry import ToolRegistry, define_tool
-from anycode.types import MCPServerConfig, MCPToolInfo, MCPTrustPolicy, ToolResult
+from anycode.types import MCPServerConfig, MCPToolInfo, MCPTrustPolicy, TeamConfig, ToolResult
 
 # ---------------------------------------------------------------------------
 # Config validation
@@ -259,6 +264,191 @@ class TestDeregisterPrefix:
         assert registry.has("local_tool")
 
 
+class TestEngineMCPVisibility:
+    def test_mcp_tools_require_explicit_agent_server_scope(self) -> None:
+        engine = AnyCode()
+        engine._mcp_clients = {"alpha": object(), "alpha_admin": object()}
+
+        class DummyInput(BaseModel):
+            pass
+
+        async def noop(v: BaseModel, ctx: MagicMock) -> ToolResult:
+            return ToolResult(data="ok")
+
+        for name in ("mcp_alpha_read", "mcp_alpha_admin_write"):
+            engine._mcp_tool_registry.register(define_tool(name=name, description="test", input_model=DummyInput, execute=noop))
+        engine._mcp_tools_by_server = {
+            "alpha": {"mcp_alpha_read"},
+            "alpha_admin": {"mcp_alpha_admin_write"},
+        }
+
+        unscoped = engine.build_agent(AgentConfig(name="unscoped", model="fake", provider="openai"))
+        scoped = engine.build_agent(AgentConfig(name="scoped", model="fake", provider="openai", tools=[], mcp_servers=["alpha"]))
+
+        assert "mcp_alpha_read" not in unscoped.get_tools()
+        assert "mcp_alpha_admin_write" not in unscoped.get_tools()
+        assert "mcp_alpha_read" in scoped.get_tools()
+        assert "mcp_alpha_admin_write" not in scoped.get_tools()
+        assert scoped.config.tools == ["mcp_alpha_read"]
+
+    async def test_connection_updates_agents_built_from_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        client = MagicMock()
+        client.connect = AsyncMock()
+        client.disconnect = AsyncMock()
+
+        class DummyInput(BaseModel):
+            pass
+
+        async def noop(_value: BaseModel, _context: MagicMock) -> ToolResult:
+            return ToolResult(data="ok")
+
+        tool = define_tool(name="mcp_alpha_read", description="test", input_model=DummyInput, execute=noop)
+
+        async def register_tool(_client: object, _server_name: str, registry: ToolRegistry) -> list[str]:
+            registry.register(tool)
+            return [tool.name]
+
+        monkeypatch.setattr(orchestrator_module, "MCPClient", MagicMock(return_value=client))
+        monkeypatch.setattr(orchestrator_module, "discover_and_register", register_tool)
+
+        config = AgentConfig(name="configured", model="fake", provider="openai", tools=[], mcp_servers=["alpha"])
+        engine = AnyCode(
+            {
+                "mcp_servers": [
+                    MCPServerConfig(name="alpha", transport="stdio", command="node"),
+                ]
+            }
+        )
+        engine.create_team("configured-team", TeamConfig(name="configured-team", agents=[config]))
+        agent = engine._pool.get("configured")
+        assert agent is not None
+        assert "mcp_alpha_read" not in agent.get_tools()
+
+        await engine.connect_mcp_servers()
+
+        assert "mcp_alpha_read" in agent.get_tools()
+        assert agent.config.tools == ["mcp_alpha_read"]
+
+        await engine.disconnect_mcp_servers()
+
+        assert "mcp_alpha_read" not in agent.get_tools()
+        assert agent.config.tools == []
+
+    async def test_failed_discovery_disconnects_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        client = MagicMock()
+        client.connect = AsyncMock()
+        client.disconnect = AsyncMock()
+
+        monkeypatch.setattr(orchestrator_module, "MCPClient", MagicMock(return_value=client))
+        monkeypatch.setattr(
+            orchestrator_module,
+            "discover_and_register",
+            AsyncMock(side_effect=RuntimeError("discovery failed")),
+        )
+
+        engine = AnyCode(
+            {
+                "mcp_servers": [
+                    MCPServerConfig(name="alpha", transport="stdio", command="node"),
+                ]
+            }
+        )
+        await engine.connect_mcp_servers()
+
+        client.disconnect.assert_awaited_once()
+        assert engine._mcp_clients == {}
+        assert engine._mcp_tools_by_server == {}
+
+    async def test_failed_agent_attachment_rolls_back_and_can_retry(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        client = MagicMock()
+        client.connect = AsyncMock()
+        client.disconnect = AsyncMock()
+
+        class DummyInput(BaseModel):
+            pass
+
+        async def noop(_value: BaseModel, _context: MagicMock) -> ToolResult:
+            return ToolResult(data="ok")
+
+        tool = define_tool(name="mcp_alpha_read", description="test", input_model=DummyInput, execute=noop)
+
+        async def register_tool(_client: object, _server_name: str, registry: ToolRegistry) -> list[str]:
+            registry.register(tool)
+            return [tool.name]
+
+        attach = MagicMock(side_effect=[RuntimeError("attachment failed"), None])
+        monkeypatch.setattr(orchestrator_module, "MCPClient", MagicMock(return_value=client))
+        monkeypatch.setattr(orchestrator_module, "discover_and_register", register_tool)
+
+        engine = AnyCode(
+            {
+                "mcp_servers": [
+                    MCPServerConfig(name="alpha", transport="stdio", command="node"),
+                ]
+            }
+        )
+        monkeypatch.setattr(engine, "_attach_mcp_tools_to_agents", attach)
+
+        await engine.connect_mcp_servers()
+
+        assert engine._mcp_clients == {}
+        assert engine._mcp_tools_by_server == {}
+        assert not engine._mcp_tool_registry.has(tool.name)
+        client.disconnect.assert_awaited_once()
+
+        await engine.connect_mcp_servers()
+
+        assert engine._mcp_clients == {"alpha": client}
+        assert engine._mcp_tools_by_server == {"alpha": {tool.name}}
+        assert engine._mcp_tool_registry.has(tool.name)
+        assert attach.call_count == 2
+
+    async def test_cancelled_connection_preserves_cancellation_when_cleanup_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        client = MagicMock()
+        client.connect = AsyncMock()
+        client.disconnect = AsyncMock(side_effect=RuntimeError("cleanup failed"))
+        monkeypatch.setattr(orchestrator_module, "MCPClient", MagicMock(return_value=client))
+        monkeypatch.setattr(
+            orchestrator_module,
+            "discover_and_register",
+            AsyncMock(side_effect=asyncio.CancelledError),
+        )
+
+        engine = AnyCode(
+            {
+                "mcp_servers": [
+                    MCPServerConfig(name="alpha", transport="stdio", command="node"),
+                ]
+            }
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await engine.connect_mcp_servers()
+
+        client.disconnect.assert_awaited_once()
+        assert engine._mcp_clients == {}
+        assert engine._mcp_tools_by_server == {}
+
+    async def test_disconnect_clears_state_when_agent_detachment_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        client = MagicMock()
+        client.disconnect = AsyncMock()
+        engine = AnyCode()
+        engine._mcp_clients = {"alpha": client}
+        engine._mcp_tools_by_server = {"alpha": {"mcp_alpha_read"}}
+        monkeypatch.setattr(
+            engine,
+            "_detach_mcp_tools_from_agents",
+            MagicMock(side_effect=RuntimeError("detachment failed")),
+        )
+
+        await engine.disconnect_mcp_servers()
+
+        client.disconnect.assert_awaited_once()
+        assert engine._mcp_clients == {}
+        assert engine._mcp_tools_by_server == {}
+        assert engine._mcp_tool_registry.list() == []
+
+
 # ---------------------------------------------------------------------------
 # MCPClient
 # ---------------------------------------------------------------------------
@@ -283,6 +473,26 @@ class TestMCPClient:
         with pytest.raises(RuntimeError, match="not connected"):
             await client.discover_tools()
 
+    async def test_server_read_only_hint_does_not_bypass_side_effect_controls(self) -> None:
+        client = MCPClient(MCPServerConfig(name="test", transport="stdio", command="node"))
+        client._session = MagicMock()
+        client._session.list_tools = AsyncMock(
+            return_value=SimpleNamespace(
+                tools=[
+                    SimpleNamespace(
+                        name="claimed-read-only",
+                        description="advisory metadata",
+                        inputSchema={},
+                        annotations=SimpleNamespace(readOnlyHint=True),
+                    )
+                ]
+            )
+        )
+
+        tools = await client.discover_tools()
+
+        assert tools[0].side_effecting is True
+
     async def test_call_tool_when_not_connected(self) -> None:
 
         client = MCPClient(MCPServerConfig(name="test", transport="stdio", command="node"))
@@ -293,4 +503,40 @@ class TestMCPClient:
 
         client = MCPClient(MCPServerConfig(name="test", transport="stdio", command="node"))
         await client.disconnect()
+        assert client.is_connected is False
+
+    async def test_failed_initialization_closes_session_and_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        session_exit = AsyncMock()
+        transport_exit = AsyncMock()
+
+        class FakeTransport:
+            async def __aenter__(self) -> tuple[object, object]:
+                return object(), object()
+
+            async def __aexit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+                await transport_exit(exc_type, exc_value, traceback)
+
+        class FakeSession:
+            def __init__(self, read_stream: object, write_stream: object) -> None:
+                pass
+
+            async def __aenter__(self) -> FakeSession:
+                return self
+
+            async def initialize(self) -> None:
+                raise RuntimeError("initialization failed")
+
+            async def __aexit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+                await session_exit(exc_type, exc_value, traceback)
+
+        monkeypatch.setattr(mcp_client_module, "ClientSession", FakeSession)
+        monkeypatch.setattr(mcp_client_module, "StdioServerParameters", MagicMock())
+        monkeypatch.setattr(mcp_client_module, "stdio_client", lambda _params: FakeTransport())
+
+        client = MCPClient(MCPServerConfig(name="test", transport="stdio", command="node"))
+        with pytest.raises(RuntimeError, match="initialization failed"):
+            await client.connect()
+
+        session_exit.assert_awaited_once()
+        transport_exit.assert_awaited_once()
         assert client.is_connected is False

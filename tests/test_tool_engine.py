@@ -628,6 +628,43 @@ async def test_runner_executes_independent_tools_concurrently() -> None:
     assert len([c for c in result.tool_calls if c.tool_name == "slow"]) == 2
 
 
+async def test_runner_rejects_provider_call_for_unallowed_tool() -> None:
+    from anycode.core.runner import AgentRunner
+    from anycode.providers.fake import FakeAdapter, FakeResponse
+    from anycode.types import LLMMessage, RunnerOptions, TextBlock
+
+    executed = False
+
+    async def _restricted(_input: object, _ctx: ToolUseContext) -> ToolResult:
+        nonlocal executed
+        executed = True
+        return ToolResult(data="should not run")
+
+    class _Empty(BaseModel):
+        pass
+
+    registry = ToolRegistry()
+    registry.register(define_tool(name="restricted", description="restricted", input_model=_Empty, execute=_restricted))
+    adapter = FakeAdapter(
+        responses=[
+            FakeResponse(tool_calls=(("restricted", {}),)),
+            FakeResponse(text="done"),
+        ]
+    )
+    runner = AgentRunner(
+        adapter,
+        registry,
+        ToolExecutor(registry),
+        RunnerOptions(model="fake", agent_name="t", max_turns=2, allowed_tools=[]),
+    )
+
+    result = await runner.run([LLMMessage(role="user", content=[TextBlock(text="go")])])
+
+    assert executed is False
+    assert result.tool_calls[0].tool_name == "restricted"
+    assert "not allowed" in result.tool_calls[0].output
+
+
 async def test_runner_cancellation_drains_parallel_tools() -> None:
     from anycode.core.runner import AgentRunner
     from anycode.providers.fake import FakeAdapter, FakeResponse
