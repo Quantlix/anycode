@@ -27,6 +27,7 @@ Each control below is available today and can be layered onto a single agent run
 | Verification quality gates | `ruff`, `pyright`, `pytest`, `schema`, and `regex` sensors that can block a run. |
 | Checkpoints and resume | Recorded task state and agent results so a run can continue after a failure. |
 | Durable runs | Run metadata, transcript events, heartbeats, wake conditions, and turn checkpoints. |
+| Protected storage and retention | Pluggable run-store backends, payload-protection hooks, and explicit terminal-run pruning. |
 | Context policies | Rules for trimming, masking, offloading, or compacting context as history grows. |
 | Telemetry | OpenTelemetry tracing through the `telemetry` extra. |
 | Data redaction | Default-on credential scrubbing for telemetry, checkpoints, transcripts, context artifacts, eval reports, and evidence bundles. |
@@ -138,7 +139,9 @@ AnyCode redacts recognized credentials at built-in telemetry and persistence bou
 
 The policy covers console and OTLP span exports, telemetry-event serialization, workflow and turn checkpoints, run transcripts and metadata, context and session-chain artifacts, persistent SQLite/Redis/Chroma/knowledge memory, eval reports, and harness artifacts. It does not mutate the active model conversation or tool result in memory.
 
-Use `redact_sensitive`, `redact_text`, and `safe_exception_message` for custom exporters or persistence adapters. Redaction is not encryption or data-loss prevention: classify data before a run, minimize what agents can access, protect storage and telemetry sinks, and define retention outside the process.
+Use `redact_sensitive`, `redact_text`, and `safe_exception_message` for custom exporters or persistence adapters. Redaction is not encryption or data-loss prevention: classify data before a run, minimize what agents can access, and protect storage and telemetry sinks.
+
+For durable runs, `FilesystemRunStore(payload_protector=...)` accepts a `RunPayloadProtector` implementation for KMS- or HSM-backed envelope encryption. AnyCode defines the byte contract and versioned storage envelope but does not manage keys. `RunRetentionPolicy` bounds completed, failed, and cancelled runs by age and count; pass it to `sweep_once` or `RunScheduler`, or use `anycode runs sweep --retention-days ... --max-runs ...`. No retention policy means no automatic deletion.
 
 ## Inspect run results
 

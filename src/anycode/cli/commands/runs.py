@@ -18,6 +18,7 @@ from rich.console import Console
 from rich.table import Table
 
 from anycode.runstore.store import FilesystemRunStore
+from anycode.types import RunRetentionPolicy
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -121,14 +122,27 @@ def sweep(
     root: str = _ROOT_OPTION,
     stale_after: float = typer.Option(600.0, help="Heartbeat staleness (s) before a running run counts as crashed."),
     stall_after: float = typer.Option(900.0, help="Idle window (s) before a live run gets a stall warning."),
+    retention_days: float | None = typer.Option(None, help="Delete terminal runs older than this many days."),
+    max_runs: int | None = typer.Option(None, help="Keep at most this many terminal runs."),
 ) -> None:
     from anycode.schedule.scheduler import sweep_once
 
     store = FilesystemRunStore(root)
-    report = asyncio.run(sweep_once(store, stale_after_seconds=stale_after, stall_after_seconds=stall_after))
+    retention_policy = (
+        RunRetentionPolicy(max_age_days=retention_days, max_runs=max_runs) if retention_days is not None or max_runs is not None else None
+    )
+    report = asyncio.run(
+        sweep_once(
+            store,
+            stale_after_seconds=stale_after,
+            stall_after_seconds=stall_after,
+            retention_policy=retention_policy,
+        )
+    )
     due = store.due_wakes()
     console.print(f"interrupted: {list(report.interrupted) or '-'}")
     console.print(f"stalled:     {list(report.stalled) or '-'}")
+    console.print(f"pruned:      {list(report.pruned) or '-'}")
     if due:
         console.print("due wakes (resume programmatically via AgentRunner(resume_from=...) or RunScheduler):")
         for record in due:

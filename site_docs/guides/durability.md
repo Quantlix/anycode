@@ -84,14 +84,53 @@ A durable run that hits a provider outage doesn't fail — it **pauses** with a 
 !!! warning "Redaction changes persisted replay data"
     Checkpoint and run-store redaction is enabled by default. Recognized credentials are replaced with `<redacted-secret>` in serialized messages, tool inputs and outputs, metadata, errors, and transcript payloads. A resumed run therefore receives the placeholder rather than the original credential. Pass `redact_sensitive_data=False` only when exact replay is required and the store is protected with encryption, access control, and an appropriate retention policy.
 
-Low-level constructors expose the same explicit opt-out:
+Low-level constructors expose the same explicit opt-out. For durable runs, pair it with a payload protector rather than relying on filesystem permissions alone:
 
 ```python title="protected-store.py"
-store = FilesystemRunStore("/protected/runs", redact_sensitive_data=False)
+class EnvelopeProtector:
+    def protect(self, payload: bytes) -> bytes:
+        return envelope_encryption_service.encrypt(payload)
+
+    def unprotect(self, payload: bytes) -> bytes:
+        return envelope_encryption_service.decrypt(payload)
+
+
+store = FilesystemRunStore(
+    "/protected/runs",
+    redact_sensitive_data=False,
+    payload_protector=EnvelopeProtector(),
+)
 checkpoint_store = FilesystemCheckpointStore("/protected/checkpoints", redact_sensitive_data=False)
 ```
 
-The built-in filesystem stores do not encrypt data at rest.
+`RunPayloadProtector` is a synchronous byte-oriented protocol, so the implementation can use a KMS-backed envelope-encryption library, an HSM, or a platform secret service without coupling AnyCode to one key provider. The filesystem backend wraps protected bytes in a versioned text envelope. Legacy plaintext runs remain readable when a protector is configured; a protected run fails closed when its protector is missing, its key cannot open the payload, or its envelope version is unsupported.
+
+AnyCode does not generate, store, rotate, or escrow encryption keys. The run ID, directory layout, filenames, and file sizes remain visible. Use restricted filesystem permissions as well as encryption, and test key rotation and disaster recovery against copies of real-size checkpoints before deployment. Workflow `FilesystemCheckpointStore` remains plaintext and needs storage-layer encryption when exact, unredacted replay is enabled.
+
+Run records, transcript events, and turn checkpoints include `format_version=1`. Artifacts written before this field existed are treated as v1. Workflow checkpoints use format v2 and still read explicit v1 snapshots. `UnsupportedRunStoreVersionError` and `UnsupportedCheckpointVersionError` are raised for future formats so an older runtime cannot silently misinterpret newer state. When the newest plain turn checkpoint is corrupt, the filesystem store scans backward to the latest valid snapshot.
+
+## Use a production run-store backend
+
+`AgentRunner`, `sweep_once`, and `RunScheduler` depend on the public `RunStore` protocol rather than the filesystem class. A custom database or object-store backend can therefore be injected through `run_store=` without changing the runner. It must preserve atomic run-record updates, ordered event sequence numbers, checkpoint recovery, and mutually exclusive sweep locks; those semantics are part of the contract, not optional optimizations.
+
+## Bound durable-run retention
+
+No run is deleted unless a retention policy is supplied. `RunRetentionPolicy` can bound terminal runs by age, count, or both:
+
+```python title="retention.py"
+from anycode import FilesystemRunStore, RunRetentionPolicy, sweep_once
+
+store = FilesystemRunStore(".anycode/runs")
+policy = RunRetentionPolicy(max_age_days=30, max_runs=1_000)
+report = await sweep_once(store, retention_policy=policy)
+print(report.pruned)
+```
+
+Age pruning runs first; the count bound then keeps the newest remaining terminal runs. Only `completed`, `failed`, and `cancelled` runs are eligible. `running`, `paused`, and recoverable `interrupted` runs are retained. Apply the same policy on every scheduler tick with `RunScheduler(..., retention_policy=policy)` or from an external scheduler:
+
+```bash title="Prune during a watchdog sweep"
+anycode runs sweep --retention-days 30 --max-runs 1000
+```
 
 ## Inspect runs from the CLI
 
@@ -102,7 +141,7 @@ anycode runs list                 # table of every run and its status
 anycode runs show <run_id>        # status, wake condition, recent events
 anycode runs tail <run_id>        # transcript events after a sequence number
 anycode runs audit <run_id>       # event-kind digest over a time window
-anycode runs sweep                # one watchdog pass: mark interrupted/stalled, report due wakes
+anycode runs sweep                # watchdog pass; optional explicit retention bounds
 ```
 
 !!! warning "There is no `anycode runs resume`"

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from anycode.checkpoint.serializer import deserialize_checkpoint, serialize_checkpoint
+import pytest
+
+from anycode.checkpoint.serializer import UnsupportedCheckpointVersionError, deserialize_checkpoint, serialize_checkpoint
+from anycode.constants import CHECKPOINT_FORMAT_VERSION
 from anycode.core.runner import AgentRunner
 from anycode.providers.fake import FakeAdapter, FakeResponse
-from anycode.runstore.store import FilesystemRunStore
+from anycode.runstore import FilesystemRunStore, ProtectedPayloadError, RunStore, UnsupportedRunStoreVersionError
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
@@ -19,12 +23,21 @@ from anycode.types import (
     LLMMessage,
     QualityGateDecision,
     RunnerOptions,
+    RunRetentionPolicy,
     StopReason,
     TextBlock,
     TokenUsage,
     TurnCheckpoint,
     VerificationResult,
 )
+
+
+class _ReverseProtector:
+    def protect(self, payload: bytes) -> bytes:
+        return payload[::-1]
+
+    def unprotect(self, payload: bytes) -> bytes:
+        return payload[::-1]
 
 
 def _echo_tool() -> object:
@@ -60,6 +73,11 @@ def _runner(adapter: FakeAdapter, store: FilesystemRunStore, *, resume=None, eve
 # -- store primitives --
 
 
+def test_filesystem_store_satisfies_run_store_protocol(tmp_path: Path) -> None:
+    store: RunStore = FilesystemRunStore(tmp_path)
+    assert isinstance(store, RunStore)
+
+
 def test_run_record_lifecycle(tmp_path: Path) -> None:
     store = FilesystemRunStore(tmp_path)
     record = store.create_run("run-1", agent_name="a", model="m")
@@ -69,6 +87,29 @@ def test_run_record_lifecycle(tmp_path: Path) -> None:
     updated = store.update_status("run-1", "paused")
     assert updated.status == "paused"
     assert [r.run_id for r in store.list_runs()] == ["run-1"]
+
+
+def test_legacy_unversioned_run_record_still_loads(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path)
+    store.create_run("run-1", agent_name="agent", model="model")
+    metadata_path = tmp_path / "run-1" / "meta.json"
+    payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    payload.pop("format_version")
+    metadata_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert store.read_record("run-1") is not None
+
+
+def test_future_run_record_version_fails_clearly(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path)
+    store.create_run("run-1", agent_name="agent", model="model")
+    metadata_path = tmp_path / "run-1" / "meta.json"
+    payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    payload["format_version"] = 2
+    metadata_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(UnsupportedRunStoreVersionError, match="run record format version 2"):
+        store.read_record("run-1")
 
 
 def test_transcript_append_and_read(tmp_path: Path) -> None:
@@ -112,6 +153,71 @@ def test_durable_redaction_can_be_disabled(tmp_path: Path) -> None:
     assert "plain-value" in (tmp_path / "run-1" / "meta.json").read_text(encoding="utf-8")
 
 
+def test_protected_store_roundtrips_all_payloads(tmp_path: Path) -> None:
+    protector = _ReverseProtector()
+    store = FilesystemRunStore(tmp_path, redact_sensitive_data=False, payload_protector=protector)
+    store.create_run("run-1", agent_name="agent", model="model", metadata={"tenant": "acme"})
+    store.append_event("run-1", "message", {"text": "hello"})
+    store.save_checkpoint(
+        TurnCheckpoint(
+            run_id="run-1",
+            turn=1,
+            messages=[LLMMessage(role="user", content=[TextBlock(text="resume me")])],
+            token_usage=TokenUsage(),
+            created_at=datetime.now(UTC),
+        )
+    )
+
+    persisted = "\n".join(path.read_text(encoding="utf-8") for path in (tmp_path / "run-1").rglob("*.json*"))
+    assert "acme" not in persisted
+    assert "hello" not in persisted
+    assert "resume me" not in persisted
+
+    reopened = FilesystemRunStore(tmp_path, payload_protector=protector)
+    assert reopened.read_record("run-1").metadata == {"tenant": "acme"}  # type: ignore[union-attr]
+    assert reopened.read_events("run-1")[0].payload == {"text": "hello"}
+    assert reopened.load_latest_checkpoint("run-1").messages[0].content[0].text == "resume me"  # type: ignore[union-attr]
+
+
+def test_protected_store_requires_protector_to_read(tmp_path: Path) -> None:
+    protected = FilesystemRunStore(tmp_path, payload_protector=_ReverseProtector())
+    protected.create_run("run-1", agent_name="agent", model="model")
+
+    with pytest.raises(ProtectedPayloadError, match="protector is required"):
+        FilesystemRunStore(tmp_path).read_record("run-1")
+
+
+def test_protected_store_rejects_unknown_envelope_version(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path, payload_protector=_ReverseProtector())
+    store.create_run("run-1", agent_name="agent", model="model")
+    metadata_path = tmp_path / "run-1" / "meta.json"
+    metadata_path.write_text(metadata_path.read_text(encoding="utf-8").replace(":v1:", ":v2:", 1), encoding="utf-8")
+
+    with pytest.raises(ProtectedPayloadError, match="Unsupported protected payload format"):
+        store.read_record("run-1")
+
+
+def test_protector_reads_legacy_plaintext_payloads(tmp_path: Path) -> None:
+    FilesystemRunStore(tmp_path).create_run("run-1", agent_name="agent", model="model")
+
+    record = FilesystemRunStore(tmp_path, payload_protector=_ReverseProtector()).read_record("run-1")
+    assert record is not None
+    assert record.agent_name == "agent"
+
+
+def test_protected_transcript_torn_tail_is_skipped(tmp_path: Path) -> None:
+    protector = _ReverseProtector()
+    store = FilesystemRunStore(tmp_path, payload_protector=protector)
+    store.create_run("run-1", agent_name="agent", model="model")
+    store.append_event("run-1", "message", {"text": "complete"})
+    transcript = tmp_path / "run-1" / "transcript.jsonl"
+    complete_line = transcript.read_text(encoding="utf-8").splitlines()[0]
+    with transcript.open("a", encoding="utf-8") as fh:
+        fh.write(complete_line[: len(complete_line) // 2])
+
+    assert [event.seq for event in FilesystemRunStore(tmp_path, payload_protector=protector).read_events("run-1")] == [1]
+
+
 def test_transcript_torn_tail_is_skipped(tmp_path: Path) -> None:
     store = FilesystemRunStore(tmp_path)
     store.create_run("run-1", agent_name="a", model="m")
@@ -150,6 +256,26 @@ def test_turn_checkpoint_roundtrip_and_prune(tmp_path: Path) -> None:
     assert len(kept) == 3
 
 
+def test_corrupt_latest_turn_checkpoint_falls_back(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path)
+    store.create_run("run-1", agent_name="agent", model="model")
+    for turn in (1, 2):
+        store.save_checkpoint(
+            TurnCheckpoint(
+                run_id="run-1",
+                turn=turn,
+                messages=[],
+                token_usage=TokenUsage(),
+                created_at=datetime.now(UTC),
+            )
+        )
+    (tmp_path / "run-1" / "checkpoints" / "turn-000002.json").write_text("{", encoding="utf-8")
+
+    restored = store.load_latest_checkpoint("run-1")
+    assert restored is not None
+    assert restored.turn == 1
+
+
 def test_mark_interrupted_runs(tmp_path: Path) -> None:
     store = FilesystemRunStore(tmp_path)
     store.create_run("stale", agent_name="a", model="m")
@@ -159,6 +285,44 @@ def test_mark_interrupted_runs(tmp_path: Path) -> None:
     assert store.mark_interrupted_runs(stale_after_seconds=0.0) == ["stale"]
     assert store.read_record("stale").status == "interrupted"  # type: ignore[union-attr]
     assert store.read_record("done").status == "completed"  # type: ignore[union-attr]
+
+
+def test_prune_runs_applies_age_only_to_terminal_runs(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path)
+    for run_id, status in (
+        ("completed", "completed"),
+        ("failed", "failed"),
+        ("cancelled", "cancelled"),
+        ("running", "running"),
+        ("paused", "paused"),
+        ("interrupted", "interrupted"),
+    ):
+        store.create_run(run_id, agent_name="agent", model="model")
+        if status != "running":
+            store.update_status(run_id, status)  # type: ignore[arg-type]
+
+    deleted = store.prune_runs(RunRetentionPolicy(max_age_days=1), now=datetime.now(UTC) + timedelta(days=2))
+
+    assert deleted == ["cancelled", "completed", "failed"]
+    assert {record.run_id for record in store.list_runs()} == {"running", "paused", "interrupted"}
+
+
+def test_prune_runs_keeps_newest_terminal_count(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path)
+    for run_id in ("first", "second", "third"):
+        store.create_run(run_id, agent_name="agent", model="model")
+        store.update_status(run_id, "completed")
+
+    deleted = store.prune_runs(RunRetentionPolicy(max_runs=1))
+
+    assert deleted == ["first", "second"]
+    assert [record.run_id for record in store.list_runs()] == ["third"]
+
+
+@pytest.mark.parametrize("run_id", ("../escape", "..\\escape", ".", ".."))
+def test_run_id_cannot_escape_store_root(tmp_path: Path, run_id: str) -> None:
+    with pytest.raises(ValueError, match="single non-empty path segment"):
+        FilesystemRunStore(tmp_path).create_run(run_id, agent_name="agent", model="model")
 
 
 # -- durable runner --
@@ -274,6 +438,8 @@ def test_checkpoint_v2_roundtrips_observability_state() -> None:
         created_at=datetime.now(UTC),
     )
     restored = deserialize_checkpoint(serialize_checkpoint(data))
+    assert data.version == CHECKPOINT_FORMAT_VERSION
+    assert restored.version == CHECKPOINT_FORMAT_VERSION
     result = restored.agent_results["a"]
     assert result.terminal_phase == "completed"
     assert result.stop_reason is not None and result.stop_reason.code == "success"
@@ -307,6 +473,24 @@ def test_checkpoint_v1_payload_still_loads() -> None:
     assert result.output == "legacy"
     assert result.lifecycle_events == []
     assert result.stop_reason is None
+
+
+def test_future_workflow_checkpoint_version_is_rejected() -> None:
+    raw = serialize_checkpoint(
+        CheckpointData(
+            id="cp-future",
+            workflow_id="wf-future",
+            version=CHECKPOINT_FORMAT_VERSION + 1,
+            tasks=[],
+            agent_results={},
+            wave_index=0,
+            total_token_usage=TokenUsage(),
+            created_at=datetime.now(UTC),
+        )
+    )
+
+    with pytest.raises(UnsupportedCheckpointVersionError, match="Unsupported checkpoint format version"):
+        deserialize_checkpoint(raw)
 
 
 async def test_budget_state_survives_resume(tmp_path: Path) -> None:

@@ -17,13 +17,18 @@ the ground truth, so nothing can desync.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import os
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from anycode.checkpoint.serializer import _deserialize_message, _serialize_message
+from anycode.constants import RUN_STORE_FORMAT_VERSION
+from anycode.runstore.protocol import RunPayloadProtector
 from anycode.security.redaction import redact_sensitive
 from anycode.types import (
     BudgetSnapshot,
@@ -31,6 +36,7 @@ from anycode.types import (
     LifecycleEvent,
     QualityGateDecision,
     RunRecord,
+    RunRetentionPolicy,
     RunStatus,
     TokenUsage,
     TranscriptEvent,
@@ -45,6 +51,17 @@ logger = logging.getLogger(__name__)
 _META = "meta.json"
 _TRANSCRIPT = "transcript.jsonl"
 _CHECKPOINT_DIR = "checkpoints"
+_FORMAT_VERSION_FIELD = "format_version"
+_PROTECTED_PAYLOAD_MARKER = "anycode-protected:"
+_PROTECTED_PAYLOAD_PREFIX = "anycode-protected:v1:"
+
+
+class ProtectedPayloadError(RuntimeError):
+    """Raised when protected run-store data cannot be opened safely."""
+
+
+class UnsupportedRunStoreVersionError(RuntimeError):
+    """Raised when a durable artifact uses an unsupported schema version."""
 
 
 def _now() -> datetime:
@@ -57,12 +74,25 @@ def _atomic_write(path: Path, content: str) -> None:
     os.replace(tmp, path)
 
 
+def _validate_format_version(payload: dict[str, object], artifact: str) -> None:
+    version = payload.get(_FORMAT_VERSION_FIELD, RUN_STORE_FORMAT_VERSION)
+    if type(version) is not int or version != RUN_STORE_FORMAT_VERSION:
+        raise UnsupportedRunStoreVersionError(f"Unsupported {artifact} format version {version!r}; supported version is {RUN_STORE_FORMAT_VERSION}")
+
+
 class FilesystemRunStore:
     """Durable per-run persistence on the local filesystem (stdlib only)."""
 
-    def __init__(self, root: str | Path = ".anycode/runs", *, redact_sensitive_data: bool = True) -> None:
+    def __init__(
+        self,
+        root: str | Path = ".anycode/runs",
+        *,
+        redact_sensitive_data: bool = True,
+        payload_protector: RunPayloadProtector | None = None,
+    ) -> None:
         self._root = Path(root)
         self._redact_sensitive_data = redact_sensitive_data
+        self._payload_protector = payload_protector
         self._seq: dict[str, int] = {}
 
     @property
@@ -70,7 +100,44 @@ class FilesystemRunStore:
         return self._root
 
     def _run_dir(self, run_id: str) -> Path:
-        return self._root / run_id
+        candidate = Path(run_id)
+        if (
+            not run_id
+            or candidate.is_absolute()
+            or candidate.drive
+            or len(candidate.parts) != 1
+            or "/" in run_id
+            or "\\" in run_id
+            or run_id in (".", "..")
+        ):
+            raise ValueError("run_id must be a single non-empty path segment")
+        path = self._root / run_id
+        if path.is_symlink():
+            raise ValueError("run directories cannot be symbolic links")
+        return path
+
+    def _encode_payload(self, content: str) -> str:
+        if self._payload_protector is None:
+            return content
+        protected = self._payload_protector.protect(content.encode("utf-8"))
+        return _PROTECTED_PAYLOAD_PREFIX + base64.b64encode(protected).decode("ascii")
+
+    def _decode_payload(self, content: str) -> str:
+        if not content.startswith(_PROTECTED_PAYLOAD_MARKER):
+            return content
+        if not content.startswith(_PROTECTED_PAYLOAD_PREFIX):
+            raise ProtectedPayloadError("Unsupported protected payload format")
+        if self._payload_protector is None:
+            raise ProtectedPayloadError("A run payload protector is required to read this store")
+        encoded = content.removeprefix(_PROTECTED_PAYLOAD_PREFIX)
+        try:
+            protected = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise ProtectedPayloadError("Stored protected payload is corrupt") from error
+        try:
+            return self._payload_protector.unprotect(protected).decode("utf-8")
+        except Exception as error:
+            raise ProtectedPayloadError("Stored protected payload could not be opened") from error
 
     # -- run records --
 
@@ -103,13 +170,17 @@ class FilesystemRunStore:
         path = self._run_dir(run_id) / _META
         if not path.exists():
             return None
-        return RunRecord.model_validate_json(path.read_text(encoding="utf-8"))
+        payload = json.loads(self._decode_payload(path.read_text(encoding="utf-8")))
+        _validate_format_version(payload, "run record")
+        return RunRecord.model_validate(payload)
 
     def _write_record(self, record: RunRecord) -> None:
         payload = record.model_dump(mode="json")
+        payload[_FORMAT_VERSION_FIELD] = RUN_STORE_FORMAT_VERSION
         if self._redact_sensitive_data:
             payload = redact_sensitive(payload)
-        _atomic_write(self._run_dir(record.run_id) / _META, json.dumps(payload, indent=2, default=str))
+        content = json.dumps(payload, indent=2, default=str)
+        _atomic_write(self._run_dir(record.run_id) / _META, self._encode_payload(content))
 
     def update_status(self, run_id: str, status: RunStatus) -> RunRecord:
         record = self.read_record(run_id)
@@ -189,7 +260,7 @@ class FilesystemRunStore:
             return []
         records: list[RunRecord] = []
         for entry in sorted(self._root.iterdir()):
-            if not entry.is_dir():
+            if not entry.is_dir() or entry.is_symlink():
                 continue
             record = self.read_record(entry.name)
             if record is not None:
@@ -210,17 +281,47 @@ class FilesystemRunStore:
                 interrupted.append(record.run_id)
         return interrupted
 
+    def prune_runs(self, policy: RunRetentionPolicy, *, now: datetime | None = None) -> list[str]:
+        """Delete terminal runs outside configured age and count bounds."""
+        if policy.max_age_days is None and policy.max_runs is None:
+            return []
+
+        eligible = [record for record in self.list_runs() if record.status in policy.statuses]
+        delete_ids: set[str] = set()
+        if policy.max_age_days is not None:
+            cutoff = (now or _now()) - timedelta(days=policy.max_age_days)
+            delete_ids.update(record.run_id for record in eligible if record.updated_at < cutoff)
+
+        if policy.max_runs is not None:
+            remaining = sorted(
+                (record for record in eligible if record.run_id not in delete_ids),
+                key=lambda record: (record.updated_at, record.run_id),
+                reverse=True,
+            )
+            delete_ids.update(record.run_id for record in remaining[policy.max_runs :])
+
+        deleted: list[str] = []
+        for run_id in sorted(delete_ids):
+            current = self.read_record(run_id)
+            if current is None or current.status not in policy.statuses:
+                continue
+            shutil.rmtree(self._run_dir(run_id))
+            self._seq.pop(run_id, None)
+            deleted.append(run_id)
+        return deleted
+
     # -- transcript --
 
     def append_event(self, run_id: str, kind: TranscriptEventKind, payload: dict[str, object] | None = None) -> TranscriptEvent:
         seq = self._next_seq(run_id)
         event = TranscriptEvent(seq=seq, ts=_now(), kind=kind, payload=dict(payload or {}))
         serialized = event.model_dump(mode="json")
+        serialized[_FORMAT_VERSION_FIELD] = RUN_STORE_FORMAT_VERSION
         if self._redact_sensitive_data:
             serialized = redact_sensitive(serialized)
         path = self._run_dir(run_id) / _TRANSCRIPT
         with path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(serialized, default=str) + "\n")
+            fh.write(self._encode_payload(json.dumps(serialized, default=str)) + "\n")
             fh.flush()
         return event
 
@@ -231,12 +332,21 @@ class FilesystemRunStore:
             return []
         events: list[TranscriptEvent] = []
         with path.open("r", encoding="utf-8") as fh:
-            for line_no, line in enumerate(fh, start=1):
+            lines = fh.readlines()
+            torn_tail = bool(lines) and not lines[-1].endswith("\n")
+            for line_no, line in enumerate(lines, start=1):
                 line = line.strip()
                 if not line:
                     continue
                 try:
-                    event = TranscriptEvent.model_validate(json.loads(line))
+                    payload = json.loads(self._decode_payload(line))
+                    _validate_format_version(payload, "transcript event")
+                    event = TranscriptEvent.model_validate(payload)
+                except ProtectedPayloadError:
+                    if torn_tail and line_no == len(lines):
+                        logger.warning("Skipping corrupt transcript line %d in run %s", line_no, run_id)
+                        continue
+                    raise
                 except (json.JSONDecodeError, ValueError):
                     logger.warning("Skipping corrupt transcript line %d in run %s", line_no, run_id)
                     continue
@@ -257,7 +367,8 @@ class FilesystemRunStore:
         cp_dir = self._run_dir(checkpoint.run_id) / _CHECKPOINT_DIR
         cp_dir.mkdir(parents=True, exist_ok=True)
         path = cp_dir / f"turn-{checkpoint.turn:06d}.json"
-        _atomic_write(path, _serialize_turn_checkpoint(checkpoint, redact_sensitive_data=self._redact_sensitive_data))
+        content = _serialize_turn_checkpoint(checkpoint, redact_sensitive_data=self._redact_sensitive_data)
+        _atomic_write(path, self._encode_payload(content))
         for stale in sorted(cp_dir.glob("turn-*.json"))[:-keep_last]:
             stale.unlink(missing_ok=True)
         return path
@@ -268,7 +379,8 @@ class FilesystemRunStore:
             return None
         for path in sorted(cp_dir.glob("turn-*.json"), reverse=True):
             try:
-                return _deserialize_turn_checkpoint(path.read_text(encoding="utf-8"))
+                content = self._decode_payload(path.read_text(encoding="utf-8"))
+                return _deserialize_turn_checkpoint(content)
             except (json.JSONDecodeError, ValueError, KeyError):
                 logger.warning("Skipping corrupt checkpoint %s", path)
                 continue
@@ -277,6 +389,7 @@ class FilesystemRunStore:
 
 def _serialize_turn_checkpoint(cp: TurnCheckpoint, *, redact_sensitive_data: bool = True) -> str:
     payload = cp.model_dump(mode="json")
+    payload[_FORMAT_VERSION_FIELD] = RUN_STORE_FORMAT_VERSION
     # Message content blocks are a union; serialize through the shared
     # checkpoint helpers so deserialization is deterministic.
     payload["messages"] = [_serialize_message(m) for m in cp.messages]
@@ -287,6 +400,7 @@ def _serialize_turn_checkpoint(cp: TurnCheckpoint, *, redact_sensitive_data: boo
 
 def _deserialize_turn_checkpoint(raw: str) -> TurnCheckpoint:
     data = json.loads(raw)
+    _validate_format_version(data, "turn checkpoint")
     return TurnCheckpoint(
         run_id=data["run_id"],
         turn=data["turn"],

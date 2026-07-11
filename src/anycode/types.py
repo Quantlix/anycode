@@ -9,6 +9,8 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from anycode.constants import CHECKPOINT_FORMAT_VERSION
+
 # -- Content blocks --
 
 
@@ -662,6 +664,7 @@ class ProviderResilienceConfig(BaseModel):
 # -- Durable run store --
 
 RunStatus = Literal["running", "paused", "interrupted", "completed", "failed", "cancelled"]
+TerminalRunStatus = Literal["completed", "failed", "cancelled"]
 
 TranscriptEventKind = Literal[
     "message",
@@ -680,6 +683,15 @@ TranscriptEventKind = Literal[
     "stall_warning",
     "stop",
 ]
+
+
+class RunRetentionPolicy(BaseModel):
+    """Bounds for pruning terminal durable runs."""
+
+    model_config = ConfigDict(frozen=True)
+    max_age_days: float | None = Field(default=None, ge=0)
+    max_runs: int | None = Field(default=None, ge=0)
+    statuses: tuple[TerminalRunStatus, ...] = ("completed", "failed", "cancelled")
 
 
 class DurabilityConfig(BaseModel):
@@ -1038,7 +1050,7 @@ class CheckpointData(BaseModel):
     model_config = ConfigDict(frozen=True)
     id: str
     workflow_id: str
-    version: int = 1
+    version: int = CHECKPOINT_FORMAT_VERSION
     tasks: list[Task]
     agent_results: dict[str, AgentRunResult]
     wave_index: int

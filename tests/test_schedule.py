@@ -12,7 +12,7 @@ import pytest
 from anycode.runstore.store import FilesystemRunStore
 from anycode.schedule.scheduler import sweep_once
 from anycode.schedule.tasks import ScheduledTask, run_scheduled_task
-from anycode.types import WakeCondition
+from anycode.types import RunRetentionPolicy, WakeCondition
 
 
 def _paused_run(store: FilesystemRunStore, run_id: str, *, wake_delta_seconds: float) -> None:
@@ -120,6 +120,24 @@ async def test_stall_warning_for_fresh_heartbeat_without_progress(tmp_path: Path
     assert report2.stalled == ()
 
 
+async def test_sweep_applies_explicit_retention_policy(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path)
+    store.create_run("completed", agent_name="a", model="m")
+    store.update_status("completed", "completed")
+    store.create_run("active", agent_name="a", model="m")
+
+    report = await sweep_once(
+        store,
+        stale_after_seconds=3600,
+        stall_after_seconds=3600,
+        retention_policy=RunRetentionPolicy(max_runs=0),
+    )
+
+    assert report.pruned == ("completed",)
+    assert store.read_record("completed") is None
+    assert store.read_record("active") is not None
+
+
 # -- scheduled task modes --
 
 
@@ -130,15 +148,11 @@ async def test_notification_and_script_modes_use_zero_llm_calls() -> None:
         agent_calls.append(prompt)
         return "agent output"
 
-    note = await run_scheduled_task(
-        ScheduledTask(name="ping", mode="notification", message="backup completed"), agent=agent
-    )
+    note = await run_scheduled_task(ScheduledTask(name="ping", mode="notification", message="backup completed"), agent=agent)
     assert note.output == "backup completed"
 
     py = sys.executable.replace("\\", "/")
-    script = await run_scheduled_task(
-        ScheduledTask(name="check", mode="script", command=f'"{py}" -c "print(40 + 2)"'), agent=agent
-    )
+    script = await run_scheduled_task(ScheduledTask(name="check", mode="script", command=f'"{py}" -c "print(40 + 2)"'), agent=agent)
     assert script.exit_code == 0
     assert "42" in script.output
 

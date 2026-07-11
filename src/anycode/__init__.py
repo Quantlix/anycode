@@ -1,6 +1,7 @@
 """AnyCode — scalable multi-agent AI orchestration framework for Python."""
 
 from anycode.checkpoint.manager import CheckpointManager
+from anycode.checkpoint.serializer import UnsupportedCheckpointVersionError
 from anycode.checkpoint.store import FilesystemCheckpointStore
 from anycode.collaboration.kv_store import InMemoryStore
 from anycode.collaboration.message_bus import MessageBus
@@ -113,7 +114,8 @@ from anycode.reflection.loop import ReflectionLoop
 from anycode.routing.classifier import classify_task
 from anycode.routing.router import DefaultRouter
 from anycode.routing.rules import evaluate_rules, match_rule
-from anycode.runstore.store import FilesystemRunStore
+from anycode.runstore.protocol import RunPayloadProtector, RunStore
+from anycode.runstore.store import FilesystemRunStore, ProtectedPayloadError, UnsupportedRunStoreVersionError
 from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
 from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
 from anycode.security import REDACTED_SECRET, redact_sensitive, redact_text, safe_exception_message
@@ -235,6 +237,7 @@ from anycode.types import (
     RunnerStreamingConfig,
     RunRecord,
     RunResult,
+    RunRetentionPolicy,
     RunStatus,
     RunSummary,
     SchedulingStrategy,
@@ -252,6 +255,7 @@ from anycode.types import (
     TaskStatus,
     TeamConfig,
     TeamRunResult,
+    TerminalRunStatus,
     TextBlock,
     ThinkingBlock,
     TokenizerStrategy,
@@ -374,12 +378,19 @@ __all__ = [
     "RetryPolicy",
     # Durable run store
     "FilesystemRunStore",
+    "ProtectedPayloadError",
+    "RunPayloadProtector",
+    "RunStore",
     "DurabilityConfig",
     "RunRecord",
+    "RunRetentionPolicy",
     "RunStatus",
+    "TerminalRunStatus",
     "TranscriptEvent",
     "TurnCheckpoint",
     "BudgetSnapshot",
+    "UnsupportedCheckpointVersionError",
+    "UnsupportedRunStoreVersionError",
     # Session chaining
     "SessionChain",
     "GoalContract",

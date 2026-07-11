@@ -1,11 +1,13 @@
 """Workflow checkpointing and resume for crash recovery."""
 
 from anycode.checkpoint.manager import CheckpointManager
+from anycode.checkpoint.serializer import UnsupportedCheckpointVersionError
 from anycode.checkpoint.store import FilesystemCheckpointStore
 
 __all__ = [
     "CheckpointManager",
     "FilesystemCheckpointStore",
+    "UnsupportedCheckpointVersionError",
 ]
 
 try:

@@ -24,7 +24,8 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from anycode.runstore.store import FilesystemRunStore
+from anycode.runstore.protocol import RunStore
+from anycode.types import RunRetentionPolicy
 
 ResumeFn = Callable[[str], Awaitable[None]]
 """Resumes one run by id (typically: load latest checkpoint, run to completion)."""
@@ -35,15 +36,17 @@ class SweepReport(BaseModel):
     woken: tuple[str, ...] = ()
     interrupted: tuple[str, ...] = ()
     stalled: tuple[str, ...] = ()
+    pruned: tuple[str, ...] = ()
 
 
 async def sweep_once(
-    store: FilesystemRunStore,
+    store: RunStore,
     *,
     resume: ResumeFn | None = None,
     stale_after_seconds: float = 600.0,
     stall_after_seconds: float = 900.0,
     tolerance_seconds: float = 30.0,
+    retention_policy: RunRetentionPolicy | None = None,
 ) -> SweepReport:
     """One idempotent pass over the run store: crash detection, stall warnings,
     and due-wake resumption."""
@@ -67,10 +70,11 @@ async def sweep_once(
             finally:
                 store.release_sweep_lock(record.run_id)
 
-    return SweepReport(woken=tuple(woken), interrupted=interrupted, stalled=stalled)
+    pruned = tuple(store.prune_runs(retention_policy)) if retention_policy is not None else ()
+    return SweepReport(woken=tuple(woken), interrupted=interrupted, stalled=stalled, pruned=pruned)
 
 
-def _warn_stalled_runs(store: FilesystemRunStore, stall_after_seconds: float) -> list[str]:
+def _warn_stalled_runs(store: RunStore, stall_after_seconds: float) -> list[str]:
     now = datetime.now(UTC)
     stalled: list[str] = []
     for record in store.list_runs():
@@ -98,18 +102,20 @@ class RunScheduler:
 
     def __init__(
         self,
-        store: FilesystemRunStore,
+        store: RunStore,
         *,
         resume: ResumeFn | None = None,
         interval_seconds: float = 1.0,
         stale_after_seconds: float = 600.0,
         stall_after_seconds: float = 900.0,
+        retention_policy: RunRetentionPolicy | None = None,
     ) -> None:
         self._store = store
         self._resume = resume
         self._interval = interval_seconds
         self._stale_after = stale_after_seconds
         self._stall_after = stall_after_seconds
+        self._retention_policy = retention_policy
         self._stopped = asyncio.Event()
 
     def stop(self) -> None:
@@ -122,6 +128,7 @@ class RunScheduler:
                 resume=self._resume,
                 stale_after_seconds=self._stale_after,
                 stall_after_seconds=self._stall_after,
+                retention_policy=self._retention_policy,
             )
             try:
                 await asyncio.wait_for(self._stopped.wait(), timeout=self._interval)

@@ -101,6 +101,12 @@ Related runtime configs:
 
 **`DurabilityConfig`** — `enabled=False`, `run_root=".anycode/runs"`, `checkpoint_every_turns=5`, `keep_last_checkpoints=3`, `heartbeat_seconds=30.0`, `redact_sensitive_data=True`.
 
+**`RunRetentionPolicy`** — `max_age_days=None`, `max_runs=None`, `statuses=("completed", "failed", "cancelled")`. Pass it to `sweep_once(..., retention_policy=...)` or `RunScheduler(..., retention_policy=...)`; without a policy, runs are never pruned.
+
+**`FilesystemRunStore`** — accepts `redact_sensitive_data=True` and an optional `payload_protector: RunPayloadProtector`. The protector secures serialized payload bytes; key management and storage metadata protection remain the application's responsibility. Inject any backend satisfying `RunStore` through `AgentRunner(run_store=...)`.
+
+Durable run artifacts use schema format v1; workflow checkpoints use v2 and retain v1 read compatibility. Catch `UnsupportedRunStoreVersionError` or `UnsupportedCheckpointVersionError` to stop startup and run a controlled migration when storage was written by a newer AnyCode release.
+
 **`ContextPolicy`** (per agent) — thresholds that trigger context management as the window fills: `max_context_tokens=100_000`, then ratios `trim_ratio=0.65`, `mask_ratio=0.70`, `offload_ratio=0.75`, `compact_ratio=0.85`, `handoff_ratio=0.95`; plus `keep_recent_messages=6`, `max_tool_output_tokens=4000`, `summary_target_tokens=800`, `artifact_dir=".anycode/artifacts"`, `redact_sensitive_data=True`, `mode` (`"disabled"` \| `"manual"` \| `"auto"`).
 
 The `redact_sensitive_data` flags scrub recognized credentials before telemetry export or persistence. Leave them enabled unless the destination is independently protected and exact replay is required. They are pattern- and key-based defenses, not a substitute for encryption, access control, data classification, or retention policies.

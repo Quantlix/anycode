@@ -90,14 +90,15 @@ uv run anycode eval tests/fixtures/eval/runtime_reliability_deterministic.yaml
 Inspect durable run stores:
 
 ```bash
-uv run anycode runs list .anycode/runs
-uv run anycode runs show .anycode/runs <run-id>
-uv run anycode runs tail .anycode/runs <run-id>
-uv run anycode runs audit .anycode/runs <run-id>
-uv run anycode runs sweep .anycode/runs
+uv run anycode runs list --root .anycode/runs
+uv run anycode runs show <run-id> --root .anycode/runs
+uv run anycode runs tail <run-id> --root .anycode/runs
+uv run anycode runs audit <run-id> --root .anycode/runs
+uv run anycode runs sweep --root .anycode/runs
+uv run anycode runs sweep --root .anycode/runs --retention-days 30 --max-runs 1000
 ```
 
-Use these commands when workflows checkpoint turns, pause for wake conditions, or need an audit trail. See [Production controls](../guides/production-controls.md) for durable-run configuration.
+Use these commands when workflows checkpoint turns, pause for wake conditions, or need an audit trail. Retention is disabled unless `--retention-days` or `--max-runs` is supplied; only terminal runs are eligible. See [Production controls](../guides/production-controls.md) for durable-run configuration.
 
 ## See also
 

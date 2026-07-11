@@ -41,6 +41,7 @@ from anycode.helpers.concurrency_gate import Semaphore
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
 from anycode.providers.resilience import ProviderUnavailableError
+from anycode.runstore.protocol import RunStore
 from anycode.runstore.store import FilesystemRunStore
 from anycode.security.redaction import safe_exception_message
 from anycode.structured.output import (
@@ -115,7 +116,7 @@ class AgentRunner:
         lifecycle_listeners: list[LifecycleListener] | None = None,
         context_policy: ContextPolicy | None = None,
         durability: DurabilityConfig | None = None,
-        run_store: FilesystemRunStore | None = None,
+        run_store: RunStore | None = None,
         resume_from: TurnCheckpoint | None = None,
     ) -> None:
         self._adapter = adapter
@@ -140,7 +141,7 @@ class AgentRunner:
         if self._sensor_configs:
             self._gate = QualityGate(build_sensors(self._sensor_configs))
         self._durability = durability if (durability and durability.enabled) else None
-        self._run_store: FilesystemRunStore | None = None
+        self._run_store: RunStore | None = None
         if self._durability is not None:
             self._run_store = run_store or FilesystemRunStore(
                 self._durability.run_root,

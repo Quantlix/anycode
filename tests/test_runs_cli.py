@@ -87,3 +87,14 @@ def test_runs_sweep_reports_watchdog_actions(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "crashed" in result.output
     assert store.read_record("crashed").status == "interrupted"  # type: ignore[union-attr]
+
+
+def test_runs_sweep_applies_explicit_retention(tmp_path: Path) -> None:
+    _seed_run(tmp_path, "completed")
+
+    result = runner.invoke(app, ["runs", "sweep", "--root", str(tmp_path), "--max-runs", "0"])
+
+    assert result.exit_code == 0
+    assert "pruned:" in result.output
+    assert "completed" in result.output
+    assert FilesystemRunStore(tmp_path).read_record("completed") is None

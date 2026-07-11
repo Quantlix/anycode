@@ -117,7 +117,9 @@ EXIT_CODE_NOT_FOUND = 127
 # v2 adds lifecycle events, context manifests, verification results, gate
 # decisions, terminal phase, stop reason, and retries to serialized agent
 # results. v1 files still deserialize (the added fields default to empty).
+CHECKPOINT_MIN_FORMAT_VERSION = 1
 CHECKPOINT_FORMAT_VERSION = 2
+RUN_STORE_FORMAT_VERSION = 1
 
 # ---------------------------------------------------------------------------
 # Encoding

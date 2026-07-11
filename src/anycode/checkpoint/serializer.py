@@ -13,6 +13,7 @@ from anycode.constants import (
     BLOCK_TYPE_TOOL_RESULT,
     BLOCK_TYPE_TOOL_USE,
     CHECKPOINT_FORMAT_VERSION,
+    CHECKPOINT_MIN_FORMAT_VERSION,
 )
 from anycode.security.redaction import redact_sensitive
 from anycode.types import (
@@ -38,6 +39,10 @@ from anycode.types import (
 )
 
 
+class UnsupportedCheckpointVersionError(ValueError):
+    """Raised when a checkpoint uses a format this runtime cannot read."""
+
+
 def serialize_checkpoint(data: CheckpointData, *, redact_sensitive_data: bool = True) -> str:
     payload = {
         "id": data.id,
@@ -57,10 +62,16 @@ def serialize_checkpoint(data: CheckpointData, *, redact_sensitive_data: bool = 
 
 def deserialize_checkpoint(raw: str) -> CheckpointData:
     data = json.loads(raw)
+    version = data.get("version", CHECKPOINT_MIN_FORMAT_VERSION)
+    if type(version) is not int or not CHECKPOINT_MIN_FORMAT_VERSION <= version <= CHECKPOINT_FORMAT_VERSION:
+        raise UnsupportedCheckpointVersionError(
+            f"Unsupported checkpoint format version {version!r}; supported versions are "
+            f"{CHECKPOINT_MIN_FORMAT_VERSION} through {CHECKPOINT_FORMAT_VERSION}"
+        )
     return CheckpointData(
         id=data["id"],
         workflow_id=data["workflow_id"],
-        version=data.get("version", CHECKPOINT_FORMAT_VERSION),
+        version=version,
         wave_index=data["wave_index"],
         total_token_usage=TokenUsage(**data["total_token_usage"]),
         created_at=data["created_at"],
