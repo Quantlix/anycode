@@ -112,7 +112,7 @@ print(result.content[0].text, result.usage.input_tokens)
 
 ## Resilience is on by default
 
-Every adapter from `create_adapter` (and every agent run) is wrapped in a `ResilientAdapter`: automatic retries with exponential backoff and full jitter, a circuit breaker, and a per-call deadline. You get this without configuring anything.
+Every adapter from `create_adapter` (and every agent run) is wrapped in a `ResilientAdapter`: a concurrency bulkhead, optional request pacing, automatic retries with exponential backoff and full jitter, a circuit breaker, and a per-call deadline. You get the default concurrency bound without configuring anything.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -122,20 +122,49 @@ Every adapter from `create_adapter` (and every agent run) is wrapped in a `Resil
 | `RetryPolicy.call_timeout_seconds` | `300.0` | Per-call deadline |
 | `ProviderResilienceConfig.circuit_failure_threshold` | `5` | Consecutive failures before the circuit opens |
 | `ProviderResilienceConfig.circuit_reset_seconds` | `120.0` | Wait before a half-open probe |
+| `ProviderResilienceConfig.max_concurrency` | `8` | Simultaneous provider attempts per event loop and capacity scope; `None` disables |
+| `ProviderResilienceConfig.requests_per_minute` | `None` | Evenly paced request starts; retries count; `None` disables |
+| `ProviderResilienceConfig.capacity_scope` | provider name | Adapters that share this value share one limiter |
+| `ProviderResilienceConfig.capacity_wait_timeout_seconds` | `300.0` | Queue wait before load shedding; `None` waits indefinitely |
+
+The limiter is shared by adapters with the same scope and settings in one event loop, which is how agents in a normal team obey one local provider cap. Use distinct scopes for independent API-key quotas. Configuring different limits for one scope raises an error instead of silently creating a second pool. A stream holds its concurrency slot until it completes or is closed, and every retry reacquires both the concurrency and request-rate gates. When the queue wait expires, `ProviderCapacityError` (a `ProviderUnavailableError`) load-sheds without opening the provider circuit.
 
 Retryable failures include timeouts, connection errors, and HTTP `408/409/429/500/502/503/504/529`; the layer honors a `Retry-After` header. Authentication and invalid-request errors are treated as terminal and never retried. When retries are exhausted or the circuit is open, `chat()` raises `ProviderUnavailableError`; a streaming call instead emits a terminal `error` event.
 
 ```python title="resilience.py"
 from anycode import ProviderResilienceConfig, RetryPolicy, create_adapter
 
-# Tighten the deadline and attempts for a latency-sensitive path.
+# Bound parallel calls, pace request starts, and tighten retries.
 adapter = await create_adapter(
     "anthropic",
-    resilience=ProviderResilienceConfig(retry=RetryPolicy(max_attempts=3, call_timeout_seconds=60.0)),
+    resilience=ProviderResilienceConfig(
+        max_concurrency=4,
+        requests_per_minute=120,
+        capacity_scope="anthropic-production-key",
+        retry=RetryPolicy(max_attempts=3, call_timeout_seconds=60.0),
+    ),
 )
 
 # Or opt out entirely for a bare adapter.
 raw = await create_adapter("anthropic", resilience=ProviderResilienceConfig(enabled=False))
+```
+
+The request pacer controls request starts, not tokens per minute. Provider-side token quotas, organization-wide quotas, and traffic from other processes remain authoritative. In a multi-process or multi-host deployment, enforce the aggregate limit in your provider gateway or a distributed rate limiter as well as using this local bulkhead.
+
+Set one policy for all agents in Python, then override it only where a separate quota is intentional:
+
+```python title="team-capacity.py"
+from anycode import AnyCode, OrchestratorConfig, ProviderResilienceConfig
+
+engine = AnyCode(
+    OrchestratorConfig(
+        provider_resilience=ProviderResilienceConfig(
+            max_concurrency=4,
+            requests_per_minute=120,
+            capacity_scope="shared-production-key",
+        )
+    )
+)
 ```
 
 !!! tip "Register your own provider"

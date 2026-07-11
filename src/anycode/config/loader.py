@@ -20,6 +20,7 @@ from anycode.types import (
     GuardrailConfig,
     ModelContextProfile,
     OrchestratorConfig,
+    ProviderResilienceConfig,
     RAGConfig,
     ReflectionConfig,
     RoutingConfig,
@@ -52,6 +53,7 @@ class LoadedConfig:
     verification: tuple[VerificationSensorConfig, ...] = ()
     context_policy: ContextPolicy | None = None
     max_handoff_depth: int | None = None
+    provider_resilience: ProviderResilienceConfig | None = None
 
     def to_orchestrator_config(self) -> OrchestratorConfig:
         if self.max_handoff_depth is not None:
@@ -63,6 +65,7 @@ class LoadedConfig:
                 rag=self.rag,
                 verification=self.verification,
                 max_handoff_depth=self.max_handoff_depth,
+                provider_resilience=self.provider_resilience,
             )
         return OrchestratorConfig(
             max_concurrency=self.team.max_concurrency,
@@ -71,6 +74,7 @@ class LoadedConfig:
             reflection=self.reflection,
             rag=self.rag,
             verification=self.verification,
+            provider_resilience=self.provider_resilience,
         )
 
 
@@ -212,6 +216,7 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
     cost = CostConfig.model_validate(raw["cost"]) if "cost" in raw else None
     reflection = ReflectionConfig.model_validate(raw["reflection"]) if "reflection" in raw else None
     rag = RAGConfig.model_validate(raw["rag"]) if "rag" in raw else None
+    provider_resilience = ProviderResilienceConfig.model_validate(raw["provider_resilience"]) if "provider_resilience" in raw else None
 
     raw_handoff_depth = raw.get("max_handoff_depth")
     if raw_handoff_depth is not None and not isinstance(raw_handoff_depth, int):
@@ -228,4 +233,5 @@ def load_config(path: str | os.PathLike[str]) -> LoadedConfig:
         verification=global_sensors,
         context_policy=global_context_policy,
         max_handoff_depth=raw_handoff_depth,
+        provider_resilience=provider_resilience,
     )

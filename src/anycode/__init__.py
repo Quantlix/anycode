@@ -107,7 +107,13 @@ from anycode.plugins import (
 )
 from anycode.providers.adapter import create_adapter
 from anycode.providers.fake import FakeAdapter, FakeResponse
-from anycode.providers.resilience import ProviderUnavailableError, ResilientAdapter
+from anycode.providers.resilience import (
+    ProviderCapacityConfigurationError,
+    ProviderCapacityError,
+    ProviderCapacityLimiter,
+    ProviderUnavailableError,
+    ResilientAdapter,
+)
 from anycode.reflection.critic import DEFAULT_CRITIC_PROMPT, LLMCritic
 from anycode.reflection.evaluator import parse_critic_json
 from anycode.reflection.loop import ReflectionLoop
@@ -373,6 +379,9 @@ __all__ = [
     "FakeResponse",
     # Provider resilience
     "ResilientAdapter",
+    "ProviderCapacityConfigurationError",
+    "ProviderCapacityError",
+    "ProviderCapacityLimiter",
     "ProviderUnavailableError",
     "ProviderResilienceConfig",
     "RetryPolicy",

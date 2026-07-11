@@ -20,6 +20,7 @@ Each control below is available today and can be layered onto a single agent run
 | Control | What it gives you |
 | --- | --- |
 | Cost and token budgets | A hard ceiling on spend and turns before a run touches live providers. |
+| Provider capacity limits | Shared concurrency bulkheads, request pacing, and bounded queue waits around provider calls. |
 | HITL approval gates | A human checkpoint before sensitive or irreversible tasks execute. |
 | Output validators | Programmatic checks on agent output before it is accepted. |
 | Turn hooks | Callbacks around each turn for logging, mutation, or early stops. |
@@ -75,6 +76,20 @@ agent = AgentConfig(
 
 !!! tip "Set limits before live calls"
     Budgets and turn limits are cheapest to add first. Configure them before pointing an agent at a paid provider, then test the same workflow against a `FakeAdapter` to confirm behavior without spending tokens.
+
+## Bound provider traffic
+
+`ProviderResilienceConfig` caps simultaneous SDK attempts across agents that share a provider scope. Set `requests_per_minute` when a vendor publishes a request quota, and keep `capacity_wait_timeout_seconds` bounded so overload is shed as `ProviderCapacityError` rather than accumulating an unbounded queue.
+
+```yaml title="team.yaml"
+provider_resilience:
+    max_concurrency: 4
+    requests_per_minute: 120
+    capacity_scope: shared-production-key
+    capacity_wait_timeout_seconds: 30
+```
+
+Retries consume capacity and request-rate reservations just like first attempts. The limiter is local to one event loop; use a provider gateway or distributed limiter for aggregate quotas across worker processes or hosts. Request pacing does not enforce tokens-per-minute limits.
 
 ## Gate sensitive work with human approval
 

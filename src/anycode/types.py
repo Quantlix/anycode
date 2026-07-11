@@ -9,7 +9,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from anycode.constants import CHECKPOINT_FORMAT_VERSION
+from anycode.constants import CHECKPOINT_FORMAT_VERSION, DEFAULT_PROVIDER_CAPACITY_WAIT_SECONDS, DEFAULT_PROVIDER_CONCURRENCY
 
 # -- Content blocks --
 
@@ -465,6 +465,33 @@ class ToolDefinition(BaseModel):
 # -- Agent configuration --
 
 
+class RetryPolicy(BaseModel):
+    """Backoff/retry behavior for transient provider failures."""
+
+    model_config = ConfigDict(frozen=True)
+    max_attempts: int = 6
+    base_delay_seconds: float = 1.0
+    max_delay_seconds: float = 60.0
+    jitter: bool = True
+    respect_retry_after: bool = True
+    call_timeout_seconds: float = 300.0
+
+
+class ProviderResilienceConfig(BaseModel):
+    """Capacity, retry, deadline, and circuit-breaker settings for an LLM provider."""
+
+    model_config = ConfigDict(frozen=True)
+    enabled: bool = True
+    retry: RetryPolicy = RetryPolicy()
+    circuit_failure_threshold: int = 5
+    circuit_reset_seconds: float = 120.0
+    enable_prompt_cache: bool = True
+    max_concurrency: int | None = Field(default=DEFAULT_PROVIDER_CONCURRENCY, ge=1)
+    requests_per_minute: int | None = Field(default=None, ge=1)
+    capacity_scope: str | None = Field(default=None, min_length=1)
+    capacity_wait_timeout_seconds: float | None = Field(default=DEFAULT_PROVIDER_CAPACITY_WAIT_SECONDS, gt=0)
+
+
 class AgentConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     name: str
@@ -479,6 +506,7 @@ class AgentConfig(BaseModel):
     context_policy: ContextPolicy | None = None
     verification: tuple[VerificationSensorConfig, ...] = ()
     tool_security: ToolSecurityPolicy | None = None
+    provider_resilience: ProviderResilienceConfig | None = None
 
 
 class AgentState(BaseModel):
@@ -589,6 +617,7 @@ class OrchestratorConfig(BaseModel):
     reflection: ReflectionConfig | None = None
     rag: RAGConfig | None = None
     verification: tuple[VerificationSensorConfig, ...] = ()
+    provider_resilience: ProviderResilienceConfig | None = None
 
 
 # -- Memory --
@@ -636,29 +665,6 @@ class LLMChatOptions(BaseModel):
 
 class LLMStreamOptions(LLMChatOptions):
     pass
-
-
-class RetryPolicy(BaseModel):
-    """Backoff/retry behavior for transient provider failures."""
-
-    model_config = ConfigDict(frozen=True)
-    max_attempts: int = 6
-    base_delay_seconds: float = 1.0
-    max_delay_seconds: float = 60.0
-    jitter: bool = True
-    respect_retry_after: bool = True
-    call_timeout_seconds: float = 300.0
-
-
-class ProviderResilienceConfig(BaseModel):
-    """Retry, deadline, and circuit-breaker settings applied around any LLM adapter."""
-
-    model_config = ConfigDict(frozen=True)
-    enabled: bool = True
-    retry: RetryPolicy = RetryPolicy()
-    circuit_failure_threshold: int = 5
-    circuit_reset_seconds: float = 120.0
-    enable_prompt_cache: bool = True
 
 
 # -- Durable run store --

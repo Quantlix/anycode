@@ -80,6 +80,10 @@ Define custom tools with `define_tool`, manage them through the `ToolRegistry`, 
 
 ::: anycode.providers.adapter.create_adapter
 
+::: anycode.providers.resilience.ProviderCapacityLimiter
+
+::: anycode.types.ProviderResilienceConfig
+
 ## Durable storage APIs
 
 `AgentRunner` accepts any backend satisfying `RunStore`. The built-in filesystem backend adds local atomic writes, protected-payload envelopes, checkpoint recovery, and terminal-run retention.

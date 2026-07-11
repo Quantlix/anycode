@@ -60,6 +60,25 @@ system_prompt = "Be helpful."
 tools = []
 """
 
+_YAML_PROVIDER_CAPACITY = """\
+name: capacity-team
+provider_resilience:
+  max_concurrency: 3
+  requests_per_minute: 120
+  capacity_scope: shared-openai
+  capacity_wait_timeout_seconds: 10
+agents:
+  - name: default-capacity
+    model: gpt-4o-mini
+    provider: openai
+  - name: override-capacity
+    model: gpt-4o-mini
+    provider: openai
+    provider_resilience:
+      max_concurrency: 1
+      capacity_scope: isolated-openai
+"""
+
 
 def test_load_yaml(tmp_path: Path) -> None:
     p = tmp_path / "team.yaml"
@@ -112,3 +131,18 @@ def test_to_orchestrator_config(tmp_path: Path) -> None:
     loaded = load_config(p)
     config = loaded.to_orchestrator_config()
     assert config is not None
+
+
+def test_loads_global_and_per_agent_provider_capacity(tmp_path: Path) -> None:
+    path = tmp_path / "capacity.yaml"
+    path.write_text(_YAML_PROVIDER_CAPACITY, encoding="utf-8")
+
+    loaded = load_config(path)
+    orchestrator = loaded.to_orchestrator_config()
+
+    assert orchestrator.provider_resilience is not None
+    assert orchestrator.provider_resilience.max_concurrency == 3
+    assert orchestrator.provider_resilience.requests_per_minute == 120
+    assert loaded.team.agents[0].provider_resilience is None
+    assert loaded.team.agents[1].provider_resilience is not None
+    assert loaded.team.agents[1].provider_resilience.max_concurrency == 1

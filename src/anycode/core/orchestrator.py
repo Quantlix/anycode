@@ -217,6 +217,8 @@ class AnyCode:
     ) -> Agent:
         """Construct a fully wired Agent instance with all default tools."""
         typed_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
+        if typed_config.provider_resilience is None and self._config.provider_resilience is not None:
+            typed_config = typed_config.model_copy(update={"provider_resilience": self._config.provider_resilience})
         registry = ToolRegistry()
         register_built_in_tools(registry)
 

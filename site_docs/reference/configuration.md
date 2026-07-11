@@ -30,6 +30,7 @@ engine = AnyCode(config=OrchestratorConfig(max_concurrency=3, default_provider="
 | `handoff_policy` | `HandoffPolicy \| None` | `None` | Auto-handoff decision policy |
 | `mcp_servers` | `list[MCPServerConfig] \| None` | `None` | MCP servers to connect — see [Connect MCP servers](../guides/mcp.md) |
 | `verification` | `tuple[VerificationSensorConfig, ...]` | `()` | Team-level quality sensors |
+| `provider_resilience` | `ProviderResilienceConfig \| None` | `None` | Global provider capacity/retry policy inherited by agents |
 | `approval_handler` | `ApprovalGate \| None` | `None` | Gate implementation; required for approval to activate |
 
 ### Feature configs
@@ -72,6 +73,7 @@ Tracing and guardrails are supplied via `AnyCode.configure(trace=TraceConfig(...
 | `context_policy` | `ContextPolicy \| None` | `None` | Per-agent context management |
 | `verification` | `tuple[VerificationSensorConfig, ...]` | `()` | Per-agent quality sensors |
 | `tool_security` | `ToolSecurityPolicy \| None` | `None` | Runtime tool, path, shell, and environment restrictions |
+| `provider_resilience` | `ProviderResilienceConfig \| None` | `None` | Per-agent override of the orchestrator provider policy |
 
 !!! note "Reasoning options live on `RunnerOptions`, not `AgentConfig`"
     `reasoning_effort` and `thinking_budget_tokens` are runner/chat options — see [Use reasoning models](../guides/reasoning-models.md).
@@ -95,7 +97,7 @@ Options for `AgentRunner`, the low-level per-agent loop:
 
 Related runtime configs:
 
-**`ProviderResilienceConfig`** — `enabled=True`, `retry: RetryPolicy`, `circuit_failure_threshold=5`, `circuit_reset_seconds=120.0`, `enable_prompt_cache=True`.
+**`ProviderResilienceConfig`** — `enabled=True`, `retry: RetryPolicy`, `circuit_failure_threshold=5`, `circuit_reset_seconds=120.0`, `enable_prompt_cache=True`, `max_concurrency=8`, `requests_per_minute=None`, `capacity_scope=None` (provider name), `capacity_wait_timeout_seconds=300.0`. `None` disables the corresponding concurrency/rate/timeout control. Capacity is shared by matching scopes within one event loop; one scope cannot use conflicting limits.
 
 **`RetryPolicy`** — `max_attempts=6`, `base_delay_seconds=1.0`, `max_delay_seconds=60.0`, `jitter=True`, `respect_retry_after=True`, `call_timeout_seconds=300.0`.
 
@@ -116,6 +118,7 @@ The `redact_sensitive_data` flags scrub recognized credentials before telemetry 
 | Constant | Value | Meaning |
 | --- | --- | --- |
 | `DEFAULT_MAX_CONCURRENCY` | `5` | Agent pool size |
+| `DEFAULT_PROVIDER_CONCURRENCY` | `8` | Concurrent provider attempts per local scope |
 | `DEFAULT_TOOL_CONCURRENCY` | `4` | Parallel tool calls per turn |
 | `DEFAULT_TURN_LIMIT` | `10` | Agent loop turns |
 | `DEFAULT_MAX_TOKENS` | `4096` | Output tokens per call |

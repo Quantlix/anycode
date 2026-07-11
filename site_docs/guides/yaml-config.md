@@ -24,6 +24,7 @@ A config is a single YAML document with a small set of top-level keys. You add o
 | `tasks` | Work items and their wiring — each has a `title`, `description`, `assignee`, and optional `depends_on`. |
 | `shared_memory` | Share memory across agents on the team. |
 | `max_concurrency` | Cap how many agents run at once. |
+| `provider_resilience` | Provider concurrency, request pacing, retry, deadline, and circuit settings. |
 | `cost` | Spend budget and overspend behavior. |
 | `routing` | Model routing across providers and models. |
 | `verification` | Quality-gate sensors that run at defined phases. |
@@ -124,6 +125,12 @@ verification:
     block_on_failure: true
     options:
       command: uv run python -m pytest
+
+provider_resilience:
+  max_concurrency: 4
+  requests_per_minute: 120
+  capacity_scope: shared-production-key
+  capacity_wait_timeout_seconds: 30
 ```
 
 The keys above map to the controls you tune most often:
@@ -138,8 +145,14 @@ The keys above map to the controls you tune most often:
 | `verification` | `phases` | When the sensor runs, such as `after_team` or `after_task`. |
 | `verification` | `block_on_failure` | Fail the run when the sensor fails. |
 | `verification` | `options` | Sensor-specific settings, such as `command`, `pattern`, and `expect`. |
+| `provider_resilience` | `max_concurrency` | Simultaneous provider attempts shared by agents in one scope. |
+| `provider_resilience` | `requests_per_minute` | Evenly paced request starts; every retry counts. |
+| `provider_resilience` | `capacity_scope` | Quota identity shared by adapters; use separate values for separate API-key quotas. |
+| `provider_resilience` | `capacity_wait_timeout_seconds` | Queue wait before the call is load-shed. |
 
 For the full catalog of budgets, gates, and durable-run controls, see [Production Controls](production-controls.md).
+
+An agent can override the top-level policy with its own `provider_resilience` mapping. Give that override a distinct `capacity_scope` when it represents an independent quota; conflicting settings under one scope are rejected.
 
 ## Add context engineering
 

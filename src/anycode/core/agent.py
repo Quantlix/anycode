@@ -68,7 +68,7 @@ class Agent:
             return self._runner
 
         provider = self.config.provider or "anthropic"
-        adapter = await create_adapter(provider)
+        adapter = await create_adapter(provider, resilience=self.config.provider_resilience)
 
         opts = RunnerOptions(
             model=self.config.model,
