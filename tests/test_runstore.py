@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -356,6 +357,34 @@ async def test_durable_run_writes_transcript_and_checkpoints(tmp_path: Path) -> 
     assert checkpoint.turn == result.turns
     assert checkpoint.budget.turns_used == result.turns
     assert checkpoint.lifecycle_events  # observability state persisted
+
+
+async def test_cancelled_durable_run_persists_terminal_state(tmp_path: Path) -> None:
+    store = FilesystemRunStore(tmp_path)
+    entered = asyncio.Event()
+
+    class _BlockingAdapter(FakeAdapter):
+        async def chat(self, messages, options):  # type: ignore[no-untyped-def]
+            del messages, options
+            entered.set()
+            await asyncio.Future()
+
+    runner = _runner(_BlockingAdapter(), store)
+    task = asyncio.create_task(runner.run([LLMMessage(role="user", content=[TextBlock(text="go")])]))
+    await asyncio.wait_for(entered.wait(), timeout=1)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    record = store.list_runs()[0]
+    assert record.status == "cancelled"
+    events = store.read_events(record.run_id)
+    assert events[-1].kind == "stop"
+    assert events[-1].payload["code"] == "user_cancelled"
+    checkpoint = store.load_latest_checkpoint(record.run_id)
+    assert checkpoint is not None
+    assert checkpoint.lifecycle_events[-1].phase == "cancelled"
 
 
 async def test_kill_and_resume_continues_run(tmp_path: Path) -> None:

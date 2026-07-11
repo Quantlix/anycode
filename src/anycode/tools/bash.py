@@ -123,6 +123,9 @@ async def _exec_command(command: str, cwd: str | None, timeout: float, cap: int,
 
     try:
         out_bytes, out_total, err_bytes, err_total = await asyncio.wait_for(_collect(), timeout=timeout)
+    except asyncio.CancelledError:
+        await asyncio.shield(_terminate(proc))
+        raise
     except TimeoutError:
         await _terminate(proc)
         return "", f"Process timed out after {timeout:g}s (process group terminated)", EXIT_CODE_TIMEOUT

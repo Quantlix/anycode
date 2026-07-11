@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, TypeVar
 
 from anycode.helpers.concurrency_gate import Semaphore
 from anycode.helpers.usage_tracker import EMPTY_USAGE
@@ -13,6 +14,8 @@ from anycode.types import AgentRunResult, PoolStatus
 if TYPE_CHECKING:
     from anycode.core.agent import Agent
 
+T = TypeVar("T")
+
 
 class AgentPool:
     """Manages named agents with bounded concurrency."""
@@ -21,6 +24,7 @@ class AgentPool:
         self._agents: dict[str, Agent] = {}
         self._semaphore = Semaphore(max_concurrency)
         self._rr_index = 0
+        self._running_tasks: set[asyncio.Task[object]] = set()
 
     def add(self, agent: Agent) -> None:
         if agent.name in self._agents:
@@ -40,11 +44,24 @@ class AgentPool:
 
     async def run(self, agent_name: str, prompt: str) -> AgentRunResult:
         agent = self._require(agent_name)
-        await self._semaphore.acquire()
+        return await self.run_operation(lambda: agent.run(prompt))
+
+    async def own_operation(self, operation: Callable[[], Awaitable[T]]) -> T:
+        """Track an operation for shutdown without consuming pool capacity."""
+        current_task = asyncio.current_task()
+        registered_task: asyncio.Task[object] | None = None
+        if current_task is not None and current_task not in self._running_tasks:
+            self._running_tasks.add(current_task)
+            registered_task = current_task
         try:
-            return await agent.run(prompt)
+            return await operation()
         finally:
-            self._semaphore.release()
+            if registered_task is not None:
+                self._running_tasks.discard(registered_task)
+
+    async def run_operation(self, operation: Callable[[], Awaitable[T]]) -> T:
+        """Run one agent operation under pool capacity and shutdown ownership."""
+        return await self.own_operation(lambda: self._semaphore.run(operation))
 
     async def run_parallel(self, jobs: list[dict[str, str]]) -> dict[str, AgentRunResult]:
         results: dict[str, AgentRunResult] = {}
@@ -72,14 +89,10 @@ class AgentPool:
         agent = agents[self._rr_index]
         self._rr_index = (self._rr_index + 1) % len(agents)
 
-        await self._semaphore.acquire()
-        try:
-            return await agent.run(prompt)
-        finally:
-            self._semaphore.release()
+        return await self.run(agent.name, prompt)
 
     def get_status(self) -> PoolStatus:
-        idle = running = completed = error = 0
+        idle = running = completed = cancelled = error = 0
         for agent in self._agents.values():
             s = agent.get_state().status
             if s == "idle":
@@ -88,11 +101,19 @@ class AgentPool:
                 running += 1
             elif s == "completed":
                 completed += 1
+            elif s == "cancelled":
+                cancelled += 1
             elif s == "error":
                 error += 1
-        return PoolStatus(total=len(self._agents), idle=idle, running=running, completed=completed, error=error)
+        return PoolStatus(total=len(self._agents), idle=idle, running=running, completed=completed, cancelled=cancelled, error=error)
 
     async def shutdown(self) -> None:
+        current_task = asyncio.current_task()
+        running = [task for task in self._running_tasks if task is not current_task and not task.done()]
+        for task in running:
+            task.cancel()
+        if running:
+            await asyncio.gather(*running, return_exceptions=True)
         for agent in self._agents.values():
             agent.reset()
 

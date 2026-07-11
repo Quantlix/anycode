@@ -57,14 +57,15 @@ async for event in runner.stream(seed):
 | `tool_use` | `ToolUseBlock` | One per tool call, emitted before execution |
 | `tool_result` | `ToolCallRecord` | One per completed tool call |
 | `handoff` | `HandoffRequest` | Just before a handoff-triggered `done` |
-| `done` | `RunResult` | Terminal; always the last event on success or cancellation |
+| `done` | `RunResult` | Terminal event for completed runs and structured stop conditions |
 | `error` | `Exception` | Terminal failure path (the raw exception object) |
 
 Ordering guarantees, asserted in the test suite:
 
 - Incremental `text` events always precede `done`; a chunked reply produces multiple `text` events.
 - Tools execute exactly once under streaming — no double dispatch.
-- A cancelled run (`asyncio.CancelledError`) still yields one final `done` event with `stop_reason.code == "user_cancelled"` before the cancellation propagates.
+- Cancellation does not yield `done` or `error`. `asyncio.CancelledError` propagates directly after the runner records a terminal `cancelled` lifecycle event with `stop_reason.code == "user_cancelled"`; durable runs also persist the stop and latest checkpoint.
+- Cancelling a turn with concurrent tools cancels and drains the whole tool batch before the run exits.
 
 ## Configure streaming
 

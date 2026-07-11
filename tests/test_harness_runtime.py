@@ -99,9 +99,11 @@ async def test_runner_cancellation_emits_cancelled_phase() -> None:
     adapter = FakeAdapter(responses=[FakeResponse(text="hi")])
 
     original_chat = adapter.chat
+    entered = asyncio.Event()
 
     async def _slow_chat(messages, options):  # type: ignore[no-untyped-def]
-        await asyncio.sleep(5.0)
+        entered.set()
+        await asyncio.Future()
         return await original_chat(messages, options)
 
     adapter.chat = _slow_chat  # type: ignore[method-assign]
@@ -109,32 +111,291 @@ async def test_runner_cancellation_emits_cancelled_phase() -> None:
     registry = ToolRegistry()
     executor = ToolExecutor(registry)
     options = RunnerOptions(model="fake-model", max_turns=2, agent_name="t")
-    runner = AgentRunner(adapter, registry, executor, options)
+    lifecycle: list[object] = []
+    runner = AgentRunner(adapter, registry, executor, options, lifecycle_listeners=[lifecycle.append])  # type: ignore[list-item]
 
-    captured: list[object] = []
+    task = asyncio.create_task(runner.run([LLMMessage(role="user", content=[TextBlock(text="hello")])]))
+    await asyncio.wait_for(entered.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
 
-    async def consume() -> None:
-        try:
-            async for ev in runner.stream([LLMMessage(role="user", content=[TextBlock(text="hello")])]):
-                captured.append(ev)
-        except asyncio.CancelledError:
+    assert getattr(lifecycle[-1], "phase", None) == "cancelled"
+    stop = getattr(lifecycle[-1], "stop_reason", None)
+    assert stop is not None and stop.code == "user_cancelled"
+
+
+@pytest.mark.asyncio
+async def test_agent_cancellation_settles_cancelled_state() -> None:
+    from anycode.core.agent import Agent
+    from anycode.types import AgentConfig
+
+    adapter = FakeAdapter(responses=[FakeResponse(text="never")])
+    original_chat = adapter.chat
+    entered = asyncio.Event()
+
+    async def _slow_chat(messages, options):  # type: ignore[no-untyped-def]
+        entered.set()
+        await asyncio.Future()
+        return await original_chat(messages, options)
+
+    adapter.chat = _slow_chat  # type: ignore[method-assign]
+    registry = ToolRegistry()
+    executor = ToolExecutor(registry)
+    runner = AgentRunner(adapter, registry, executor, RunnerOptions(model="fake-model", agent_name="agent"))
+    agent = Agent(AgentConfig(name="agent", model="fake-model"), registry, executor)
+    agent._runner = runner
+
+    task = asyncio.create_task(agent.run("block"))
+    await asyncio.wait_for(entered.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert agent.get_state().status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_agent_stream_cancellation_settles_cancelled_state() -> None:
+    from anycode.core.agent import Agent
+    from anycode.types import AgentConfig
+
+    adapter = FakeAdapter(responses=[FakeResponse(text="never")])
+    original_chat = adapter.chat
+    entered = asyncio.Event()
+
+    async def _slow_chat(messages, options):  # type: ignore[no-untyped-def]
+        entered.set()
+        await asyncio.Future()
+        return await original_chat(messages, options)
+
+    adapter.chat = _slow_chat  # type: ignore[method-assign]
+    registry = ToolRegistry()
+    executor = ToolExecutor(registry)
+    runner = AgentRunner(adapter, registry, executor, RunnerOptions(model="fake-model", agent_name="agent"))
+    agent = Agent(AgentConfig(name="agent", model="fake-model"), registry, executor)
+    agent._runner = runner
+
+    async def _consume() -> None:
+        async for _event in agent.stream("block"):
             pass
 
-    task = asyncio.create_task(consume())
-    await asyncio.sleep(0.05)
+    task = asyncio.create_task(_consume())
+    await asyncio.wait_for(entered.wait(), timeout=1)
     task.cancel()
-    try:
+    with pytest.raises(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
-    # Either the stream emitted a 'done' event with cancelled phase, or the raise propagated.
-    done_events = [getattr(ev, "data", None) for ev in captured if getattr(ev, "type", None) == "done"]
-    if done_events:
-        result = done_events[-1]
-        assert getattr(result, "terminal_phase", None) == "cancelled"
-        stop = getattr(result, "stop_reason", None)
-        assert stop is not None and stop.code == "user_cancelled"
+    assert agent.get_state().status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_cancellation_drains_wave_tasks() -> None:
+    from anycode.core.orchestrator import AnyCode, TaskSpec
+    from anycode.types import AgentConfig, TeamConfig
+
+    engine = AnyCode()
+    agents = [AgentConfig(name=name, model="fake-model") for name in ("first", "second")]
+    team = engine.create_team("cancel-team", TeamConfig(name="cancel-team", agents=agents))
+    started: set[str] = set()
+    cancelled: set[str] = set()
+    all_started = asyncio.Event()
+
+    def _blocking_run(name: str):  # type: ignore[no-untyped-def]
+        async def _run(_prompt: str):  # type: ignore[no-untyped-def]
+            started.add(name)
+            if len(started) == len(agents):
+                all_started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                cancelled.add(name)
+                raise
+
+        return _run
+
+    for agent in agents:
+        pooled = engine._pool.get(agent.name)
+        assert pooled is not None
+        pooled.run = _blocking_run(agent.name)  # type: ignore[method-assign]
+
+    run = asyncio.create_task(
+        engine.run_tasks(
+            team,
+            [
+                TaskSpec(title="first", description="block", assignee="first"),
+                TaskSpec(title="second", description="block", assignee="second"),
+            ],
+        )
+    )
+    await asyncio.wait_for(all_started.wait(), timeout=1)
+    run.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await run
+
+    assert cancelled == {"first", "second"}
+
+
+@pytest.mark.asyncio
+async def test_cancelled_semaphore_waiter_clears_pending_count() -> None:
+    from anycode.helpers.concurrency_gate import Semaphore
+
+    gate = Semaphore(1)
+    await gate.acquire()
+    waiter = asyncio.create_task(gate.acquire())
+    await asyncio.sleep(0)
+    assert gate.active == 1
+    assert gate.pending == 1
+
+    waiter.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await waiter
+    assert gate.active == 1
+    assert gate.pending == 0
+
+    gate.release()
+    await gate.acquire()
+    assert gate.active == 1
+    gate.release()
+    assert gate.active == 0
+
+
+@pytest.mark.asyncio
+async def test_agent_pool_shutdown_cancels_and_awaits_active_runs() -> None:
+    from anycode.core.orchestrator import AnyCode
+    from anycode.types import AgentConfig, TeamConfig
+
+    engine = AnyCode()
+    agent_config = AgentConfig(name="worker", model="fake-model")
+    engine.create_team("shutdown-team", TeamConfig(name="shutdown-team", agents=[agent_config]))
+    pooled = engine._pool.get("worker")
+    assert pooled is not None
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def _blocking_run(_prompt: str):  # type: ignore[no-untyped-def]
+        started.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    pooled.run = _blocking_run  # type: ignore[method-assign]
+    active_run = asyncio.create_task(engine._pool.run("worker", "block"))
+    await asyncio.wait_for(started.wait(), timeout=1)
+
+    await engine.close()
+
+    assert cancelled.is_set()
+    assert active_run.done()
+    with pytest.raises(asyncio.CancelledError):
+        await active_run
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_close_cancels_standalone_run() -> None:
+    from anycode.core.orchestrator import AnyCode
+    from anycode.types import AgentConfig
+
+    engine = AnyCode()
+    config = AgentConfig(name="standalone", model="fake-model")
+    agent = engine.build_agent(config)
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def _blocking_run(_prompt: str):  # type: ignore[no-untyped-def]
+        started.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    agent.run = _blocking_run  # type: ignore[method-assign]
+    engine.build_agent = lambda *_args, **_kwargs: agent  # type: ignore[method-assign]
+    active_run = asyncio.create_task(engine.run_agent(config, "block"))
+    await asyncio.wait_for(started.wait(), timeout=1)
+
+    await engine.close()
+
+    assert cancelled.is_set()
+    with pytest.raises(asyncio.CancelledError):
+        await active_run
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_close_cancels_work_between_agent_calls() -> None:
+    from anycode.core.orchestrator import AnyCode, TaskSpec
+    from anycode.types import AgentConfig, TeamConfig
+
+    engine = AnyCode()
+    team = engine.create_team(
+        "approval-team",
+        TeamConfig(name="approval-team", agents=[AgentConfig(name="worker", model="fake-model")]),
+    )
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    class _BlockingApprovalManager:
+        async def check_and_request(self, **_kwargs: object) -> None:
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+    engine._approval_manager = _BlockingApprovalManager()  # type: ignore[assignment]
+    active_run = asyncio.create_task(engine.run_tasks(team, [TaskSpec(title="blocked", description="wait", assignee="worker")]))
+    await asyncio.wait_for(started.wait(), timeout=1)
+
+    await engine.close()
+
+    assert cancelled.is_set()
+    with pytest.raises(asyncio.CancelledError):
+        await active_run
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_respects_global_agent_concurrency() -> None:
+    from anycode.core.orchestrator import AnyCode, TaskSpec
+    from anycode.types import AgentConfig, OrchestratorConfig, TeamConfig, TokenUsage
+
+    engine = AnyCode(OrchestratorConfig(max_concurrency=1))
+    agents = [AgentConfig(name=name, model="fake-model") for name in ("first", "second")]
+    team = engine.create_team("bounded-team", TeamConfig(name="bounded-team", agents=agents))
+    active = 0
+    max_active = 0
+
+    def _bounded_run(name: str):  # type: ignore[no-untyped-def]
+        async def _run(_prompt: str):  # type: ignore[no-untyped-def]
+            nonlocal active, max_active
+            active += 1
+            max_active = max(max_active, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+            from anycode.types import AgentRunResult
+
+            return AgentRunResult(success=True, output=name, messages=[], token_usage=TokenUsage(), tool_calls=[])
+
+        return _run
+
+    for agent in agents:
+        pooled = engine._pool.get(agent.name)
+        assert pooled is not None
+        pooled.run = _bounded_run(agent.name)  # type: ignore[method-assign]
+
+    result = await engine.run_tasks(
+        team,
+        [
+            TaskSpec(title="first", description="run", assignee="first"),
+            TaskSpec(title="second", description="run", assignee="second"),
+        ],
+    )
+
+    assert result.success is True
+    assert max_active == 1
 
 
 # --- Multi-phase quality gates --------------------------------------------

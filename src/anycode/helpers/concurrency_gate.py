@@ -21,8 +21,10 @@ class Semaphore:
 
     async def acquire(self) -> None:
         self._pending += 1
-        await self._semaphore.acquire()
-        self._pending -= 1
+        try:
+            await self._semaphore.acquire()
+        finally:
+            self._pending -= 1
         self._active += 1
 
     def release(self) -> None:

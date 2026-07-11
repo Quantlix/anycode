@@ -527,7 +527,7 @@ class AgentConfig(BaseModel):
 
 class AgentState(BaseModel):
     model_config = ConfigDict(frozen=True)
-    status: Literal["idle", "running", "completed", "error"] = "idle"
+    status: Literal["idle", "running", "completed", "cancelled", "error"] = "idle"
     messages: list[LLMMessage] = Field(default_factory=list)
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
     error: str | None = None
@@ -898,6 +898,7 @@ class PoolStatus(BaseModel):
     idle: int
     running: int
     completed: int
+    cancelled: int = 0
     error: int
 
 

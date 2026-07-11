@@ -217,6 +217,7 @@ class AnyCode:
 
     async def close(self) -> None:
         """Release MCP clients and persistent tool-idempotency resources."""
+        await self._pool.shutdown()
         await self.disconnect_mcp_servers()
         teardown = getattr(self._tool_idempotency_store, "teardown", None)
         if teardown is not None:
@@ -305,6 +306,15 @@ class AnyCode:
         output_schema: type[BaseModel] | None = None,
     ) -> AgentRunResult:
         """Create and run a single agent on one prompt."""
+        return await self._pool.own_operation(lambda: self._run_agent(config, prompt, output_schema=output_schema))
+
+    async def _run_agent(
+        self,
+        config: AgentConfig | dict[str, object],
+        prompt: str,
+        *,
+        output_schema: type[BaseModel] | None = None,
+    ) -> AgentRunResult:
         typed_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
 
         root_span = None
@@ -314,7 +324,7 @@ class AnyCode:
         agent = self.build_agent(typed_config, output_schema=output_schema)
         self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=typed_config.name))
         try:
-            result = await agent.run(prompt)
+            result = await self._pool.run_operation(lambda: agent.run(prompt))
             self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=typed_config.name, data=result))
             return result
         except Exception as e:
@@ -326,6 +336,9 @@ class AnyCode:
 
     async def run_team(self, team: Team, goal: str) -> TeamRunResult:
         """Decompose a high-level goal into tasks using a coordinator agent, then execute."""
+        return await self._pool.own_operation(lambda: self._run_team(team, goal))
+
+    async def _run_team(self, team: Team, goal: str) -> TeamRunResult:
         root_span = None
         if self._tracer and self._tracer.enabled:
             root_span = self._tracer.start_span(f"anycode.run_team.{team.name}")
@@ -340,7 +353,7 @@ class AnyCode:
             coordinator_prompt = self._build_coordinator_prompt(agents, goal)
 
             self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=coordinator_cfg.name))
-            plan_result = await coordinator.run(coordinator_prompt)
+            plan_result = await self._pool.run_operation(lambda: coordinator.run(coordinator_prompt))
             self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_COMPLETE, agent=coordinator_cfg.name, data=plan_result))
 
             if not plan_result.success:
@@ -371,7 +384,7 @@ class AnyCode:
 
     async def run_tasks(self, team: Team, task_specs: list[TaskSpec], *, resume_from: str | None = None) -> TeamRunResult:
         """Run an explicit set of task specs with full dependency resolution."""
-        return await self._execute_tasks(team, task_specs, resume_from=resume_from)
+        return await self._pool.own_operation(lambda: self._execute_tasks(team, task_specs, resume_from=resume_from))
 
     async def _execute_tasks(self, team: Team, specs: list[TaskSpec], *, resume_from: str | None = None) -> TeamRunResult:
         resolved = self._resolve_specs(specs)
@@ -415,35 +428,41 @@ class AnyCode:
             # Tasks already completed in a restored checkpoint are never re-run;
             # their results were loaded alongside the checkpoint.
             pending_tasks = [t for t in wave if t.status != "completed"]
+            wave_tasks = [asyncio.create_task(self._run_wave_task(t, queue, team, route_decisions.get(t.id), handoffs)) for t in pending_tasks]
+            try:
+                for pending in asyncio.as_completed(wave_tasks):
+                    outcome = await pending
+                    if outcome is None:
+                        all_succeeded = False
+                        continue
+                    assignee, result = outcome
+                    agent_results[assignee] = result
+                    total_usage = merge_usage(total_usage, result.token_usage)
+                    if result.lifecycle_events:
+                        lifecycle_events.extend(result.lifecycle_events)
+                    if result.verification_results:
+                        verification_results.extend(result.verification_results)
+                    if result.gate_decisions:
+                        gate_decisions.extend(result.gate_decisions)
+                    if not result.success:
+                        all_succeeded = False
 
-            for pending in asyncio.as_completed([self._run_wave_task(t, queue, team, route_decisions.get(t.id), handoffs) for t in pending_tasks]):
-                outcome = await pending
-                if outcome is None:
-                    all_succeeded = False
-                    continue
-                assignee, result = outcome
-                agent_results[assignee] = result
-                total_usage = merge_usage(total_usage, result.token_usage)
-                if result.lifecycle_events:
-                    lifecycle_events.extend(result.lifecycle_events)
-                if result.verification_results:
-                    verification_results.extend(result.verification_results)
-                if result.gate_decisions:
-                    gate_decisions.extend(result.gate_decisions)
-                if not result.success:
-                    all_succeeded = False
-
-                # Task-level checkpoint: a crash mid-wave resumes at the first
-                # incomplete task of this wave (statuses in `tasks` mark which
-                # are done) instead of re-running the whole wave.
-                if self._checkpoint_manager:
-                    await self._checkpoint_manager.auto_save(
-                        workflow_id=workflow_id,
-                        tasks=queue.list(),
-                        agent_results=agent_results,
-                        wave_index=wave_idx - 1,
-                        total_usage=total_usage,
-                    )
+                    # Task-level checkpoint: a crash mid-wave resumes at the first
+                    # incomplete task of this wave (statuses in `tasks` mark which
+                    # are done) instead of re-running the whole wave.
+                    if self._checkpoint_manager:
+                        await self._checkpoint_manager.auto_save(
+                            workflow_id=workflow_id,
+                            tasks=queue.list(),
+                            agent_results=agent_results,
+                            wave_index=wave_idx - 1,
+                            total_usage=total_usage,
+                        )
+            finally:
+                for wave_task in wave_tasks:
+                    if not wave_task.done():
+                        wave_task.cancel()
+                await asyncio.gather(*wave_tasks, return_exceptions=True)
 
             # Save checkpoint after each wave
             if self._checkpoint_manager:
@@ -568,15 +587,18 @@ class AnyCode:
         self._emit(OrchestratorEvent(type=ORCH_EVENT_AGENT_START, agent=assignee))
         try:
             if self._reflection:
+                reflection = self._reflection
                 agent_info = self._build_agent_info(agent.config)
-                result = await self._reflection.run(
-                    agent,
-                    prompt,
-                    agent_info=agent_info,
-                    agent_provider=agent.config.provider,
+                result = await self._pool.run_operation(
+                    lambda: reflection.run(
+                        agent,
+                        prompt,
+                        agent_info=agent_info,
+                        agent_provider=agent.config.provider,
+                    )
                 )
             else:
-                result = await agent.run(prompt)
+                result = await self._pool.run_operation(lambda: agent.run(prompt))
 
             # Cost tracking
             if self._cost_tracker:
@@ -851,4 +873,4 @@ class _OrchestratorAgentResolver:
         merged_system = f"{merged_prompt}\n\n{system_prompt_extra}".strip() if merged_prompt else system_prompt_extra
         runtime_config = config.model_copy(update={"system_prompt": merged_system})
         agent = self._engine.build_agent(runtime_config)
-        return await agent.run(prompt)
+        return await self._engine._pool.run_operation(lambda: agent.run(prompt))

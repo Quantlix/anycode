@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator
 
 from pydantic import BaseModel
@@ -108,10 +109,11 @@ class Agent:
         self._runner = None
 
         messages = [LLMMessage(role="user", content=[TextBlock(text=prompt)])]
-        result = await self._execute_run(messages)
-
-        self._output_schema = prev_schema
-        self._runner = None
+        try:
+            result = await self._execute_run(messages)
+        finally:
+            self._output_schema = prev_schema
+            self._runner = None
 
         parsed = parse_structured_output(result.output, schema) if result.success else None
 
@@ -186,6 +188,9 @@ class Agent:
                 gate_decisions=result.gate_decisions,
                 retries=result.retries,
             )
+        except asyncio.CancelledError:
+            self._state = self._state.model_copy(update={"status": "cancelled", "error": "Run cancelled by caller."})
+            raise
         except Exception as e:
             message = safe_exception_message(e)
             self._state = self._state.model_copy(update={"status": "error", "error": message})
@@ -206,6 +211,9 @@ class Agent:
                 elif event.type == "error":
                     self._state = self._state.model_copy(update={"status": "error", "error": str(event.data)})
                 yield event
+        except asyncio.CancelledError:
+            self._state = self._state.model_copy(update={"status": "cancelled", "error": "Run cancelled by caller."})
+            raise
         except Exception as e:
             self._state = self._state.model_copy(update={"status": "error", "error": safe_exception_message(e)})
             yield StreamEvent(type="error", data=e)

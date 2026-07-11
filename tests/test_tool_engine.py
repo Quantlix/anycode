@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -488,6 +489,31 @@ async def test_bash_timeout_reports_and_cleans_up() -> None:
     assert "timed out" in result.data.lower()
 
 
+async def test_bash_cancellation_terminates_process_tree(tmp_path: Path) -> None:
+    started = tmp_path / "started.txt"
+    finished = tmp_path / "finished.txt"
+    script = (
+        "import pathlib,time; "
+        f"pathlib.Path({str(started)!r}).write_text('started'); "
+        "time.sleep(1); "
+        f"pathlib.Path({str(finished)!r}).write_text('finished')"
+    )
+    command = subprocess.list2cmdline([sys.executable, "-c", script])
+    task = asyncio.ensure_future(bash_tool.execute(BashInput(command=command, timeout=5), CTX))
+    for _ in range(100):
+        if started.exists():
+            break
+        await asyncio.sleep(0.01)
+    assert started.exists()
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    await asyncio.sleep(1.1)
+
+    assert not finished.exists()
+
+
 async def test_bash_can_be_disabled_by_security_policy(tmp_path: Path) -> None:
     context = CTX.model_copy(update={"security_policy": ToolSecurityPolicy(workspace_root=str(tmp_path), allow_shell=False)})
     result = await bash_tool.execute(BashInput(command=f"{PY} -c \"print('no')\""), context)
@@ -600,3 +626,44 @@ async def test_runner_executes_independent_tools_concurrently() -> None:
     # Concurrent execution: total wall time well under the 0.4s serial sum.
     assert elapsed < 0.35
     assert len([c for c in result.tool_calls if c.tool_name == "slow"]) == 2
+
+
+async def test_runner_cancellation_drains_parallel_tools() -> None:
+    from anycode.core.runner import AgentRunner
+    from anycode.providers.fake import FakeAdapter, FakeResponse
+    from anycode.types import LLMMessage, RunnerOptions, TextBlock
+
+    class _SlowInput(BaseModel):
+        name: str
+
+    started: set[str] = set()
+    cancelled: set[str] = set()
+    all_started = asyncio.Event()
+
+    async def _slow(tool_input: _SlowInput, _ctx: ToolUseContext) -> ToolResult:
+        started.add(tool_input.name)
+        if len(started) == 2:
+            all_started.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled.add(tool_input.name)
+            raise
+        raise AssertionError("Blocking tool resumed without cancellation.")
+
+    registry = ToolRegistry()
+    registry.register(define_tool(name="slow", description="blocks", input_model=_SlowInput, execute=_slow))
+    adapter = FakeAdapter(
+        responses=[
+            FakeResponse(tool_calls=(("slow", {"name": "first"}), ("slow", {"name": "second"}))),
+        ]
+    )
+    runner = AgentRunner(adapter, registry, ToolExecutor(registry), RunnerOptions(model="fake", agent_name="t", max_turns=2))
+    task = asyncio.create_task(runner.run([LLMMessage(role="user", content=[TextBlock(text="go")])]))
+    await asyncio.wait_for(all_started.wait(), timeout=1)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert cancelled == {"first", "second"}

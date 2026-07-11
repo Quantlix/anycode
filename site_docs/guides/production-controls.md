@@ -21,6 +21,7 @@ Each control below is available today and can be layered onto a single agent run
 | --- | --- |
 | Cost and token budgets | A hard ceiling on spend and turns before a run touches live providers. |
 | Provider capacity limits | Shared concurrency bulkheads, request pacing, and bounded queue waits around provider calls. |
+| Cancellation and shutdown | Direct cancellation propagation plus owned-task and process-tree cleanup. |
 | Side-effect idempotency | Atomic claims, replay, conflict detection, and fail-closed restart behavior for mutating tools. |
 | HITL approval gates | A human checkpoint before sensitive or irreversible tasks execute. |
 | Output validators | Programmatic checks on agent output before it is accepted. |
@@ -182,6 +183,12 @@ anycode runs tail
 anycode runs audit
 anycode runs sweep
 ```
+
+## Cancel and shut down cleanly
+
+Cancelling an agent run raises `asyncio.CancelledError` to the caller rather than returning a normal failure result. The agent state becomes `cancelled`, lifecycle listeners receive a terminal `cancelled` phase with a `user_cancelled` stop reason, and durable runs persist that state with a final checkpoint. Concurrent tool calls and wave siblings are cancelled and awaited before the parent exits; shell-tool cancellation terminates and reaps the spawned process tree.
+
+Call `await engine.close()` during application shutdown. The orchestrator stops and drains tracked standalone, coordinator, team, reflection, and handoff operations before disconnecting MCP clients or closing persistent stores. Cancellation remains cooperative for custom tools and integrations: do not swallow `asyncio.CancelledError`, and put resource cleanup in `finally` blocks or async context managers.
 
 ## Manage context pressure
 

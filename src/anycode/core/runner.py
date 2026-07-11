@@ -719,23 +719,6 @@ class AgentRunner:
                     store.update_status(run_id, "cancelled")
                 except Exception:  # noqa: BLE001 - persistence must not mask cancellation
                     pass
-            yield StreamEvent(
-                type="done",
-                data=RunResult(
-                    messages=conversation[seed_len:],
-                    output=last_output or cancel_stop.message,
-                    tool_calls=tool_calls,
-                    token_usage=cumulative_usage,
-                    turns=turn_count,
-                    terminal_phase="cancelled",
-                    stop_reason=cancel_stop,
-                    lifecycle_events=_all_lifecycle(),  # type: ignore[arg-type]
-                    context_manifests=list(context_manifests),
-                    verification_results=list(verification_results),
-                    gate_decisions=list(gate_decisions),
-                    retries=base_retries + validation_retries + structured_retries + verification_retries,
-                ),
-            )
             raise
         except ProviderUnavailableError as e:
             # Transient-failure retries exhausted or circuit open: surface a
