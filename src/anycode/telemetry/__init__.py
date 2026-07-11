@@ -2,11 +2,12 @@
 
 from anycode.telemetry.events import EventEmitter, TelemetryEvent
 from anycode.telemetry.metrics import MetricsCollector, Timer
-from anycode.telemetry.tracer import ConsoleExporter, OTLPExporter, Span, SpanExporter, Tracer
+from anycode.telemetry.tracer import ConsoleExporter, JSONLExporter, OTLPExporter, Span, SpanExporter, Tracer
 
 __all__ = [
     "ConsoleExporter",
     "EventEmitter",
+    "JSONLExporter",
     "MetricsCollector",
     "OTLPExporter",
     "Span",

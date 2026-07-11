@@ -1,16 +1,16 @@
 ---
 title: "Trace and Measure AnyCode Runs with Telemetry"
-description: "Turn on AnyCode tracing with TraceConfig or env vars, export spans to the console or OTLP, and collect metrics and events with MetricsCollector and EventEmitter."
-keywords: anycode telemetry, tracing, TraceConfig, Tracer, opentelemetry otlp, MetricsCollector, EventEmitter, observability, spans, ANYCODE_TRACE_ENABLED
+description: "Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention."
+keywords: anycode telemetry, tracing, TraceConfig, structured JSONL logs, opentelemetry otlp, runtime metrics, correlation IDs, observability, alerts
 ---
 
 # Observe Runs with Telemetry
 
-When an agent misbehaves in production you need to see *what it did* — the turns, tool calls, and decisions. AnyCode ships a tracer that records spans through a run, plus a metrics collector and an event emitter you can drive yourself. Everything is off by default and zero-overhead until enabled. This guide shows how to turn each on.
+An enabled AnyCode `Tracer` automatically records correlated spans and derives operational metrics and completion events from them. Use the console exporter for local work, JSONL for container log collectors, or OTLP for a tracing backend. Telemetry is disabled by default.
 
-## Enable tracing
+## Enable telemetry
 
-The `Tracer` is the one telemetry component wired into the run pipeline automatically. Pass an enabled `Tracer` to an `Agent`, or flip it on with environment variables — no code change needed.
+Pass an enabled `Tracer` to an `Agent`, or configure the default tracer with environment variables.
 
 === "In code"
 
@@ -18,7 +18,7 @@ The `Tracer` is the one telemetry component wired into the run pipeline automati
     from anycode import Agent, Tracer
     from anycode.types import TraceConfig
 
-    tracer = Tracer(TraceConfig(enabled=True, exporter="console"))
+    tracer = Tracer(TraceConfig(enabled=True, exporter="jsonl"))
     agent = Agent(config, tool_registry, tool_executor, tracer=tracer)
     ```
 
@@ -26,70 +26,166 @@ The `Tracer` is the one telemetry component wired into the run pipeline automati
 
     ```bash
     export ANYCODE_TRACE_ENABLED=true
-    export ANYCODE_TRACE_EXPORTER=console   # or otlp
-    export ANYCODE_TRACE_ENDPOINT=http://localhost:4317
+    export ANYCODE_TRACE_EXPORTER=jsonl
+    export ANYCODE_TRACE_SAMPLE_RATE=1.0
     ```
 
 | `TraceConfig` field | Default | Effect |
 | --- | --- | --- |
-| `enabled` | `False` | Master switch |
-| `service_name` | `"anycode"` | Service name on emitted spans |
-| `exporter` | `"console"` | `console`, `otlp`, or `none` |
+| `enabled` | `False` | Enables spans, metrics, and completion events |
+| `service_name` | `"anycode"` | Service name used by OTLP |
+| `exporter` | `"console"` | `console`, `jsonl`, `otlp`, or `none` |
 | `endpoint` | `None` | OTLP collector endpoint |
-| `sample_rate` | `1.0` | Fraction of traces to record |
-| `redact_sensitive_data` | `True` | Scrub recognized credentials from console and OTLP exports |
+| `sample_rate` | `1.0` | Probability of retaining and exporting each root trace |
+| `redact_sensitive_data` | `True` | Scrubs recognized credentials from built-in exports |
+| `max_recorded_spans` | `10_000` | Retained sampled spans per tracer |
+| `max_recorded_events` | `10_000` | Retained completion events per tracer |
+| `max_metric_series` | `1_000` | Unique in-memory counter and histogram series |
+| `max_histogram_samples` | `1_000` | Recent values retained per histogram series |
 
-Spans capture per-turn phases, sensor evaluations, and attributes like `stop_reason` and token counts. When tracing is disabled, span calls return a shared no-op object, so instrumentation costs nothing.
+The corresponding retention environment variables are `ANYCODE_TRACE_MAX_RECORDED_SPANS`, `ANYCODE_TRACE_MAX_RECORDED_EVENTS`, `ANYCODE_TRACE_MAX_METRIC_SERIES`, and `ANYCODE_TRACE_MAX_HISTOGRAM_SAMPLES`. `ANYCODE_TRACE_SERVICE_NAME`, `ANYCODE_TRACE_ENDPOINT`, and `ANYCODE_TRACE_REDACT_SENSITIVE_DATA` configure the remaining exporter options.
 
-Credential-like values are redacted when a span or event is converted with `to_dict()` or sent through a built-in exporter. The live in-memory span retains its original values. Set `redact_sensitive_data=False` only when the telemetry sink has an independently enforced data-protection boundary.
+## Correlate a run
 
-Environment configuration uses `ANYCODE_TRACE_REDACT_SENSITIVE_DATA`; it defaults to `true`.
+Every instrumented agent run has a stable `run_id`, which is persisted when durability is enabled. Its spans share an AnyCode `trace_id`; each span also has a `span_id` and `parent_span_id`. Completion events inherit `run_id`, agent, model, provider, task, and tool dimensions from their parent span, so child LLM and tool records remain searchable without repeating attributes at every call site.
+
+```python
+result = await agent.run("Investigate the failed deployment")
+run_id = result.lifecycle_events[0].run_id
+
+for event in tracer.events.events:
+    record = event.to_dict()
+    if record["attributes"].get("run_id") == run_id:
+        print(record)
+```
+
+Sampling is decided once per root and inherited by its children. A sampled-out trace is omitted from `tracer.spans` and from console, JSONL, and OTLP export. Its operational metrics and in-memory completion events are still recorded. Use `sample_rate=1.0` when an external dashboard derives exact run counts only from exported spans.
+
+## Emit structured JSONL logs
+
+The `jsonl` exporter writes one redacted JSON object for every sampled completed span. Records include wall-clock timestamps, duration, status, `trace_id`, `span_id`, `parent_span_id`, `run_id`, and effective runtime dimensions.
+
+```json
+{"duration_ms":412.7,"operation":"anycode.llm.chat","parent_span_id":"af82c1e3b47048aa","run_id":"7ed62e65-86be-44ba-b825-96fdfab73231","span_id":"626d9eac8ea843f4","status":"ok","timestamp":"2026-07-11T04:15:22.481923+00:00","trace_id":"7ed62e6586be44bab82596fdfab73231","type":"anycode.span.completed"}
+```
+
+Send stdout to your platform's normal collector, such as Fluent Bit, Vector, CloudWatch, or a Kubernetes logging agent. Export failures are logged as warnings and do not change agent results or cancellation behavior.
+
+Credential-like values are redacted when a span or event is serialized or sent through a built-in exporter. The live in-memory object retains its original values. Set `redact_sensitive_data=False` only when the sink has an independently enforced data-protection boundary.
 
 !!! warning "Redaction is defense in depth"
-    Pattern and key-based redaction reduces accidental credential leakage but cannot identify every sensitive business value or personal identifier. Keep secrets out of telemetry attributes and error messages in the first place, and enforce access controls and retention at the collector.
+    Pattern and key-based redaction reduces accidental credential leakage but cannot identify every sensitive business value or personal identifier. Keep secrets out of telemetry attributes and error messages, then enforce access controls and retention at the collector.
 
-!!! warning "OTLP export needs the extra"
-    The `otlp` exporter lazily loads the OpenTelemetry SDK and **silently does nothing** if it isn't installed. Install `anycode-py[telemetry]` and point `endpoint` at your collector to actually ship spans.
+## Use automatic metrics
 
-## Collect metrics
+Completed spans feed `tracer.metrics` even when trace sampling excludes them. The collector exposes counters and bounded histogram samples.
 
-`MetricsCollector` aggregates counters and histograms — tokens, cost, latency, errors. It is a standalone utility: construct it with `enabled=True` and record from your own code or hooks; the framework does not push into it automatically.
+| Metric | Type | Dimensions | Meaning |
+| --- | --- | --- | --- |
+| `anycode.runs` | Counter | `outcome`, `stop_reason` | Terminal run outcomes |
+| `anycode.latency.ms` | Histogram | `operation` | LLM, tool, turn, and terminal latency |
+| `anycode.llm.first_token.ms` | Histogram | `model` | Streaming time to first token when available |
+| `anycode.tokens.input` | Counter | `agent`, `model` | Provider-reported input tokens |
+| `anycode.tokens.output` | Counter | `agent`, `model` | Provider-reported output tokens |
+| `anycode.tokens.total` | Counter | `agent`, `model` | Combined token usage |
+| `anycode.cost.usd` | Counter | `agent`, `model` | Estimated model cost |
+| `anycode.retries` | Histogram | `agent`, `model` | Aggregate retries per terminal run |
+| `anycode.errors` | Counter | `operation`, `error_type` | Operation and non-success terminal errors |
 
-```python title="metrics.py"
-from anycode import MetricsCollector, Timer
-
-metrics = MetricsCollector(enabled=True)
-metrics.record_token_usage("worker", "claude-haiku-4-5", input_tokens=1200, output_tokens=340)
-
-with Timer(metrics, "tool.grep"):
-    ...   # timed block records latency on exit
-
-print(metrics.get_summary())
+```python
+summary = tracer.metrics.get_summary()
+run_count = tracer.metrics.get_counter(
+    "anycode.runs",
+    {"outcome": "completed", "stop_reason": "success"},
+)
 ```
 
-## Emit events
+`MetricsCollector` is in-memory. `get_summary()` reports counter values, retained histogram sizes, and drop counts; use `get_histogram()` when a metrics bridge needs the retained values. You can also derive backend metrics from JSONL or OTLP span attributes. AnyCode does not start an HTTP metrics endpoint.
 
-`EventEmitter` records a timestamped stream of named events — agent start/complete, turn boundaries, tool calls, budget warnings — with typed helpers for each. Like the metrics collector, you build and drive it yourself.
+## Inspect events and retention health
 
-```python title="events.py"
-from anycode import EventEmitter
+`tracer.events` retains an `anycode.span.completed` event for every completed span, including sampled-out spans. Each event carries the effective correlation and runtime attributes used by metrics and structured logs.
 
-events = EventEmitter(enabled=True)
-events.agent_start("worker", "claude-haiku-4-5")
-events.turn_complete("worker", turn_number=1, token_input=1200, token_output=340)
+All in-memory telemetry is bounded. Old spans, events, and histogram values roll out when their configured limit is reached; new metric label combinations are rejected after `max_metric_series`.
 
-for event in events.events:
-    print(event.to_dict())
+```python
+health = {
+    "dropped_spans": tracer.dropped_spans,
+    "dropped_events": tracer.events.dropped_events,
+    "dropped_metric_series": tracer.metrics.dropped_series,
+    "dropped_histogram_samples": tracer.metrics.dropped_histogram_samples,
+}
 ```
 
-`TelemetryEvent.to_dict(redact_sensitive_data=False)` exposes the original attributes for controlled local debugging. The default remains redacted.
+The first three counters indicate that retention or label-cardinality limits are undersized for the observation window. Histogram sample drops indicate normal rolling-window eviction, but a fast increase can justify a larger sample limit when percentile stability matters.
 
-!!! note "Metrics and events are opt-in and manual"
-    Only the `Tracer` is auto-instrumented. `MetricsCollector` and `EventEmitter` are yours to wire into hooks or surrounding code — nothing is collected unless you enable the object and call it.
+You can also construct `MetricsCollector` and `EventEmitter` directly for application-specific instrumentation. Their typed helpers remain available, and their serializers redact sensitive values by default.
+
+## Export spans with OTLP
+
+Install the telemetry extra and configure the collector:
+
+=== "In code"
+
+    ```python
+    from anycode import TraceConfig, Tracer
+
+    tracer = Tracer(
+        TraceConfig(
+            enabled=True,
+            exporter="otlp",
+            endpoint="http://localhost:4317",
+            service_name="deployment-worker",
+        )
+    )
+    ```
+
+=== "Via environment"
+
+    ```bash
+    pip install "anycode-py[telemetry]"
+    export ANYCODE_TRACE_ENABLED=true
+    export ANYCODE_TRACE_EXPORTER=otlp
+    export ANYCODE_TRACE_ENDPOINT=http://localhost:4317
+    ```
+
+OTLP spans preserve AnyCode's original start and end time. The exporter attaches `anycode.trace_id`, `anycode.span_id`, and `anycode.parent_span_id` as explicit attributes, together with `run_id`. Use those application attributes for cross-record correlation; the backend's native OpenTelemetry IDs are assigned by its SDK and are not the AnyCode IDs.
+
+The OTLP dependency is lazy. If the telemetry extra is absent, the exporter does not ship spans. Verify collector ingestion during deployment readiness checks.
+
+`AnyCode.close()` flushes the configured OTLP provider during normal engine shutdown. When you own a standalone `Tracer`, flush and close it before a short-lived process exits:
+
+```python
+tracer.force_flush(timeout_millis=30_000)
+tracer.shutdown()
+```
+
+## Build dashboards and alerts
+
+A production dashboard should show:
+
+- Run volume and outcome ratio by `stop_reason`.
+- P50, P95, and P99 latency for LLM, tool, turn, and terminal operations.
+- Streaming first-token latency by model.
+- Input, output, and total tokens by agent and model.
+- Estimated cost by agent and model.
+- Retry distribution and provider/tool error counts.
+- Telemetry drop counters and JSONL or OTLP ingestion health.
+
+Start alert thresholds from measured baselines and service objectives. Useful first alerts are:
+
+- Non-success run ratio above 5% for 10 minutes, excluding expected user cancellation.
+- P95 LLM latency or first-token latency above twice the seven-day baseline for 10 minutes.
+- P95 retries at or above 2, or any sustained `provider_unavailable` stop reason.
+- Any `side_effect_unknown` stop reason, which requires operator reconciliation before retry.
+- Cost above 80% of the configured budget, with a second alert at exhaustion.
+- Growth in dropped spans, events, or metric series, or missing JSONL/OTLP ingestion for five minutes while runs are active.
+
+Tune these examples to traffic volume. A low-volume service should alert on absolute failures as well as percentages.
 
 ## Next steps
 
-- [Visualize runs](visualization.md) — render the task graph and per-agent activity.
-- [Track and cap cost](cost-tracking.md) — the cost numbers you'll feed into metrics.
-- [Production controls](production-controls.md) — telemetry as part of hardening a run.
-- [Public API](../reference/public-api.md) — `Tracer`, `MetricsCollector`, and `EventEmitter` signatures.
+- [Visualize runs](visualization.md) - render the task graph and per-agent activity.
+- [Track and cap cost](cost-tracking.md) - enforce the budgets represented in telemetry.
+- [Production controls](production-controls.md) - combine telemetry with durability and safety controls.
+- [Configuration](../reference/configuration.md) - review every `TraceConfig` field and default.

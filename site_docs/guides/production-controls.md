@@ -198,7 +198,7 @@ Context policies define how AnyCode responds as conversation history grows. A po
 
 AnyCode redacts recognized credentials at built-in telemetry and persistence boundaries by default. Structured keys such as `api_key`, `authorization`, `password`, and provider-specific token fields are replaced, as are common token formats found inside free-form output and exception messages.
 
-The policy covers console and OTLP span exports, telemetry-event serialization, workflow and turn checkpoints, run transcripts and metadata, context and session-chain artifacts, persistent SQLite/Redis/Chroma/knowledge memory, eval reports, and harness artifacts. It does not mutate the active model conversation or tool result in memory.
+The policy covers console, JSONL, and OTLP span exports, telemetry-event serialization, workflow and turn checkpoints, run transcripts and metadata, context and session-chain artifacts, persistent SQLite/Redis/Chroma/knowledge memory, eval reports, and harness artifacts. It does not mutate the active model conversation or tool result in memory.
 
 Use `redact_sensitive`, `redact_text`, and `safe_exception_message` for custom exporters or persistence adapters. Redaction is not encryption or data-loss prevention: classify data before a run, minimize what agents can access, and protect storage and telemetry sinks.
 

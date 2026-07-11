@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import os
 from unittest.mock import patch
 
 import pytest
 
+from anycode import OTLPExporter
 from anycode.telemetry.events import EventEmitter, TelemetryEvent
 from anycode.telemetry.metrics import MetricsCollector, Timer
 from anycode.telemetry.tracer import Span, Tracer, _NoOpSpan
@@ -16,6 +19,88 @@ from anycode.types import SpanAttributes, TraceConfig
 
 
 class TestTracer:
+    def test_otlp_exporter_is_public(self) -> None:
+        assert OTLPExporter.__name__ == "OTLPExporter"
+
+    def test_otlp_export_preserves_timing_correlation_and_redaction(self) -> None:
+        class _ExportedSpan:
+            def __init__(self) -> None:
+                self.attributes: dict[str, object] = {}
+                self.events: list[tuple[str, dict[str, object]]] = []
+                self.ended_at: int | None = None
+
+            def set_attribute(self, key: str, value: object) -> None:
+                self.attributes[key] = value
+
+            def add_event(self, name: str, attributes: dict[str, object]) -> None:
+                self.events.append((name, attributes))
+
+            def set_status(self, status: object, description: str) -> None:
+                pass
+
+            def end(self, *, end_time: int) -> None:
+                self.ended_at = end_time
+
+        class _ExporterTracer:
+            def __init__(self) -> None:
+                self.span = _ExportedSpan()
+                self.started_at: int | None = None
+
+            def start_span(self, name: str, *, start_time: int) -> _ExportedSpan:
+                assert name == "otlp.test"
+                self.started_at = start_time
+                return self.span
+
+        exporter = OTLPExporter()
+        exporter_tracer = _ExporterTracer()
+        exporter._tracer = exporter_tracer
+        span = Span("otlp.test", trace_id="a" * 32)
+        span.set_attribute("run_id", "run-123")
+        span.add_event("request", {"authorization": "Bearer abcdefghijklmnop"})
+        span.end()
+        event = TelemetryEvent(
+            "anycode.span.completed",
+            {
+                "trace_id": span.trace_id,
+                "span_id": span.span_id,
+                "parent_span_id": None,
+                "run_id": "run-123",
+            },
+        )
+
+        exporter.export_completion(span, event)
+
+        assert exporter_tracer.started_at == span.started_at_ns
+        assert exporter_tracer.span.ended_at == span.ended_at_ns
+        assert exporter_tracer.span.attributes["anycode.trace_id"] == span.trace_id
+        assert exporter_tracer.span.attributes["anycode.span_id"] == span.span_id
+        assert exporter_tracer.span.attributes["run_id"] == "run-123"
+        assert exporter_tracer.span.events == [("request", {"authorization": "<redacted-secret>"})]
+
+    def test_otlp_exporter_flushes_and_shuts_down_provider(self) -> None:
+        class _Provider:
+            def __init__(self) -> None:
+                self.flush_timeout: int | None = None
+                self.shutdown_called = False
+
+            def force_flush(self, *, timeout_millis: int) -> bool:
+                self.flush_timeout = timeout_millis
+                return True
+
+            def shutdown(self) -> None:
+                self.shutdown_called = True
+
+        exporter = OTLPExporter()
+        provider = _Provider()
+        exporter._provider = provider
+
+        assert exporter.force_flush(timeout_millis=1234) is True
+        exporter.shutdown()
+
+        assert provider.flush_timeout == 1234
+        assert provider.shutdown_called is True
+        assert exporter._provider is None
+
     def test_disabled_tracer_returns_noop_span(self) -> None:
         tracer = Tracer(TraceConfig(enabled=False))
         span = tracer.start_span("test")
@@ -137,6 +222,13 @@ class TestTracer:
         assert len(tracer.spans) == 1
         assert tracer.spans[0].status == "error"
         assert tracer.spans[0].error == "boom"
+        assert (
+            tracer.metrics.get_counter(
+                "anycode.errors",
+                {"error_type": "error", "operation": "failing.op"},
+            )
+            == 1
+        )
 
     @pytest.mark.asyncio
     async def test_async_span(self) -> None:
@@ -153,6 +245,27 @@ class TestTracer:
                 raise RuntimeError("async fail")
         assert tracer.spans[0].status == "error"
 
+    @pytest.mark.asyncio
+    async def test_concurrent_span_contexts_do_not_cross_parent(self) -> None:
+        tracer = Tracer(TraceConfig(enabled=True, exporter="none"))
+        both_started = asyncio.Event()
+        started = 0
+
+        async def _branch(name: str) -> Span:
+            nonlocal started
+            async with tracer.async_span(f"{name}.parent") as parent:
+                started += 1
+                if started == 2:
+                    both_started.set()
+                await both_started.wait()
+                async with tracer.async_span(f"{name}.child") as child:
+                    assert child.parent is parent
+                    return child
+
+        first, second = await asyncio.gather(_branch("first"), _branch("second"))
+
+        assert first.trace_id != second.trace_id
+
     def test_console_exporter(self, capsys: pytest.CaptureFixture[str]) -> None:
         tracer = Tracer(TraceConfig(enabled=True, exporter="console"))
         with tracer.span("console.test") as span:
@@ -160,16 +273,56 @@ class TestTracer:
         output = capsys.readouterr().out
         assert "console.test" in output
 
+    def test_jsonl_exporter_emits_redacted_correlated_record(self, capsys: pytest.CaptureFixture[str]) -> None:
+        tracer = Tracer(TraceConfig(enabled=True, exporter="jsonl"))
+        with tracer.span("json.test") as span:
+            span.set_attribute("run_id", "run-123")
+            span.set_attribute("authorization", "Bearer abcdefghijklmnop")
+            with tracer.span("json.child") as child:
+                pass
+
+        payloads = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+        payload = next(item for item in payloads if item["operation"] == "json.test")
+        child_payload = next(item for item in payloads if item["operation"] == "json.child")
+        assert payload["type"] == "anycode.span.completed"
+        assert payload["trace_id"] == span.trace_id
+        assert payload["span_id"] == span.span_id
+        assert payload["parent_span_id"] is None
+        assert payload["run_id"] == "run-123"
+        assert payload["authorization"] == "<redacted-secret>"
+        assert payload["started_at"].endswith("+00:00")
+        assert payload["ended_at"].endswith("+00:00")
+        assert child_payload["trace_id"] == span.trace_id
+        assert child_payload["parent_span_id"] == span.span_id
+        assert child_payload["span_id"] == child.span_id
+        assert child_payload["run_id"] == "run-123"
+
+    def test_exporter_failure_does_not_change_run_behavior(self) -> None:
+        tracer = Tracer(TraceConfig(enabled=True, exporter="jsonl"))
+        with patch("builtins.print", side_effect=OSError("sink unavailable")):
+            with tracer.span("sink.failure"):
+                pass
+
+        assert [span.name for span in tracer.spans] == ["sink.failure"]
+        assert tracer.metrics.get_histogram("anycode.latency.ms", {"operation": "sink.failure"})
+
     def test_env_variable_config(self) -> None:
         env = {
             "ANYCODE_TRACE_ENABLED": "true",
             "ANYCODE_TRACE_EXPORTER": "none",
             "ANYCODE_TRACE_SERVICE_NAME": "test-svc",
-            "ANYCODE_TRACE_SAMPLE_RATE": "0.5",
+            "ANYCODE_TRACE_SAMPLE_RATE": "1.0",
+            "ANYCODE_TRACE_MAX_RECORDED_SPANS": "1",
         }
         with patch.dict(os.environ, env, clear=False):
             tracer = Tracer()
             assert tracer.enabled is True
+            with tracer.span("first"):
+                pass
+            with tracer.span("second"):
+                pass
+            assert [span.name for span in tracer.spans] == ["second"]
+            assert tracer.dropped_spans == 1
 
     def test_env_variable_disabled(self) -> None:
         with patch.dict(os.environ, {"ANYCODE_TRACE_ENABLED": "false"}, clear=False):
@@ -184,6 +337,222 @@ class TestTracer:
         span_b = tracer.start_span("b")
         tracer.end_span(span_b)
         assert len(tracer.spans) == 2
+
+    def test_sampled_out_trace_keeps_metrics_but_skips_span_storage(self) -> None:
+        tracer = Tracer(TraceConfig(enabled=True, exporter="none", sample_rate=0.0))
+        with tracer.span("sampled.out") as parent:
+            with tracer.span("sampled.out.child") as child:
+                assert parent.sampled is False
+                assert child.sampled is False
+
+        assert tracer.spans == []
+        assert tracer.metrics.get_histogram("anycode.latency.ms", {"operation": "sampled.out"})
+        assert tracer.metrics.get_histogram("anycode.latency.ms", {"operation": "sampled.out.child"})
+
+    def test_separate_roots_with_same_trace_id_share_sampling_decision(self) -> None:
+        tracer = Tracer(TraceConfig(enabled=True, exporter="none", sample_rate=0.5))
+        roots: list[Span] = []
+        for name in ("turn.1", "turn.2", "terminal"):
+            with tracer.span(name, trace_id="a" * 32) as span:
+                roots.append(span)
+
+        assert len({span.sampled for span in roots}) == 1
+        assert len({span.trace_id for span in roots}) == 1
+
+    def test_in_memory_telemetry_is_bounded_and_reports_drops(self) -> None:
+        tracer = Tracer(
+            TraceConfig(
+                enabled=True,
+                exporter="none",
+                max_recorded_spans=2,
+                max_recorded_events=2,
+                max_metric_series=2,
+                max_histogram_samples=2,
+            )
+        )
+        for index in range(3):
+            with tracer.span(f"operation.{index}"):
+                pass
+
+        assert [span.name for span in tracer.spans] == ["operation.1", "operation.2"]
+        assert tracer.dropped_spans == 1
+        assert len(tracer.events.events) == 2
+        assert tracer.events.dropped_events == 1
+        assert tracer.metrics.dropped_series == 1
+
+        metrics = MetricsCollector(enabled=True, max_histogram_samples=2)
+        for value in (1.0, 2.0, 3.0):
+            metrics.record("bounded", value)
+        assert metrics.get_histogram("bounded") == [2.0, 3.0]
+        assert metrics.dropped_histogram_samples == 1
+        assert metrics.get_summary()["dropped_histogram_samples"] == 1
+
+    def test_completed_spans_feed_correlated_metrics_and_events(self) -> None:
+        tracer = Tracer(TraceConfig(enabled=True, exporter="none"))
+        parent = tracer.start_span("anycode.agent.run")
+        child = tracer.start_span("anycode.llm.chat", parent=parent)
+        child.set_attributes(
+            SpanAttributes(
+                agent_name="planner",
+                model="fake-model",
+                token_input=12,
+                token_output=4,
+            )
+        )
+        child.set_error("provider timeout")
+        tracer.end_span(child)
+        tracer.end_span(parent)
+
+        assert child.trace_id == parent.trace_id
+        assert child.span_id != parent.span_id
+        labels = {"agent": "planner", "model": "fake-model"}
+        assert tracer.metrics.get_counter("anycode.tokens.input", labels) == 12
+        assert tracer.metrics.get_counter("anycode.tokens.output", labels) == 4
+        assert tracer.metrics.get_histogram("anycode.latency.ms", {"operation": "anycode.llm.chat"})
+        assert (
+            tracer.metrics.get_counter(
+                "anycode.errors",
+                {"error_type": "error", "operation": "anycode.llm.chat"},
+            )
+            == 1
+        )
+        event = tracer.events.events[-2].to_dict()
+        assert event["name"] == "anycode.span.completed"
+        assert event["attributes"]["trace_id"] == child.trace_id
+        assert event["attributes"]["span_id"] == child.span_id
+        assert event["attributes"]["parent_span_id"] == parent.span_id
+
+    @pytest.mark.asyncio
+    async def test_runner_emits_one_correlated_trace_and_runtime_metrics(self) -> None:
+        from pydantic import BaseModel
+
+        from anycode.core.runner import AgentRunner
+        from anycode.providers.fake import FakeAdapter, FakeResponse
+        from anycode.tools.executor import ToolExecutor
+        from anycode.tools.registry import ToolRegistry, define_tool
+        from anycode.types import LLMMessage, RunnerOptions, TextBlock, ToolResult, ToolUseContext
+
+        class _EchoInput(BaseModel):
+            value: str
+
+        async def _echo(tool_input: _EchoInput, _context: ToolUseContext) -> ToolResult:
+            return ToolResult(data=tool_input.value)
+
+        registry = ToolRegistry()
+        registry.register(define_tool(name="echo", description="echo", input_model=_EchoInput, execute=_echo))
+        tracer = Tracer(TraceConfig(enabled=True, exporter="none"))
+        runner = AgentRunner(
+            FakeAdapter(
+                responses=[
+                    FakeResponse(tool_calls=(("echo", {"value": "hello"}),)),
+                    FakeResponse(text="done"),
+                ]
+            ),
+            registry,
+            ToolExecutor(registry),
+            RunnerOptions(model="fake-model", agent_name="telemetry-agent", max_turns=3),
+            tracer=tracer,
+        )
+
+        result = await runner.run([LLMMessage(role="user", content=[TextBlock(text="go")])])
+
+        assert result.stop_reason is not None and result.stop_reason.code == "success"
+        assert len({span.trace_id for span in tracer.spans}) == 1
+        run_ids = {span.attributes["run_id"] for span in tracer.spans if "run_id" in span.attributes}
+        assert len(run_ids) == 1
+        token_labels = {"agent": "telemetry-agent", "model": "fake-model"}
+        assert tracer.metrics.get_counter("anycode.tokens.input", token_labels) == 10
+        assert tracer.metrics.get_counter("anycode.tokens.output", token_labels) == 10
+        assert tracer.metrics.get_counter("anycode.cost.usd", token_labels) > 0
+        assert tracer.metrics.get_counter("anycode.runs", {"outcome": "completed", "stop_reason": "success"}) == 1
+        assert tracer.metrics.get_histogram("anycode.retries", token_labels) == [0.0]
+        llm_event = next(event.to_dict() for event in tracer.events.events if event.attributes["operation"] == "anycode.llm.chat")
+        assert llm_event["attributes"]["run_id"] in run_ids
+
+    @pytest.mark.asyncio
+    async def test_handoff_emits_correlated_terminal_metrics(self) -> None:
+        from anycode.core.runner import AgentRunner
+        from anycode.handoff.tool import HANDOFF_TOOL_DEF
+        from anycode.providers.fake import FakeAdapter, FakeResponse
+        from anycode.tools.executor import ToolExecutor
+        from anycode.tools.registry import ToolRegistry
+        from anycode.types import LLMMessage, RunnerOptions, TextBlock
+
+        registry = ToolRegistry()
+        registry.register(HANDOFF_TOOL_DEF)
+        tracer = Tracer(TraceConfig(enabled=True, exporter="none"))
+        runner = AgentRunner(
+            FakeAdapter(
+                responses=[
+                    FakeResponse(
+                        tool_calls=(
+                            (
+                                "handoff",
+                                {"to_agent": "reviewer", "summary": "Ready for review", "reason": "Needs review"},
+                            ),
+                        )
+                    )
+                ]
+            ),
+            registry,
+            ToolExecutor(registry),
+            RunnerOptions(model="fake-model", agent_name="handoff-agent"),
+            tracer=tracer,
+        )
+
+        result = await runner.run([LLMMessage(role="user", content=[TextBlock(text="handoff")])])
+
+        assert result.handoff_request is not None
+        terminal = next(span for span in tracer.spans if span.name.endswith(".terminal"))
+        assert terminal.attributes["phase"] == "completed"
+        assert terminal.attributes["stop_reason"] == "success"
+        assert len({span.trace_id for span in tracer.spans}) == 1
+        assert tracer.metrics.get_counter("anycode.runs", {"outcome": "completed", "stop_reason": "success"}) == 1
+
+    @pytest.mark.asyncio
+    async def test_tool_error_result_marks_span_and_error_metric(self) -> None:
+        from pydantic import BaseModel
+
+        from anycode.core.runner import AgentRunner
+        from anycode.providers.fake import FakeAdapter, FakeResponse
+        from anycode.tools.executor import ToolExecutor
+        from anycode.tools.registry import ToolRegistry, define_tool
+        from anycode.types import LLMMessage, RunnerOptions, TextBlock, ToolResult, ToolUseContext
+
+        class _FailInput(BaseModel):
+            reason: str
+
+        async def _fail(tool_input: _FailInput, _context: ToolUseContext) -> ToolResult:
+            return ToolResult(data=tool_input.reason, is_error=True)
+
+        registry = ToolRegistry()
+        registry.register(define_tool(name="fail", description="fail", input_model=_FailInput, execute=_fail))
+        tracer = Tracer(TraceConfig(enabled=True, exporter="none"))
+        runner = AgentRunner(
+            FakeAdapter(
+                responses=[
+                    FakeResponse(tool_calls=(("fail", {"reason": "expected failure"}),)),
+                    FakeResponse(text="recovered"),
+                ]
+            ),
+            registry,
+            ToolExecutor(registry),
+            RunnerOptions(model="fake-model", agent_name="tool-agent"),
+            tracer=tracer,
+        )
+
+        result = await runner.run([LLMMessage(role="user", content=[TextBlock(text="run tool")])])
+
+        assert result.stop_reason is not None and result.stop_reason.code == "success"
+        tool_span = next(span for span in tracer.spans if span.name == "anycode.tool.fail")
+        assert tool_span.status == "error"
+        assert (
+            tracer.metrics.get_counter(
+                "anycode.errors",
+                {"error_type": "error", "operation": "anycode.tool.fail"},
+            )
+            == 1
+        )
 
 
 # -- Metrics tests --

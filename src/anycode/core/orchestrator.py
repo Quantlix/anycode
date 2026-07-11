@@ -219,6 +219,8 @@ class AnyCode:
         """Release MCP clients and persistent tool-idempotency resources."""
         await self._pool.shutdown()
         await self.disconnect_mcp_servers()
+        if self._tracer is not None:
+            self._tracer.shutdown()
         teardown = getattr(self._tool_idempotency_store, "teardown", None)
         if teardown is not None:
             result = teardown()

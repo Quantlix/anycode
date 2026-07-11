@@ -136,7 +136,7 @@ from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task, get_task_dependency_order, is_task_ready, validate_task_dependencies
 from anycode.telemetry.events import EventEmitter, TelemetryEvent
 from anycode.telemetry.metrics import MetricsCollector, Timer
-from anycode.telemetry.tracer import ConsoleExporter, Span, Tracer
+from anycode.telemetry.tracer import ConsoleExporter, JSONLExporter, OTLPExporter, Span, Tracer
 from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.idempotency import (
@@ -490,6 +490,8 @@ __all__ = [
     "Tracer",
     "Span",
     "ConsoleExporter",
+    "JSONLExporter",
+    "OTLPExporter",
     "MetricsCollector",
     "Timer",
     "EventEmitter",

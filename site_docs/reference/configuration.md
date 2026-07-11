@@ -56,7 +56,7 @@ Each is `None`/disabled by default; set it to switch the feature on.
 
 Tracing and guardrails are supplied via `AnyCode.configure(trace=TraceConfig(...), guardrails=GuardrailConfig(...))` rather than the constructor:
 
-**`TraceConfig`** — `enabled=False`, `service_name="anycode"`, `exporter` (`"otlp"` \| `"console"` \| `"none"`, default `"console"`), `endpoint`, `sample_rate=1.0`, `redact_sensitive_data=True`.
+**`TraceConfig`** - `enabled=False`, `service_name="anycode"`, `exporter` (`"otlp"` \| `"console"` \| `"jsonl"` \| `"none"`, default `"console"`), `endpoint`, `sample_rate=1.0` (validated from `0.0` through `1.0`), `redact_sensitive_data=True`, `max_recorded_spans=10_000`, `max_recorded_events=10_000`, `max_metric_series=1_000`, and `max_histogram_samples=1_000`. Sampling controls span retention/export; automatic in-memory metrics and completion events still record sampled-out traffic. See [Observe runs with telemetry](../guides/observability.md).
 
 **`GuardrailConfig`** — `max_tokens_per_agent`, `max_tokens_per_team`, `max_cost_usd`, `max_turns`, `max_tool_calls` (all `None`), plus `blocked_tools`, `require_approval_tools`, `output_validators`.
 

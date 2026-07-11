@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import time
+from collections import deque
+from datetime import UTC, datetime
 from typing import Any
 
 from anycode.constants import (
@@ -28,18 +30,27 @@ class TelemetryEvent:
         self.name = name
         self.attributes = attributes or {}
         self.timestamp = time.monotonic()
+        self.observed_at = datetime.now(UTC)
 
     def to_dict(self, *, redact_sensitive_data: bool = True) -> dict[str, Any]:
-        payload = {"name": self.name, "attributes": self.attributes, "timestamp": self.timestamp}
+        payload = {
+            "name": self.name,
+            "attributes": self.attributes,
+            "timestamp": self.timestamp,
+            "observed_at": self.observed_at.isoformat(),
+        }
         return redact_sensitive(payload) if redact_sensitive_data else payload
 
 
 class EventEmitter:
     """Collects and dispatches structured lifecycle events."""
 
-    def __init__(self, enabled: bool = False) -> None:
+    def __init__(self, enabled: bool = False, *, max_events: int = 10_000) -> None:
+        if max_events < 1:
+            raise ValueError(f"max_events must be >= 1, received {max_events}")
         self._enabled = enabled
-        self._events: list[TelemetryEvent] = []
+        self._events: deque[TelemetryEvent] = deque(maxlen=max_events)
+        self._dropped_events = 0
 
     @property
     def enabled(self) -> bool:
@@ -49,11 +60,18 @@ class EventEmitter:
     def events(self) -> list[TelemetryEvent]:
         return list(self._events)
 
-    def emit(self, name: str, attributes: dict[str, Any] | None = None) -> None:
+    @property
+    def dropped_events(self) -> int:
+        return self._dropped_events
+
+    def emit(self, name: str, attributes: dict[str, Any] | None = None) -> TelemetryEvent | None:
         if not self._enabled:
-            return
+            return None
         event = TelemetryEvent(name, attributes)
+        if len(self._events) == self._events.maxlen:
+            self._dropped_events += 1
         self._events.append(event)
+        return event
 
     def agent_start(self, agent_name: str, model: str) -> None:
         self.emit(TEL_EVENT_AGENT_START, {"agent_name": agent_name, "model": model})
@@ -99,3 +117,4 @@ class EventEmitter:
 
     def clear(self) -> None:
         self._events.clear()
+        self._dropped_events = 0

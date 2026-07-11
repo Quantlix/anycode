@@ -13,6 +13,7 @@ import pytest
 from anycode import (
     FakeAdapter,
     FakeResponse,
+    Tracer,
     load_scenarios,
     run_suite,
 )
@@ -25,6 +26,7 @@ from anycode.types import (
     LLMMessage,
     RunnerOptions,
     TextBlock,
+    TraceConfig,
     VerificationSensorConfig,
 )
 
@@ -112,7 +114,8 @@ async def test_runner_cancellation_emits_cancelled_phase() -> None:
     executor = ToolExecutor(registry)
     options = RunnerOptions(model="fake-model", max_turns=2, agent_name="t")
     lifecycle: list[object] = []
-    runner = AgentRunner(adapter, registry, executor, options, lifecycle_listeners=[lifecycle.append])  # type: ignore[list-item]
+    tracer = Tracer(TraceConfig(enabled=True, exporter="none"))
+    runner = AgentRunner(adapter, registry, executor, options, tracer=tracer, lifecycle_listeners=[lifecycle.append])  # type: ignore[list-item]
 
     task = asyncio.create_task(runner.run([LLMMessage(role="user", content=[TextBlock(text="hello")])]))
     await asyncio.wait_for(entered.wait(), timeout=1)
@@ -123,6 +126,11 @@ async def test_runner_cancellation_emits_cancelled_phase() -> None:
     assert getattr(lifecycle[-1], "phase", None) == "cancelled"
     stop = getattr(lifecycle[-1], "stop_reason", None)
     assert stop is not None and stop.code == "user_cancelled"
+    terminal = next(span for span in tracer.spans if span.name.endswith(".terminal"))
+    assert terminal.attributes["phase"] == "cancelled"
+    assert terminal.attributes["stop_reason"] == "user_cancelled"
+    assert len({span.trace_id for span in tracer.spans}) == 1
+    assert tracer.metrics.get_counter("anycode.runs", {"outcome": "cancelled", "stop_reason": "user_cancelled"}) == 1
 
 
 @pytest.mark.asyncio

@@ -37,7 +37,7 @@ from anycode.core.stop_reason import (
     unknown as stop_unknown,
 )
 from anycode.core.streaming import StreamAccumulator, StreamStartupError
-from anycode.guardrails.budget import BudgetTracker
+from anycode.guardrails.budget import BudgetTracker, estimate_cost
 from anycode.guardrails.hooks import HookRunner
 from anycode.guardrails.validators import run_validators
 from anycode.helpers.concurrency_gate import Semaphore
@@ -185,6 +185,7 @@ class AgentRunner:
 
         restored = self._resume_from
         run_id = restored.run_id if restored is not None else str(uuid7())
+        run_trace_id = run_id.replace("-", "")
         emitter = LifecycleEmitter(
             run_id=run_id,
             agent_name=agent_name,
@@ -256,6 +257,21 @@ class AgentRunner:
             store.save_checkpoint(checkpoint, keep_last=durability.keep_last_checkpoints)
             _persist("checkpoint", {"turn": turn_count})
 
+        async def _trace_terminal(phase: str, stop_reason: StopReason) -> None:
+            retry_count = base_retries + validation_retries + structured_retries + verification_retries
+            async with self._tracer.async_span(f"anycode.agent.{agent_name}.terminal", trace_id=run_trace_id) as terminal_span:
+                terminal_span.set_attributes(
+                    SpanAttributes(
+                        run_id=run_id,
+                        agent_name=agent_name,
+                        model=self._options.model,
+                        phase=phase,
+                        stop_reason=stop_reason.code,
+                        recoverable=stop_reason.recoverable,
+                        retry_count=retry_count,
+                    )
+                )
+
         all_defs = self._registry.to_tool_defs()
         active_defs = [d for d in all_defs if d.name in self._options.allowed_tools] if self._options.allowed_tools else all_defs
 
@@ -297,9 +313,13 @@ class AgentRunner:
                 if emitter.phase != "executing":
                     emitter.transition("executing", metadata={"turn": turn_count})
 
-                async with self._tracer.async_span(f"anycode.agent.{agent_name}.turn.{turn_count}") as turn_span:
+                async with self._tracer.async_span(
+                    f"anycode.agent.{agent_name}.turn.{turn_count}",
+                    trace_id=run_trace_id,
+                ) as turn_span:
                     turn_span.set_attributes(
                         SpanAttributes(
+                            run_id=run_id,
                             agent_name=agent_name,
                             model=self._options.model,
                             turn_number=turn_count,
@@ -368,6 +388,11 @@ class AgentRunner:
                                 provider=self._adapter.name,
                                 token_input=response.usage.input_tokens,
                                 token_output=response.usage.output_tokens,
+                                cost_usd=estimate_cost(
+                                    self._options.model,
+                                    response.usage.input_tokens,
+                                    response.usage.output_tokens,
+                                ),
                             )
                         )
                     if manifest is not None:
@@ -665,6 +690,7 @@ class AgentRunner:
                             _save_turn_checkpoint()
                             _persist("stop", {"code": terminal_stop.code, "message": terminal_stop.message})
                             store.update_status(run_id, "completed")
+                        await _trace_terminal(final_event.phase, terminal_stop)
                         yield StreamEvent(
                             type="done",
                             data=RunResult(
@@ -719,6 +745,7 @@ class AgentRunner:
                     store.update_status(run_id, "cancelled")
                 except Exception:  # noqa: BLE001 - persistence must not mask cancellation
                     pass
+            await _trace_terminal("cancelled", cancel_stop)
             raise
         except ProviderUnavailableError as e:
             # Transient-failure retries exhausted or circuit open: surface a
@@ -737,6 +764,7 @@ class AgentRunner:
                     store.update_status(run_id, "failed")
                 except Exception:  # noqa: BLE001 - never mask the real error
                     pass
+            await _trace_terminal("failed", failure_stop)
             yield StreamEvent(type="error", data=e)
             return
 
@@ -756,17 +784,7 @@ class AgentRunner:
         except Exception:  # noqa: BLE001 - keep run result even if listener/transition fails
             terminal_phase_name = terminal_phase
 
-        # Attach lifecycle attributes to the root tracer span for the run.
-        async with self._tracer.async_span(f"anycode.agent.{agent_name}.terminal") as terminal_span:
-            terminal_span.set_attributes(
-                SpanAttributes(
-                    agent_name=agent_name,
-                    model=self._options.model,
-                    phase=terminal_phase_name,
-                    stop_reason=terminal_stop.code,
-                    recoverable=terminal_stop.recoverable,
-                )
-            )
+        await _trace_terminal(terminal_phase_name, terminal_stop)
 
         if store is not None:
             _save_turn_checkpoint()
@@ -901,6 +919,8 @@ class AgentRunner:
                 message = safe_exception_message(e)
                 result = ToolResult(data=message, is_error=True)
                 tool_span.set_error(message)
+            if result.is_error and tool_span.status != "error":
+                tool_span.set_error("Tool returned an error result.")
 
             duration = time.monotonic() - began
             tool_span.set_attributes(SpanAttributes(tool_name=block.name))

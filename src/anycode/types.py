@@ -931,14 +931,19 @@ class TraceConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     enabled: bool = False
     service_name: str = "anycode"
-    exporter: Literal["otlp", "console", "none"] = "console"
+    exporter: Literal["otlp", "console", "jsonl", "none"] = "console"
     endpoint: str | None = None
-    sample_rate: float = 1.0
+    sample_rate: float = Field(default=1.0, ge=0.0, le=1.0)
     redact_sensitive_data: bool = True
+    max_recorded_spans: int = Field(default=10_000, ge=1)
+    max_recorded_events: int = Field(default=10_000, ge=1)
+    max_metric_series: int = Field(default=1_000, ge=1)
+    max_histogram_samples: int = Field(default=1_000, ge=1)
 
 
 class SpanAttributes(BaseModel):
     model_config = ConfigDict(frozen=True)
+    run_id: str | None = None
     agent_name: str | None = None
     tool_name: str | None = None
     task_id: str | None = None
@@ -951,6 +956,7 @@ class SpanAttributes(BaseModel):
     phase: str | None = None
     stop_reason: str | None = None
     recoverable: bool | None = None
+    retry_count: int = 0
 
 
 # -- Guardrails --
