@@ -2935,6 +2935,11 @@
 <td><code>5</code></td>
 <td>Snapshots to retain per workflow before pruning</td>
 </tr>
+<tr>
+<td><code>redact_sensitive_data</code></td>
+<td><code>True</code></td>
+<td>Scrub recognized credentials before persistence</td>
+</tr>
 </tbody>
 </table>
 <div class="admonition warning">
@@ -2990,16 +2995,35 @@
 <td><code>3</code></td>
 <td>Turn checkpoints retained per run</td>
 </tr>
+<tr>
+<td><code>heartbeat_seconds</code></td>
+<td><code>30.0</code></td>
+<td>Heartbeat interval for stale-run detection</td>
+</tr>
+<tr>
+<td><code>redact_sensitive_data</code></td>
+<td><code>True</code></td>
+<td>Scrub recognized credentials from records, events, and turn checkpoints</td>
+</tr>
 </tbody>
 </table>
 <p>A durable run that hits a provider outage doesn't fail — it <strong>pauses</strong> with a wake condition to retry later. <code>resume_from</code> takes a loaded <code>TurnCheckpoint</code>, not a run ID.</p>
+<div class="admonition warning">
+<p class="admonition-title">Redaction changes persisted replay data</p>
+<p>Checkpoint and run-store redaction is enabled by default. Recognized credentials are replaced with <code>&lt;redacted-secret&gt;</code> in serialized messages, tool inputs and outputs, metadata, errors, and transcript payloads. A resumed run therefore receives the placeholder rather than the original credential. Pass <code>redact_sensitive_data=False</code> only when exact replay is required and the store is protected with encryption, access control, and an appropriate retention policy.</p>
+</div>
+<p>Low-level constructors expose the same explicit opt-out:</p>
+<div class="language-python highlight"><span class="filename">protected-store.py</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">store</span> <span class="o">=</span> <span class="n">FilesystemRunStore</span><span class="p">(</span><span class="s2">&quot;/protected/runs&quot;</span><span class="p">,</span> <span class="n">redact_sensitive_data</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">checkpoint_store</span> <span class="o">=</span> <span class="n">FilesystemCheckpointStore</span><span class="p">(</span><span class="s2">&quot;/protected/checkpoints&quot;</span><span class="p">,</span> <span class="n">redact_sensitive_data</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The built-in filesystem stores do not encrypt data at rest.</p>
 <h2 id="inspect-runs-from-the-cli">Inspect runs from the CLI<a class="headerlink" href="#inspect-runs-from-the-cli" title="Permanent link">&para;</a></h2>
 <p>The <code>anycode runs</code> commands read a run store directly:</p>
-<div class="language-bash highlight"><span class="filename">Inspect durable runs</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>anycode<span class="w"> </span>runs<span class="w"> </span>list<span class="w">                 </span><span class="c1"># table of every run and its status</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>anycode<span class="w"> </span>runs<span class="w"> </span>show<span class="w"> </span>&lt;run_id&gt;<span class="w">        </span><span class="c1"># status, wake condition, recent events</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>anycode<span class="w"> </span>runs<span class="w"> </span>tail<span class="w"> </span>&lt;run_id&gt;<span class="w">        </span><span class="c1"># transcript events after a sequence number</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>anycode<span class="w"> </span>runs<span class="w"> </span>audit<span class="w"> </span>&lt;run_id&gt;<span class="w">       </span><span class="c1"># event-kind digest over a time window</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>anycode<span class="w"> </span>runs<span class="w"> </span>sweep<span class="w">                </span><span class="c1"># one watchdog pass: mark interrupted/stalled, report due wakes</span>
+<div class="language-bash highlight"><span class="filename">Inspect durable runs</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>anycode<span class="w"> </span>runs<span class="w"> </span>list<span class="w">                 </span><span class="c1"># table of every run and its status</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>anycode<span class="w"> </span>runs<span class="w"> </span>show<span class="w"> </span>&lt;run_id&gt;<span class="w">        </span><span class="c1"># status, wake condition, recent events</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>anycode<span class="w"> </span>runs<span class="w"> </span>tail<span class="w"> </span>&lt;run_id&gt;<span class="w">        </span><span class="c1"># transcript events after a sequence number</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>anycode<span class="w"> </span>runs<span class="w"> </span>audit<span class="w"> </span>&lt;run_id&gt;<span class="w">       </span><span class="c1"># event-kind digest over a time window</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>anycode<span class="w"> </span>runs<span class="w"> </span>sweep<span class="w">                </span><span class="c1"># one watchdog pass: mark interrupted/stalled, report due wakes</span>
 </span></code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">There is no <code>anycode runs resume</code></p>
@@ -3007,42 +3031,43 @@
 </div>
 <h2 id="chain-calendar-scale-goals">Chain calendar-scale goals<a class="headerlink" href="#chain-calendar-scale-goals" title="Permanent link">&para;</a></h2>
 <p>For work too large for one context window, <code>SessionChain</code> runs a series of <strong>fresh</strong> sessions against a durable <code>GoalContract</code>. Each session gets a clean context, works the next unmet criterion, and an external <code>verifier</code> — never the agent's own say-so — decides whether the criterion passed.</p>
-<div class="language-python highlight"><span class="filename">session_chain.py</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">GoalContract</span><span class="p">,</span> <span class="n">GoalCriterion</span><span class="p">,</span> <span class="n">SessionChain</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">contract</span> <span class="o">=</span> <span class="n">GoalContract</span><span class="p">(</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">goal</span><span class="o">=</span><span class="s2">&quot;Ship the data-export feature&quot;</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">criteria</span><span class="o">=</span><span class="p">(</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Design the export schema&quot;</span><span class="p">),</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;endpoint&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Implement the export endpoint&quot;</span><span class="p">),</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;tests&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Cover the endpoint with tests&quot;</span><span class="p">),</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="p">),</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">)</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">SessionChain</span><span class="p">(</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">runner_factory</span><span class="o">=</span><span class="n">runner_factory</span><span class="p">,</span>   <span class="c1"># returns a NEW AgentRunner (fresh context) each session</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">contract</span><span class="o">=</span><span class="n">contract</span><span class="p">,</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">work_dir</span><span class="o">=</span><span class="s2">&quot;export-feature&quot;</span><span class="p">,</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">verifier</span><span class="o">=</span><span class="n">verifier</span><span class="p">,</span>               <span class="c1"># async (criterion, result) -&gt; evidence str | None</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    <span class="n">max_sessions</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="p">)</span>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">final</span> <span class="o">=</span> <span class="k">await</span> <span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>            <span class="c1"># loops until final.complete or max_sessions</span>
+<div class="language-python highlight"><span class="filename">session_chain.py</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">GoalContract</span><span class="p">,</span> <span class="n">GoalCriterion</span><span class="p">,</span> <span class="n">SessionChain</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">contract</span> <span class="o">=</span> <span class="n">GoalContract</span><span class="p">(</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">goal</span><span class="o">=</span><span class="s2">&quot;Ship the data-export feature&quot;</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">criteria</span><span class="o">=</span><span class="p">(</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Design the export schema&quot;</span><span class="p">),</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;endpoint&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Implement the export endpoint&quot;</span><span class="p">),</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="n">GoalCriterion</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;tests&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Cover the endpoint with tests&quot;</span><span class="p">),</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="p">),</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">)</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">SessionChain</span><span class="p">(</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="n">runner_factory</span><span class="o">=</span><span class="n">runner_factory</span><span class="p">,</span>   <span class="c1"># returns a NEW AgentRunner (fresh context) each session</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">contract</span><span class="o">=</span><span class="n">contract</span><span class="p">,</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">work_dir</span><span class="o">=</span><span class="s2">&quot;export-feature&quot;</span><span class="p">,</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="n">verifier</span><span class="o">=</span><span class="n">verifier</span><span class="p">,</span>               <span class="c1"># async (criterion, result) -&gt; evidence str | None</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="n">max_sessions</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="p">)</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="n">final</span> <span class="o">=</span> <span class="k">await</span> <span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>            <span class="c1"># loops until final.complete or max_sessions</span>
 </span></code></pre></div>
 <p>Only the contract (<code>contract.json</code>) and an append-only <code>progress.md</code> carry between sessions — the conversation itself does not. This is the mechanism for goals measured in days rather than turns.</p>
+<p>Goal contracts and progress-log output are redacted before they are written by default. Pass <code>redact_sensitive_data=False</code> to <code>SessionChain</code> only for a protected work directory that requires exact persisted text.</p>
 <h2 id="wake-paused-runs-on-a-schedule">Wake paused runs on a schedule<a class="headerlink" href="#wake-paused-runs-on-a-schedule" title="Permanent link">&para;</a></h2>
 <p>A paused run carries a <code>WakeCondition</code>. A <strong>sweep</strong> is the wake mechanism: it finds runs whose wake time has arrived and calls your resume function.</p>
-<div class="language-python highlight"><span class="filename">scheduler.py</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">FilesystemRunStore</span><span class="p">,</span> <span class="n">RunScheduler</span><span class="p">,</span> <span class="n">sweep_once</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">FilesystemRunStore</span><span class="p">(</span><span class="s2">&quot;.anycode/runs&quot;</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">resume</span><span class="p">(</span><span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="o">...</span>   <span class="c1"># load the checkpoint and continue the run</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># One pass:</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">sweep_once</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">resume</span><span class="o">=</span><span class="n">resume</span><span class="p">)</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">woken</span><span class="p">)</span>   <span class="c1"># run IDs resumed this pass</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="c1"># Or run a background tick loop:</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">scheduler</span> <span class="o">=</span> <span class="n">RunScheduler</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">resume</span><span class="o">=</span><span class="n">resume</span><span class="p">,</span> <span class="n">interval_seconds</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">scheduler.py</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">FilesystemRunStore</span><span class="p">,</span> <span class="n">RunScheduler</span><span class="p">,</span> <span class="n">sweep_once</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">FilesystemRunStore</span><span class="p">(</span><span class="s2">&quot;.anycode/runs&quot;</span><span class="p">)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">resume</span><span class="p">(</span><span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="o">...</span>   <span class="c1"># load the checkpoint and continue the run</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># One pass:</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">sweep_once</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">resume</span><span class="o">=</span><span class="n">resume</span><span class="p">)</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">woken</span><span class="p">)</span>   <span class="c1"># run IDs resumed this pass</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="c1"># Or run a background tick loop:</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="n">scheduler</span> <span class="o">=</span> <span class="n">RunScheduler</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">resume</span><span class="o">=</span><span class="n">resume</span><span class="p">,</span> <span class="n">interval_seconds</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Only timed wakes (<code>at_time</code>, <code>on_provider_recovery</code>) fire automatically; <code>on_approval</code> and <code>manual</code> wakes resume through their own signal. For lightweight periodic jobs that aren't full agent runs, <code>run_scheduled_task</code> handles <code>notification</code>, <code>script</code>, <code>agent</code>, and <code>hybrid</code> modes.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>

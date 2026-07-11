@@ -2896,9 +2896,20 @@
 <td><code>1.0</code></td>
 <td>Fraction of traces to record</td>
 </tr>
+<tr>
+<td><code>redact_sensitive_data</code></td>
+<td><code>True</code></td>
+<td>Scrub recognized credentials from console and OTLP exports</td>
+</tr>
 </tbody>
 </table>
 <p>Spans capture per-turn phases, sensor evaluations, and attributes like <code>stop_reason</code> and token counts. When tracing is disabled, span calls return a shared no-op object, so instrumentation costs nothing.</p>
+<p>Credential-like values are redacted when a span or event is converted with <code>to_dict()</code> or sent through a built-in exporter. The live in-memory span retains its original values. Set <code>redact_sensitive_data=False</code> only when the telemetry sink has an independently enforced data-protection boundary.</p>
+<p>Environment configuration uses <code>ANYCODE_TRACE_REDACT_SENSITIVE_DATA</code>; it defaults to <code>true</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Redaction is defense in depth</p>
+<p>Pattern and key-based redaction reduces accidental credential leakage but cannot identify every sensitive business value or personal identifier. Keep secrets out of telemetry attributes and error messages in the first place, and enforce access controls and retention at the collector.</p>
+</div>
 <div class="admonition warning">
 <p class="admonition-title">OTLP export needs the extra</p>
 <p>The <code>otlp</code> exporter lazily loads the OpenTelemetry SDK and <strong>silently does nothing</strong> if it isn't installed. Install <code>anycode-py[telemetry]</code> and point <code>endpoint</code> at your collector to actually ship spans.</p>
@@ -2926,6 +2937,7 @@
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span><span class="o">.</span><span class="n">events</span><span class="p">:</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
 </span></code></pre></div>
+<p><code>TelemetryEvent.to_dict(redact_sensitive_data=False)</code> exposes the original attributes for controlled local debugging. The default remains redacted.</p>
 <div class="admonition note">
 <p class="admonition-title">Metrics and events are opt-in and manual</p>
 <p>Only the <code>Tracer</code> is auto-instrumented. <code>MetricsCollector</code> and <code>EventEmitter</code> are yours to wire into hooks or surrounding code — nothing is collected unless you enable the object and call it.</p>

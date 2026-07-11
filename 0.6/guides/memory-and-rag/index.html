@@ -2927,6 +2927,11 @@
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">entry</span> <span class="o">=</span> <span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;decision:auth&quot;</span><span class="p">)</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">teardown</span><span class="p">()</span>
 </span></code></pre></div>
+<p><code>MemoryConfig.redact_sensitive_data</code> defaults to <code>True</code>. SQLite, Redis, and Chroma replace recognized credentials before writing values, metadata, or documents. <code>KnowledgeStore</code> applies the same default to its Markdown entries.</p>
+<div class="admonition warning">
+<p class="admonition-title">Redacted memory cannot reconstruct a credential</p>
+<p>Retrieval returns <code>&lt;redacted-secret&gt;</code> rather than the original value. This is deliberate: long-lived memory should not be a credential store. Set <code>redact_sensitive_data=False</code> only when exact values are required and the backend has independent encryption, access control, and retention enforcement.</p>
+</div>
 <div class="admonition warning">
 <p class="admonition-title">sqlite and redis need <code>setup()</code></p>
 <p><code>SQLiteStore</code>, <code>RedisStore</code>, and <code>ChromaDBVectorStore</code> all raise a <code>RuntimeError</code> if you use them before <code>await setup()</code>. <code>InMemoryStore</code> needs no setup. Persistent stores are imported from their submodules (for example <code>from anycode.memory.sqlite_store import SQLiteStore</code>), not the top-level package.</p>
@@ -3048,6 +3053,7 @@
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">knowledge_tools</span> <span class="o">=</span> <span class="n">build_knowledge_tools</span><span class="p">(</span><span class="n">store</span><span class="p">)</span>   <span class="c1"># [knowledge_save, memory_search]</span>
 </span></code></pre></div>
 <p>Register those tools like any other (see <a href="../tools/">Work with tools</a>) and add <code>"knowledge_save"</code> / <code>"memory_search"</code> to an agent's <code>tools</code> allowlist.</p>
+<p>For an independently protected knowledge directory that must preserve exact text, construct <code>KnowledgeStore(root="team_knowledge", redact_sensitive_data=False)</code> explicitly.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../tutorials/research-assistant/">Build a research assistant with memory</a> — a full RAG project end to end.</li>

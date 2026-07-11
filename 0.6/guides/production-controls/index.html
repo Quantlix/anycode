@@ -2034,6 +2034,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#protect-exported-and-persisted-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protect exported and persisted data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#inspect-run-results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2808,6 +2819,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#protect-exported-and-persisted-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protect exported and persisted data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#inspect-run-results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2985,6 +3007,10 @@
 <td>Telemetry</td>
 <td>OpenTelemetry tracing through the <code>telemetry</code> extra.</td>
 </tr>
+<tr>
+<td>Data redaction</td>
+<td>Default-on credential scrubbing for telemetry, checkpoints, transcripts, context artifacts, eval reports, and evidence bundles.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="start-with-explicit-limits">Start with explicit limits<a class="headerlink" href="#start-with-explicit-limits" title="Permanent link">&para;</a></h2>
@@ -3090,6 +3116,10 @@
 </span></code></pre></div>
 <h2 id="manage-context-pressure">Manage context pressure<a class="headerlink" href="#manage-context-pressure" title="Permanent link">&para;</a></h2>
 <p>Context policies define how AnyCode responds as conversation history grows. A policy can trim, mask, offload, compact, or hand off context while preserving what matters — task state and verification failures survive even as lower-priority content is reduced. This keeps long runs inside a model's context window without silently dropping the information a downstream agent needs.</p>
+<h2 id="protect-exported-and-persisted-data">Protect exported and persisted data<a class="headerlink" href="#protect-exported-and-persisted-data" title="Permanent link">&para;</a></h2>
+<p>AnyCode redacts recognized credentials at built-in telemetry and persistence boundaries by default. Structured keys such as <code>api_key</code>, <code>authorization</code>, <code>password</code>, and provider-specific token fields are replaced, as are common token formats found inside free-form output and exception messages.</p>
+<p>The policy covers console and OTLP span exports, telemetry-event serialization, workflow and turn checkpoints, run transcripts and metadata, context and session-chain artifacts, persistent SQLite/Redis/Chroma/knowledge memory, eval reports, and harness artifacts. It does not mutate the active model conversation or tool result in memory.</p>
+<p>Use <code>redact_sensitive</code>, <code>redact_text</code>, and <code>safe_exception_message</code> for custom exporters or persistence adapters. Redaction is not encryption or data-loss prevention: classify data before a run, minimize what agents can access, protect storage and telemetry sinks, and define retention outside the process.</p>
 <h2 id="inspect-run-results">Inspect run results<a class="headerlink" href="#inspect-run-results" title="Permanent link">&para;</a></h2>
 <p>Every run returns a record you can log, assert on, or serialize. <code>AgentRunResult</code> and <code>TeamRunResult</code> expose what you need for debugging and audit:</p>
 <table>
