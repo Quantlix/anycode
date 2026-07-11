@@ -3024,7 +3024,7 @@
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Secrets stay out of your config</p>
-<p><code>auth_token_env</code> stores the <em>name</em> of an environment variable. The token value is read from <code>os.environ</code> at connect time and sent as <code>Authorization: Bearer &lt;token&gt;</code> — it is never stored on the config object, and never appears in prompts or logs. Static <code>headers</code> are merged with the resolved auth header.</p>
+<p><code>auth_token_env</code> stores the <em>name</em> of an environment variable. The token value is read from <code>os.environ</code> at connect time and sent as <code>Authorization: Bearer &lt;token&gt;</code> — it is never stored on the config object, and never appears in prompts or logs. Static <code>headers</code> are merged with the resolved auth header. If the configured variable is missing or empty, connection fails before opening the transport rather than falling back to anonymous access.</p>
 </div>
 <p>Configs are validated on construction: <code>stdio</code> requires <code>command</code>, the HTTP transports require <code>url</code>, <code>timeout</code> must be positive, and an invalid config raises <code>ValueError</code>.</p>
 <h2 id="restrict-transport-trust">Restrict transport trust<a class="headerlink" href="#restrict-transport-trust" title="Permanent link">&para;</a></h2>
@@ -3073,6 +3073,7 @@
 <p>Behavior worth knowing:</p>
 <ul>
 <li>Every step — transport connect, session init, <code>discover_tools</code>, <code>call_tool</code> — is wrapped in <code>asyncio.wait_for(..., timeout=config.timeout)</code>.</li>
+<li>Engine connection is best-effort per server: one failed server is logged and cleaned up without blocking other servers. Agents that requested the failed server receive none of its tools, so production deployments must monitor MCP connection errors.</li>
 <li><code>call_tool</code> does not raise on tool failure; it returns <code>{"content": "&lt;error&gt;", "is_error": True}</code> so the calling agent sees a normal error result.</li>
 <li>There is <strong>no auto-reconnect</strong>. A dropped connection surfaces as errors until you reconnect; <code>disconnect()</code> is best-effort and resets state.</li>
 </ul>
