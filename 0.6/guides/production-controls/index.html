@@ -3000,6 +3000,10 @@
 <td>Run metadata, transcript events, heartbeats, wake conditions, and turn checkpoints.</td>
 </tr>
 <tr>
+<td>Protected storage and retention</td>
+<td>Pluggable run-store backends, payload-protection hooks, and explicit terminal-run pruning.</td>
+</tr>
+<tr>
 <td>Context policies</td>
 <td>Rules for trimming, masking, offloading, or compacting context as history grows.</td>
 </tr>
@@ -3119,7 +3123,8 @@
 <h2 id="protect-exported-and-persisted-data">Protect exported and persisted data<a class="headerlink" href="#protect-exported-and-persisted-data" title="Permanent link">&para;</a></h2>
 <p>AnyCode redacts recognized credentials at built-in telemetry and persistence boundaries by default. Structured keys such as <code>api_key</code>, <code>authorization</code>, <code>password</code>, and provider-specific token fields are replaced, as are common token formats found inside free-form output and exception messages.</p>
 <p>The policy covers console and OTLP span exports, telemetry-event serialization, workflow and turn checkpoints, run transcripts and metadata, context and session-chain artifacts, persistent SQLite/Redis/Chroma/knowledge memory, eval reports, and harness artifacts. It does not mutate the active model conversation or tool result in memory.</p>
-<p>Use <code>redact_sensitive</code>, <code>redact_text</code>, and <code>safe_exception_message</code> for custom exporters or persistence adapters. Redaction is not encryption or data-loss prevention: classify data before a run, minimize what agents can access, protect storage and telemetry sinks, and define retention outside the process.</p>
+<p>Use <code>redact_sensitive</code>, <code>redact_text</code>, and <code>safe_exception_message</code> for custom exporters or persistence adapters. Redaction is not encryption or data-loss prevention: classify data before a run, minimize what agents can access, and protect storage and telemetry sinks.</p>
+<p>For durable runs, <code>FilesystemRunStore(payload_protector=...)</code> accepts a <code>RunPayloadProtector</code> implementation for KMS- or HSM-backed envelope encryption. AnyCode defines the byte contract and versioned storage envelope but does not manage keys. <code>RunRetentionPolicy</code> bounds completed, failed, and cancelled runs by age and count; pass it to <code>sweep_once</code> or <code>RunScheduler</code>, or use <code>anycode runs sweep --retention-days ... --max-runs ...</code>. No retention policy means no automatic deletion.</p>
 <h2 id="inspect-run-results">Inspect run results<a class="headerlink" href="#inspect-run-results" title="Permanent link">&para;</a></h2>
 <p>Every run returns a record you can log, assert on, or serialize. <code>AgentRunResult</code> and <code>TeamRunResult</code> expose what you need for debugging and audit:</p>
 <table>
