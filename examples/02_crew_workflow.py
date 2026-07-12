@@ -1,5 +1,6 @@
 # Demo 02 — Coordinated Agent Crew
 # Execute: uv run python examples/02_crew_workflow.py
+# Requires: ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment or .env.
 
 import asyncio
 import os

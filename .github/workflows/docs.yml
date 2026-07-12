@@ -17,9 +17,9 @@ permissions:
   contents: read
 
 jobs:
-  # On pull requests: build strictly to catch broken links, nav, and snippets.
+  # Pull requests and main validate the development docs without overwriting released versions.
   validate:
-    if: github.event_name == 'pull_request'
+    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -43,16 +43,19 @@ jobs:
           sudo apt-get install -y libcairo2-dev libfreetype6-dev libffi-dev libjpeg-dev libpng-dev libz-dev pngquant
 
       - name: Install project and docs dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
 
       - name: Build docs (strict)
         env:
           CI: "true"
         run: uv run python -m mkdocs build --strict
 
-  # On pushes to main / release tags: publish a versioned site with mike.
+      - name: Check source-linked documentation
+        run: uv run python scripts/check_docs.py
+
+  # Only an immutable release tag publishes versioned docs.
   deploy:
-    if: github.event_name != 'pull_request'
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -78,7 +81,7 @@ jobs:
           sudo apt-get install -y libcairo2-dev libfreetype6-dev libffi-dev libjpeg-dev libpng-dev libz-dev pngquant
 
       - name: Install project and docs dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
 
       - name: Configure git identity
         run: |
@@ -92,14 +95,32 @@ jobs:
         id: ver
         run: |
           VERSION=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          PRERELEASE=$(python -c "import re; print(str(bool(re.search(r'(?:a|b|rc|dev)[0-9]*$', '$VERSION'))).lower())")
+          if [ "$PRERELEASE" = "true" ]; then DOCS_VERSION="$VERSION"; else DOCS_VERSION=$(echo "$VERSION" | cut -d. -f1-2); fi
           echo "full=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "minor=$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
+          echo "docs=$DOCS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release tag against canonical version
+        run: uv run python scripts/check_versions.py --tag "${{ github.ref_name }}"
+
+      - name: Build docs preflight (strict)
+        env:
+          CI: "true"
+        run: uv run python -m mkdocs build --strict
+
+      - name: Check source-linked documentation
+        run: uv run python scripts/check_docs.py
 
       - name: Deploy versioned docs with mike
         env:
           CI: "true"
           GOOGLE_ANALYTICS_KEY: ${{ secrets.GOOGLE_ANALYTICS_KEY }}
         run: |
-          uv run mike deploy --push --update-aliases "${{ steps.ver.outputs.minor }}" latest \
-            --title "${{ steps.ver.outputs.full }}"
-          uv run mike set-default --push latest
+          if [ "${{ steps.ver.outputs.prerelease }}" = "true" ]; then
+            uv run mike deploy --push "${{ steps.ver.outputs.docs }}" --title "${{ steps.ver.outputs.full }}"
+          else
+            uv run mike deploy --push --update-aliases "${{ steps.ver.outputs.docs }}" latest \
+              --title "${{ steps.ver.outputs.full }}"
+            uv run mike set-default --push latest
+          fi

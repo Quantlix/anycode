@@ -22,6 +22,7 @@ The stack is **MkDocs Material** with Markdown source under `site_docs/`, publis
 | Structured data + canonical + robots | `overrides/main.html` (JSON-LD) | Live |
 | Custom hero + brand theme | `overrides/home.html`, `stylesheets/extra.css` | Live |
 | Agent entry point | `site_docs/llms.txt` | Live |
+| Source-linked drift checks | `scripts/check_docs.py` | Live (CI and release gates) |
 | Analytics | Google, via `GOOGLE_ANALYTICS_KEY` | Configured |
 
 !!! note "Alpha honesty"
@@ -112,16 +113,24 @@ Agent-friendly pages should:
 - Avoid hiding essential content behind images or client-side interactions.
 - Link from overview pages to task-specific pages.
 
+## Accuracy and ownership
+
+Documentation changes ship with the code contract they describe. Source docstrings own Python signatures and generated API details; `pyproject.toml` owns versions, dependencies, extras, and supported Python; frozen models and loaders own configuration fields and defaults; workflow YAML owns CI and publication behavior; serializer constants and compatibility tests own persisted-format support.
+
+The public API guide is intentionally curated. The complete API inventory renders `anycode.__all__` from source, and `scripts/check_docs.py` checks its generated HTML along with README tool names, numbered examples, page metadata, and `llms.txt` links. Authors should link to one canonical explanation rather than copy volatile lists across many pages.
+
 ## Publishing checklist
 
 Before and after each release:
 
 1. Confirm the docs URL and update `site_url` in `mkdocs.yml` if the project moves to a custom domain.
 2. Configure GitHub Pages to serve from the `gh-pages` branch that `mike` publishes to.
-3. Run `uv run python -m mkdocs build --strict` locally; CI runs the same check on every pull request.
+3. Run `uv run python -m mkdocs build --strict` and `uv run python scripts/check_docs.py` locally; CI runs both on every pull request and on `main`.
 4. Submit the generated `sitemap.xml` to Google Search Console after the first deployment.
 5. Confirm `/llms.txt`, `/robots.txt`, and the main pages are reachable on the published `latest` alias.
 6. Review page titles, descriptions, and headings, and refresh `/llms.txt` links when pages change.
+
+Only release-tag pushes publish with `mike`. Final releases move the `latest` alias; pre-release tags publish a candidate version without changing `latest`. Pull requests, `main`, and manual dispatches validate but do not overwrite released documentation.
 
 ## Next steps
 

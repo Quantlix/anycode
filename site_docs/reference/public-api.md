@@ -1,12 +1,12 @@
 ---
 title: Public API Reference — AnyCode Python Framework
-description: API reference for the AnyCode Python framework: orchestrator, TaskSpec, agent and team config models, result types, tool registry, and provider adapters.
+description: "API reference for the AnyCode Python framework: orchestrator, TaskSpec, agent and team config models, result types, tool registry, and provider adapters."
 keywords: AnyCode, AnyCode Python, public API, orchestrator, TaskSpec, AgentConfig, TeamConfig, ToolRegistry, provider adapter, mkdocstrings
 ---
 
 # Public API
 
-This page is the stable, importable surface of the AnyCode Python framework, generated directly from source docstrings so signatures and fields stay in sync with the code. Use it to look up exact arguments, methods, and model attributes.
+This page explains the primary, stable entry points of the AnyCode Python framework and generates their signatures from source docstrings. Use the [complete API inventory](api-inventory.md) to browse every supported name exported by the package root.
 
 Every symbol below is exported from the package root, so `from anycode import AnyCode, TaskSpec, AgentConfig` is the supported import style. Treat internal submodule paths as private. The [compatibility policy](compatibility.md) defines additive patch releases, pre-1.0 breaking changes, and persisted-format guarantees.
 
@@ -111,6 +111,7 @@ Side-effecting tools use atomic claims to prevent duplicate execution. The in-me
 ## Next steps
 
 - [Concepts overview](../concepts/overview.md) — how the orchestrator, agents, and tools fit together.
+- [Complete API inventory](api-inventory.md) — every supported package-root export.
 - [Agents and teams](../concepts/agents-and-teams.md) — model the roles these APIs configure.
 - [Tools guide](../guides/tools.md) — build and register custom tools.
 - [CLI reference](cli.md) — drive the same runtime from the command line.

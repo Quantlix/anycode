@@ -118,12 +118,16 @@ nav:
   - Reference:
       - reference/index.md
       - Public API: reference/public-api.md
+      - Complete API Inventory: reference/api-inventory.md
       - Security and Threat Model: reference/security.md
       - Compatibility: reference/compatibility.md
       - Built-in Tools: reference/built-in-tools.md
       - Configuration: reference/configuration.md
       - CLI: reference/cli.md
   - Contributing:
+      - Development Workflow: contributing/development.md
+      - Maintainer Governance: contributing/maintainers.md
+      - Release Process: contributing/releasing.md
       - Testing and CI: contributing/testing.md
       - Documentation Guide: contributing/docs-guide.md
       - Docs Strategy and Case Studies: contributing/documentation-strategy.md

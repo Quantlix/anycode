@@ -52,6 +52,8 @@ Documentation is versioned; the links below point to the `latest` release alias.
 ## Reference
 
 - [Public API](https://quantlix.github.io/anycode/latest/reference/public-api/): Core classes, config models, result models, tools, and provider factory.
+- [Complete API inventory](https://quantlix.github.io/anycode/latest/reference/api-inventory/): Every supported package-root export, generated from source docstrings.
+- [Compatibility and versioning](https://quantlix.github.io/anycode/latest/reference/compatibility/): Public API, config, checkpoint, durable-data, upgrade, and rollback contracts.
 - [Security and threat model](https://quantlix.github.io/anycode/latest/reference/security/): Trust boundaries, enforced invariants, residual risk, and operator-owned controls.
 - [Built-in tools](https://quantlix.github.io/anycode/latest/reference/built-in-tools/): bash, file_read, file_write, file_edit, grep, list_files — parameters, defaults, limits.
 - [Configuration](https://quantlix.github.io/anycode/latest/reference/configuration/): OrchestratorConfig, AgentConfig, TeamConfig, RunnerOptions, and defaults.
@@ -66,6 +68,9 @@ Documentation is versioned; the links below point to the `latest` release alias.
 
 ## Optional
 
+- [Development workflow](https://quantlix.github.io/anycode/latest/contributing/development/): Branches, implementation expectations, local gates, and pull request review.
+- [Maintainer governance](https://quantlix.github.io/anycode/latest/contributing/maintainers/): Roles, approvals, compatibility, deprecations, support, and backports.
+- [Release process](https://quantlix.github.io/anycode/latest/contributing/releasing/): Version selection, TestPyPI, Trusted Publishing, verification, and recovery.
 - [TypeScript SDK (planned)](https://quantlix.github.io/anycode/latest/typescript/): Roadmap and API sketch for the coming TypeScript version.
 - [Documentation strategy](https://quantlix.github.io/anycode/latest/contributing/documentation-strategy/): Tooling rationale, SEO plan, and docs case studies.
 - [Changelog](https://github.com/Quantlix/anycode/blob/main/CHANGELOG.md): Release history.

@@ -29,17 +29,19 @@ jobs:
         run: python scripts/check_versions.py
 
       - name: Install project and dev dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
 
       - name: Run release gate
         run: |
-          uv run ruff check src/
-          uv run ruff format --check src/
-          uv run pyright
+          uv run python -m ruff check .
+          uv run python -m ruff format --check src/
+          uv run python -m pyright
           uv run python -m pytest
+          uv run python -m mkdocs build --strict
+          uv run python scripts/check_docs.py
           rm -rf dist/ build/
           uv run python -m build --no-isolation
-          uv run twine check --strict dist/*
+          uv run python -m twine check --strict dist/*
 
       - name: Upload distributions
         uses: actions/upload-artifact@v7

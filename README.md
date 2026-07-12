@@ -68,7 +68,7 @@ Key use cases include:
 | Team coordination | `MessageBus`, `SharedMemory`, task queues, event callbacks, and team-level results |
 | Task scheduling | Explicit `TaskSpec` dependencies, topological sort, wavefront execution, and cascading failure handling |
 | Providers | Anthropic, OpenAI, Google Gemini, Ollama, AWS Bedrock, Azure OpenAI, plus custom `LLMAdapter` implementations |
-| Tools | Built-in `bash`, `file_read`, `file_write`, `file_edit`, and `grep` tools, plus custom Pydantic tools |
+| Tools | Built-in `bash`, `file_read`, `file_write`, `file_edit`, `grep`, and `list_files` tools, plus custom Pydantic tools |
 | MCP | Connect to MCP servers, discover tools, register prefixed MCP tools, and scope MCP tools per agent |
 | Safety and control | Guardrails, token and cost budgets, output validators, turn hooks, structured output, HITL approval gates |
 | Persistence | In-memory, SQLite, Redis, vector memory, ChromaDB support, checkpoint stores, and resume support |
@@ -380,6 +380,7 @@ Provider support is protocol-based. You can bring your own adapter by implementi
 | `file_write` | Create or overwrite files and parent directories |
 | `file_edit` | Replace targeted text in existing files |
 | `grep` | Search files using regex, with ripgrep when available |
+| `list_files` | List project files while respecting repository ignore rules |
 
 Custom tools use Pydantic input models and are registered through `define_tool()` and `ToolRegistry`.
 
@@ -415,17 +416,20 @@ Clone the repository and install dependencies with `uv`:
 
 ```bash
 git clone https://github.com/Quantlix/anycode.git
-cd anycode/anycode-python
-uv sync --group dev
+cd anycode
+uv sync --locked --group dev
 ```
 
 Run the local verification commands:
 
 ```bash
-uv run ruff check src/
-uv run ruff format --check src/
-uv run pyright
+uv run python scripts/check_versions.py
+uv run python -m ruff check .
+uv run python -m ruff format --check src/
+uv run python -m pyright
 uv run python -m pytest
+uv run python -m mkdocs build --strict
+uv run python scripts/check_docs.py
 ```
 
 The default pytest configuration excludes integration tests. Integration tests may require Docker services or provider credentials.
@@ -443,6 +447,8 @@ Required safeguards for any deployment:
 - Use durable idempotency plus human approval for sensitive or irreversible actions.
 - Allowlist production plugins and MCP endpoints, then enforce network egress outside the framework.
 - Review the [security and threat model](https://quantlix.github.io/anycode/latest/reference/security/) and complete the [production readiness checklist](https://quantlix.github.io/anycode/latest/guides/production-readiness/).
+
+Report suspected vulnerabilities through the private process in [SECURITY.md](SECURITY.md). Do not disclose vulnerability details in a public issue.
 
 ## FAQ
 
@@ -468,9 +474,7 @@ Yes. Tools are defined with Pydantic input models, registered at runtime, and ex
 
 ## Contributing
 
-Issues, discussions, and pull requests are welcome. Please keep contributions focused, typed, tested, and aligned with the existing async and immutable model style.
-
-Before proposing a change, run the local verification gate and keep updates scoped to the feature or bug being addressed.
+Issues, discussions, and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, branch naming, compatibility review, tests, documentation, and pull request requirements. Repository collaborators use [MAINTAINERS.md](MAINTAINERS.md) for governance, change approval, backports, and release ownership.
 
 ## License
 

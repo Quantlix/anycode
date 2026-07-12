@@ -1,5 +1,6 @@
 # Demo 03 — Staged Task Pipeline with Dependency Graph
 # Execute: uv run python examples/03_staged_pipeline.py
+# Requires: ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment or .env.
 
 import asyncio
 import os

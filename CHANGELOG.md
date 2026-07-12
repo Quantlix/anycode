@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Maintainer and contributor governance** - added authoritative maintainer, contribution, security-reporting, and release policies covering roles, branches, review evidence, compatibility, deprecation, versioning, backports, Trusted Publishing, release verification, and recovery. Versioned site guides expose the development, governance, and release workflows to contributors.
+- **Source-linked documentation validation** - added a generated inventory for every package-root public export and `scripts/check_docs.py` checks for API coverage, registered built-in tools, numbered examples, page metadata, and curated `llms.txt` links. Documentation CI and package publication gates now run the strict site build and consistency check.
+
+### Changed
+
+- **Release-bound documentation publishing** - pushes to `main` now validate documentation without overwriting released pages. Final release tags publish the `X.Y` docs and move `latest`; pre-release tags publish a candidate version without moving `latest`. Package publishing resolves locked dependencies and runs repository-wide quality, test, documentation, build, and metadata gates before Trusted Publishing.
+
 ## [0.7.0] - 2026-07-11
 
 ### Added

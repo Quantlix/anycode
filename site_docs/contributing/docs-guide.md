@@ -37,9 +37,10 @@ Before you open a pull request, run the same **strict** build that CI runs:
 
 ```bash
 uv run python -m mkdocs build --strict
+uv run python scripts/check_docs.py
 ```
 
-Strict mode fails on broken internal links, snippet errors, and pages that are missing from the nav — fix every warning before pushing.
+Strict mode fails on broken internal links, snippet errors, and pages that are missing from the nav. `check_docs.py` then compares source-linked claims: every `anycode.__all__` export in the generated API inventory, built-in tools in the README, numbered example counts, required page metadata, and curated `llms.txt` site links.
 
 !!! tip "Social cards stay off locally"
     The `social` plugin is enabled only when `CI=true` because it needs Cairo imaging libraries. Local `serve` and `build` skip card generation, which is expected — CI generates the cards for the published site.
@@ -47,7 +48,10 @@ Strict mode fails on broken internal links, snippet errors, and pages that are m
 If your change also touches docstrings or anything under `src/` (the API reference reads from there), run the repository gate too:
 
 ```bash
-uv run ruff check src/ && uv run ruff format --check src/ && uv run pyright && uv run python -m pytest
+uv run python -m ruff check .
+uv run python -m ruff format --check src/
+uv run python -m pyright
+uv run python -m pytest
 ```
 
 ## Choose the right page type
@@ -157,6 +161,27 @@ Pull documentation straight from source docstrings with a `:::` directive. The P
 ::: anycode.AnyCode
 ```
 
+The [public API guide](../reference/public-api.md) curates the primary workflows. The [complete API inventory](../reference/api-inventory.md) renders the package root in one directive so every supported export is present without maintaining hundreds of hand-written entries. When `anycode.__all__` changes, update the symbol's docstring and run both docs checks; CI fails if the generated inventory omits it.
+
+## Keep docs synchronized with code
+
+Use the owning implementation as the source of truth. Do not copy a default or accepted value from another guide when it can be read from a model, constant, package metadata, or workflow.
+
+| Documented claim | Source of truth | Required check |
+| --- | --- | --- |
+| Python signature, type, field, or docstring | `src/anycode/` and `anycode.__all__` | Mkdocstrings strict build and `scripts/check_docs.py` |
+| Configuration field and default | Frozen models in `src/anycode/types.py` and config loader validation | Config tests and strict docs build |
+| Built-in tool name and order | `BUILT_IN_TOOLS` in `src/anycode/tools/built_in.py` | `scripts/check_docs.py` |
+| Provider extra or dependency | `pyproject.toml` | Optional-extra CI matrix and `tests/test_ci.py` |
+| Supported Python version | `requires-python`, classifiers, and CI matrix | `tests/test_ci.py` |
+| Package version | `project.version` in `pyproject.toml` | `scripts/check_versions.py` |
+| CLI command and option | Typer app under `src/anycode/cli/` | CLI tests and built-wheel smoke test |
+| Persisted reader/writer version | Serializer constants and compatibility fixtures | Compatibility tests |
+| Example count | Numbered files under `examples/` | `scripts/check_docs.py` |
+| Release and deployment behavior | `.github/workflows/` | Workflow contract tests and release runbook review |
+
+When changing code, search the docs for the public symbol, configuration field, error, command, and old default. Update the smallest authoritative set of pages in the same pull request. Prefer links to one canonical explanation over repeating a volatile table in several guides.
+
 ## SEO and agent visibility
 
 Good structure does most of the SEO work here — the theme handles the rest automatically.
@@ -177,8 +202,10 @@ The site is **versioned with `mike`**. Published URLs carry the version (for exa
 
 You almost never run `mike` by hand — CI (`.github/workflows/docs.yml`) does the work:
 
-- **On pull requests** — the `validate` job installs the Cairo imaging libraries and runs `uv run python -m mkdocs build --strict` with `CI=true`, so broken links, missing nav entries, and social-card errors all block the merge.
-- **On push to `main` or a `v*` tag** — the `deploy` job resolves the version from `pyproject.toml`, then runs `uv run mike deploy --push --update-aliases <minor> latest --title <full>` followed by `uv run mike set-default --push latest`, publishing to the `gh-pages` branch that GitHub Pages serves.
+- **On pull requests and pushes to `main`** — the `validate` job installs the Cairo imaging libraries, runs the strict build with `CI=true`, and executes `scripts/check_docs.py`. Development changes are validated without overwriting released documentation.
+- **On manual dispatch** — the same validation job runs against the selected branch; manual dispatch never deploys documentation.
+- **On a final `v*` release tag** — the `deploy` job validates the tag against `pyproject.toml`, publishes the `X.Y` documentation version, and moves the `latest` alias.
+- **On a pre-release tag** — the job publishes the full candidate version such as `1.0.0rc1` without moving `latest`.
 
 To preview the versioned experience locally (optional), use `uv run mike serve`.
 
@@ -205,6 +232,7 @@ The header includes a **Python / TypeScript** language dropdown, configured unde
 - [ ] New page has `title`, a 150–160 char `description`, and (optionally) `keywords`.
 - [ ] Page is registered in the `nav` in `mkdocs.yml`.
 - [ ] `uv run python -m mkdocs build --strict` passes with no warnings.
+- [ ] `uv run python scripts/check_docs.py` passes after the build.
 - [ ] `/llms.txt` updated if you added or moved an important page.
 - [ ] Docstring or `src/` changes pass the repository gate (ruff, pyright, pytest).
 - [ ] Release-affecting changes update the relevant page and changelog together.

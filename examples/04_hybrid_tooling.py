@@ -1,5 +1,7 @@
 # Demo 04 — Hybrid Crew with Custom Tool Definitions
 # Execute: uv run python examples/04_hybrid_tooling.py
+# Requires: ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment or .env.
+# Optional: network access to wttr.in; unavailable weather data uses a local stub.
 
 import asyncio
 import json
@@ -47,7 +49,7 @@ class WeatherInput(BaseModel):
     units: str = Field(default="metric", description="Temperature units: metric or imperial. Defaults to metric.")
 
 
-async def lookup_weather_fn(params: WeatherInput, ctx: ToolUseContext) -> ToolResult:
+async def lookup_weather_fn(params: WeatherInput, _ctx: ToolUseContext) -> ToolResult:
     try:
         endpoint = f"https://wttr.in/{params.city}?format=j1"
         req = Request(endpoint, headers={"User-Agent": "anycode-demo/1.0"})
@@ -69,7 +71,7 @@ async def lookup_weather_fn(params: WeatherInput, ctx: ToolUseContext) -> ToolRe
             ),
             is_error=False,
         )
-    except Exception as err:
+    except (AttributeError, IndexError, OSError, TypeError, ValueError) as err:
         stub_temp = random.randint(5, 35)
         return ToolResult(
             data=json.dumps(
@@ -101,7 +103,7 @@ class SummarizeInput(BaseModel):
     max_words: int = Field(default=50, description="Approximate word limit for the summary.")
 
 
-async def summarize_text_fn(params: SummarizeInput, ctx: ToolUseContext) -> ToolResult:
+async def summarize_text_fn(params: SummarizeInput, _ctx: ToolUseContext) -> ToolResult:
     words = params.text.split()
     truncated = " ".join(words[: params.max_words])
     summary = (truncated + "…") if len(words) > params.max_words else truncated

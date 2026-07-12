@@ -1,5 +1,6 @@
 # Demo 01 — Solo Worker Agent
 # Execute: uv run python examples/01_solo_worker.py
+# Requires: ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment or .env.
 
 import asyncio
 import os

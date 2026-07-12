@@ -14,9 +14,17 @@ Reference pages are **information-oriented**: exhaustive, accurate descriptions 
 
     ---
 
-    Everything importable from the top-level `anycode` package.
+    Curated guidance for the primary top-level classes, models, and helpers.
 
     [:octicons-arrow-right-24: Public API](public-api.md)
+
+-   **Complete API inventory**
+
+    ---
+
+    Every supported package-root export, generated from source docstrings.
+
+    [:octicons-arrow-right-24: API inventory](api-inventory.md)
 
 -   **Built-in tools**
 

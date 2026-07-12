@@ -20,7 +20,9 @@ Internal paths such as `anycode.core.runner` and private names beginning with `_
 
 The v0.6 top-level API is protected by an additive compatibility baseline in CI. Patch releases may add exports, optional parameters, model fields with defaults, and new enum or literal values. They do not remove a baseline export or make an existing call require a new argument.
 
-Before 1.0, an intentional breaking API change requires a minor version bump and migration notes. After 1.0, it requires a major version bump. Deprecation warnings should precede removal when a practical transition path exists.
+Before 1.0, an intentional breaking API change requires a minor version bump, explicit maintainer approval, migration and rollback notes, and compatibility tests. After 1.0, it requires a major version bump. Pre-1.0 status permits documented iteration; it does not permit silent breakage.
+
+When a practical transition exists, deprecated behavior remains available for at least one released minor version. It emits `DeprecationWarning`, names its replacement and earliest removal version, preserves behavior during the window, and has warning and compatibility-path tests. Immediate removal is reserved for security, data-loss, legal, or coexistence constraints and must be explained in the release notes.
 
 !!! note "Typed models can grow"
     Result and configuration models may gain fields with defaults in a compatible release. Match fields by name, avoid positional construction, and ignore fields your application does not consume when serializing models across service boundaries.
@@ -79,3 +81,9 @@ A release that changes a public or persisted contract must include:
 - A test that rejects the next unsupported format version.
 - Migration and rollback notes for any incompatible schema change.
 - Strict loading tests for new declarative config fields.
+
+## Change approval
+
+Public removals, required parameters, incompatible behavior, and persisted-format changes start with an issue or design discussion. The proposal identifies the affected users and data, additive alternatives, warning window, migration, rollback, and semantic version impact.
+
+The [maintainer governance policy](../contributing/maintainers.md) defines approvals, branch handling, and backports. The [release process](../contributing/releasing.md) turns the approved compatibility decision into version metadata, release notes, artifact checks, and published documentation.

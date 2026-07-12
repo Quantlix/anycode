@@ -19,6 +19,8 @@ uv run python -m ruff check .
 uv run python -m ruff format --check src/
 uv run python -m pyright
 uv run python -m pytest
+uv run python -m mkdocs build --strict
+uv run python scripts/check_docs.py
 ```
 
 The default pytest configuration excludes tests marked `integration`. Unit, runtime, MCP subprocess, CLI, provider-adapter, and persistence tests still run without live provider credentials. Deterministic provider tests use `FakeAdapter`.
@@ -44,6 +46,7 @@ An explicit `-m integration` overrides the default non-integration selection. Se
 | `Optional extra` | Ubuntu, Python 3.12 | Core-only install plus an isolated install and import smoke test for every declared extra |
 | `Integration services` | Ubuntu, Python 3.12, Redis, and ChromaDB | All tests marked `integration`, with healthy external endpoints required |
 | `Package Validation` | Ubuntu, Python 3.12 and 3.13 | Wheel/sdist build, strict metadata checks, core-only wheel import, and CLI-extra smoke test |
+| `Documentation` | Ubuntu, Python 3.12 | Strict site build, generated public API coverage, tool/example claims, metadata, and curated agent links |
 
 Source quality, test, optional-extra, integration, and build environments are resolved from `uv.lock` with `--locked`. A pull request whose dependency metadata requires a lockfile update fails instead of silently resolving a different environment. Fresh wheel smoke tests use `pip` so they also validate the dependency ranges published in wheel metadata.
 
@@ -61,3 +64,15 @@ The CI contract test compares the workflow matrix with package metadata. Missing
 ## Built-package checks
 
 Source-tree imports can pass while a wheel omits a module or dependency. `Package Validation` therefore installs the built wheel into a fresh virtual environment without extras and imports `AnyCode` before installing the same wheel with `[cli]` and invoking `anycode version`. Release workflows retain their own full gate before publishing.
+
+## Documentation contract checks
+
+The strict MkDocs build validates navigation, internal links, snippets, and generated API directives. `scripts/check_docs.py` runs after the build and verifies claims derived from the repository:
+
+- Every package-root export has generated API coverage.
+- The README lists exactly the registered built-in tools.
+- Numbered example files are contiguous and documented counts are current.
+- Every Markdown page has title and description metadata.
+- Every versioned documentation link in `site_docs/llms.txt` maps to a source page.
+
+Final release tags deploy docs. Pull requests, `main`, and manual dispatches validate docs without modifying published release versions.
