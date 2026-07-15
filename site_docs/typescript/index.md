@@ -1,73 +1,43 @@
 ---
-title: "AnyCode for TypeScript — Coming Soon"
-description: A TypeScript SDK for AnyCode is in planning. Use the Python framework today, and follow along for the TypeScript agent-orchestration API.
-keywords: anycode typescript, typescript agent framework, typescript multi-agent orchestration, node ai agents
-hide:
-  - toc
+title: "AnyCode TypeScript Service Client"
+description: Operate AnyCode service workloads from Node.js or a browser with typed lifecycle, artifact, and resumable streaming APIs.
+keywords: anycode typescript, AnyCodeClient, Node agent client, browser agent client, resumable SSE
 ---
 
-# AnyCode for TypeScript
+# AnyCode TypeScript service client
 
-<span class="ac-pill ac-pill--alpha">Planned</span>
+The TypeScript package in `clients/typescript` is a thin client for the versioned AnyCode service contract. It does not embed the Python runtime or expose Python objects. It supports Node.js 20+ and modern browsers through standard `fetch`, `ReadableStream`, and `AbortSignal` APIs, with no runtime dependencies.
 
-A first-class **TypeScript SDK** for AnyCode is on the roadmap. The goal is the same typed, async-first orchestration model you get in Python — agents, dependency-aware task graphs, tools, memory, and verification gates — expressed idiomatically for Node and the browser-adjacent runtime.
-
-!!! note "Not shipped yet"
-    The TypeScript API does not exist on npm today. This page reserves the language switcher and lets you track progress. For anything you want to build **now**, use the [Python framework](../index.md) — it is complete and actively developed.
-
-## What we are aiming for
-
-The TypeScript SDK is being designed to mirror the Python surface so concepts transfer directly:
-
-<div class="ac-features" markdown>
-
-<span class="ac-card">
-  <span class="ac-card__icon">🧭</span>
-  <span class="ac-card__title">Same mental model</span>
-  <span class="ac-card__body">Agents, teams, and <code>TaskSpec</code> dependencies map one-to-one with the Python API.</span>
-</span>
-
-<span class="ac-card">
-  <span class="ac-card__icon">🔒</span>
-  <span class="ac-card__title">End-to-end types</span>
-  <span class="ac-card__body">Zod-validated tool inputs and fully typed run results, matching Python's Pydantic models.</span>
-</span>
-
-<span class="ac-card">
-  <span class="ac-card__icon">🔌</span>
-  <span class="ac-card__title">Provider parity</span>
-  <span class="ac-card__body">The same provider adapters and a bring-your-own-adapter protocol.</span>
-</span>
-
-</div>
-
-## A sketch of the intended API
-
-This is a **design sketch**, not a released interface. Names and shapes may change.
+## Operate a run
 
 ```typescript
-import { AnyCode } from "anycode";
+import { AnyCodeClient } from "@quantlix/anycode-client";
 
-const engine = new AnyCode({ maxConcurrency: 3 });
-
-const team = engine.createTeam("crew", {
-  sharedMemory: true,
-  agents: [
-    { name: "planner", provider: "anthropic", model: MODEL },
-    { name: "builder", provider: "anthropic", model: MODEL },
-    { name: "reviewer", provider: "anthropic", model: MODEL },
-  ],
+const client = new AnyCodeClient({
+  baseUrl: "https://agents.example.com",
+  accessToken: async () => acquireShortLivedToken(),
 });
 
-const result = await engine.runTasks(team, [
-  { title: "Plan", assignee: "planner" },
-  { title: "Build", assignee: "builder", dependsOn: ["Plan"] },
-  { title: "Review", assignee: "reviewer", dependsOn: ["Build"] },
-]);
+const accepted = await client.submit({
+  task: {
+    title: "Review the release",
+    description: "Check compatibility, migration notes, and rollback guidance.",
+  },
+}, crypto.randomUUID());
+
+for await (const event of client.stream(accepted.run.id)) {
+  console.log(event.type, event.sequence);
+}
+
+const artifacts = await client.listArtifacts(accepted.run.id);
 ```
 
-## Follow along
+The client also exposes `get`, `list`, `cancel`, `resume`, `message`, `subscribe`, and single-artifact retrieval. Service errors become `ApiError`; incompatible contract versions become `CompatibilityError`. Stream reconnection sends the last semantic cursor and suppresses duplicate events.
 
-- ⭐ Star and watch the [GitHub repository](https://github.com/Quantlix/anycode) for release news.
-- 💬 Open a [discussion or issue](https://github.com/Quantlix/anycode/issues) to tell us what you need from the TypeScript SDK.
-- 🐍 In the meantime, [start with the Python framework](../getting-started/quickstart.md).
+## Authentication and compatibility
+
+Supply authorization per request with `getAccessToken` or a custom header callback. The SDK deliberately does not persist credentials. A browser deployment must permit the service origin and streaming headers through CORS; Node applications should keep credential acquisition server-side.
+
+The package sends its supported contract version on every request and checks the server response. Run `npm test` in `clients/typescript` to build the strict TypeScript sources and execute lifecycle, error, version, and reconnect tests.
+
+The SDK is a service client, not an in-process TypeScript agent runtime. Python remains the embedded-runtime surface.
