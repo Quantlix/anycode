@@ -6,6 +6,7 @@ from anycode.backends import (
     BackendCapabilities,
     BackendSnapshot,
     DaprDurabilityBackend,
+    DaprHTTPTransport,
     DurabilityBackend,
     InMemoryDurabilityBackend,
     SQLiteDurabilityBackend,
@@ -150,7 +151,7 @@ from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
 from anycode.hitl.approval import ApprovalManager
 from anycode.hitl.channels import CallbackApprovalGate, StdinApprovalGate, WebhookApprovalGate
-from anycode.hosting import A2AAgentCard, HostLifecycle, build_deployment_agent_card
+from anycode.hosting import A2A_AGENT_CARD_PATH, A2AAgentCard, HostLifecycle, build_deployment_agent_card
 from anycode.identity import DelegationGrant, ExecutionContext, PolicyEnforcer, PolicyRequest
 from anycode.mcp.bridge import discover_and_register as mcp_discover_and_register
 from anycode.mcp.bridge import mcp_tool_to_definition, schema_to_pydantic_model
@@ -188,7 +189,15 @@ from anycode.routing.router import DefaultRouter
 from anycode.routing.rules import evaluate_rules, match_rule
 from anycode.runstore.protocol import RunPayloadProtector, RunStore
 from anycode.runstore.store import FilesystemRunStore, ProtectedPayloadError, UnsupportedRunStoreVersionError
-from anycode.sandbox import CompanionSandboxAdapter, DaytonaSandboxProvider, PolicySandboxProvider, SandboxProvider, SandboxSpec
+from anycode.sandbox import (
+    CompanionSandboxAdapter,
+    DaytonaSandboxProvider,
+    PolicySandboxProvider,
+    SandboxCapabilities,
+    SandboxCommand,
+    SandboxProvider,
+    SandboxSpec,
+)
 from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
 from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
 from anycode.security import REDACTED_SECRET, redact_sensitive, redact_text, safe_exception_message
@@ -202,7 +211,7 @@ from anycode.structured.output import (
 from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task, get_task_dependency_order, is_task_ready, validate_task_dependencies
 from anycode.telemetry.events import EventEmitter, TelemetryEvent
-from anycode.telemetry.genai import GenAITelemetryConfig, GenAITelemetryMapper
+from anycode.telemetry.genai import BoundedTelemetryBuffer, GenAITelemetryConfig, GenAITelemetryMapper, GenAITelemetryRecord
 from anycode.telemetry.metrics import MetricsCollector, Timer
 from anycode.telemetry.tracer import ConsoleExporter, JSONLExporter, OTLPExporter, Span, Tracer
 from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
@@ -404,6 +413,7 @@ __all__ = [
     "BackendCapabilities",
     "BackendSnapshot",
     "DaprDurabilityBackend",
+    "DaprHTTPTransport",
     "DurabilityBackend",
     "InMemoryDurabilityBackend",
     "SQLiteDurabilityBackend",
@@ -597,9 +607,12 @@ __all__ = [
     "CompanionSandboxAdapter",
     "DaytonaSandboxProvider",
     "PolicySandboxProvider",
+    "SandboxCapabilities",
+    "SandboxCommand",
     "SandboxProvider",
     "SandboxSpec",
     # Managed hosting
+    "A2A_AGENT_CARD_PATH",
     "A2AAgentCard",
     "HostLifecycle",
     "build_deployment_agent_card",
@@ -635,8 +648,10 @@ __all__ = [
     "Timer",
     "EventEmitter",
     "TelemetryEvent",
+    "BoundedTelemetryBuffer",
     "GenAITelemetryConfig",
     "GenAITelemetryMapper",
+    "GenAITelemetryRecord",
     # Guardrails
     "BudgetTracker",
     "estimate_cost",
