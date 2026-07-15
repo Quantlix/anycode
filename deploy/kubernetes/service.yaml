@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: anycode-service
+spec:
+  selector:
+    app.kubernetes.io/name: anycode-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+

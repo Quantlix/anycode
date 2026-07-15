@@ -148,6 +148,9 @@ jobs:
           - extra: cli
             sync-args: --extra cli
             imports: typer rich yaml anycode.cli.main
+          - extra: sandbox
+            sync-args: --extra sandbox
+            imports: daytona anycode.sandbox.daytona
           - extra: all
             sync-args: --extra all
             imports: anycode

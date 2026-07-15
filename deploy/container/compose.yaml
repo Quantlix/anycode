@@ -1,0 +1,34 @@
+services:
+  anycode:
+    image: ${ANYCODE_IMAGE:?set an immutable AnyCode service image tag or digest}
+    command: ["anycode-service"]
+    user: "65532:65532"
+    read_only: true
+    init: true
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      ANYCODE_PUBLIC_ENDPOINT: ${ANYCODE_PUBLIC_ENDPOINT:-http://localhost:8080}
+      ANYCODE_BACKEND: sqlite
+      ANYCODE_STATE_PATH: /var/lib/anycode/backend.db
+      ANYCODE_WORKLOAD_IDENTITY_REF: ${ANYCODE_WORKLOAD_IDENTITY_REF:-host:default}
+      ANYCODE_OTEL_ENDPOINT: ${ANYCODE_OTEL_ENDPOINT:-}
+      ANYCODE_TELEMETRY_CAPTURE: ${ANYCODE_TELEMETRY_CAPTURE:-metadata}
+      ANYCODE_DRAIN_TIMEOUT_SECONDS: "45"
+    volumes:
+      - anycode-state:/var/lib/anycode
+    tmpfs:
+      - /tmp:size=64m,mode=1770
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/live', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 60s
+    restart: unless-stopped
+
+volumes:
+  anycode-state:
+

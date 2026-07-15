@@ -96,6 +96,9 @@ cli = [
     "rich>=13.0",
     "pyyaml>=6.0",
 ]
+sandbox = [
+    "daytona>=0.197,<1",
+]
 all = [
     "anthropic>=0.40",
     "openai>=1.50",
@@ -113,6 +116,7 @@ all = [
     "typer>=0.12",
     "rich>=13.0",
     "pyyaml>=6.0",
+    "daytona>=0.197,<1",
 ]
 
 [dependency-groups]

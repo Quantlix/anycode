@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: anycode-service
+data:
+  PORT: "8080"
+  ANYCODE_PUBLIC_ENDPOINT: "https://agents.example.com"
+  ANYCODE_BACKEND: "dapr"
+  ANYCODE_DAPR_STATE_STORE: "anycode-state"
+  ANYCODE_WORKLOAD_IDENTITY_REF: "kubernetes:serviceaccount:anycode-service"
+  ANYCODE_OTEL_ENDPOINT: "http://otel-collector.observability:4317"
+  ANYCODE_TELEMETRY_CAPTURE: "metadata"
+  ANYCODE_DRAIN_TIMEOUT_SECONDS: "45"
+  ANYCODE_REQUEST_MAX_BYTES: "1048576"
+  ANYCODE_ARTIFACT_MAX_BYTES: "104857600"
+  ANYCODE_STREAM_BUFFER_EVENTS: "256"
+
