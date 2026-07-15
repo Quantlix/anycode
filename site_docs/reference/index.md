@@ -26,6 +26,14 @@ Reference pages are **information-oriented**: exhaustive, accurate descriptions 
 
     [:octicons-arrow-right-24: API inventory](api-inventory.md)
 
+-   **Runtime contracts and baseline**
+
+    ---
+
+    Executable lifecycle, verification boundaries, persisted formats, resume guarantees, and baseline evidence.
+
+    [:octicons-arrow-right-24: Runtime contracts](runtime-contracts.md)
+
 -   **Built-in tools**
 
     ---

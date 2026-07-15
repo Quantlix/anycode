@@ -487,6 +487,64 @@ async def test_runner_invokes_after_tool_gate_and_blocks() -> None:
 
 
 @pytest.mark.asyncio
+async def test_runner_invokes_declarative_after_task_gate_and_blocks() -> None:
+    """The default task boundary must evaluate configured sensors before reporting success."""
+    config = VerificationSensorConfig(
+        name="regex",
+        kind="computational",
+        phases=("after_task",),
+        options={"pattern": "FORBIDDEN", "expect": "no_match", "severity": "critical"},
+    )
+    registry = ToolRegistry()
+    runner = AgentRunner(
+        FakeAdapter(responses=[FakeResponse(text="FORBIDDEN")]),
+        registry,
+        ToolExecutor(registry),
+        RunnerOptions(model="fake-model", max_turns=1, agent_name="t", verification=(config,)),
+    )
+
+    result = await runner.run([LLMMessage(role="user", content=[TextBlock(text="go")])])
+
+    assert result.stop_reason is not None
+    assert result.stop_reason.code == "verification_failed"
+    assert result.terminal_phase == "failed"
+    assert [decision.outcome for decision in result.gate_decisions] == ["block"]
+    assert [verification.sensor_name for verification in result.verification_results] == ["regex"]
+
+
+@pytest.mark.asyncio
+async def test_all_runner_verification_phases_form_a_legal_lifecycle() -> None:
+    """Passing tool-boundary gates return to execution before the next verification boundary."""
+    config = VerificationSensorConfig(
+        name="regex",
+        kind="computational",
+        phases=("before_tool", "after_tool", "after_task"),
+        options={"pattern": "FORBIDDEN", "expect": "no_match"},
+    )
+    registry = ToolRegistry()
+    registry.register(_stub_tool())  # type: ignore[arg-type]
+    runner = AgentRunner(
+        FakeAdapter(
+            responses=[
+                FakeResponse(text="calling tool", tool_calls=(("echo", {}),)),
+                FakeResponse(text="done"),
+            ]
+        ),
+        registry,
+        ToolExecutor(registry),
+        RunnerOptions(model="fake-model", max_turns=2, agent_name="t", verification=(config,)),
+    )
+
+    result = await runner.run([LLMMessage(role="user", content=[TextBlock(text="go")])])
+
+    assert result.stop_reason is not None and result.stop_reason.code == "success"
+    assert [decision.outcome for decision in result.gate_decisions] == ["pass", "pass", "pass"]
+    phases = [event.phase for event in result.lifecycle_events]
+    assert phases.count("verifying") == 3
+    assert phases[-1] == "completed"
+
+
+@pytest.mark.asyncio
 async def test_orchestrator_after_team_gate_marks_failure() -> None:
     """Orchestrator team-level gate should block a successful team run on critical failure."""
     from anycode.core.orchestrator import AnyCode, TaskSpec
@@ -526,3 +584,91 @@ async def test_orchestrator_after_team_gate_marks_failure() -> None:
     assert result.stop_reason.code == "verification_failed"
     assert result.success is False
     assert any(d.outcome == "block" for d in result.gate_decisions)
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_after_team_retry_is_a_recoverable_failure() -> None:
+    from anycode.core.orchestrator import AnyCode, TaskSpec
+    from anycode.types import AgentConfig, AgentRunResult, OrchestratorConfig, TeamConfig, TokenUsage
+
+    config = OrchestratorConfig(
+        verification=(
+            VerificationSensorConfig(
+                name="regex",
+                kind="computational",
+                phases=("after_team",),
+                options={"pattern": "READY", "expect": "match", "severity": "error"},
+            ),
+        )
+    )
+    engine = AnyCode(config)
+    agent_config = AgentConfig(name="dev", model="fake-model")
+    team = engine.create_team("team", TeamConfig(name="team", agents=[agent_config]))
+    worker = engine._pool.get("dev")
+    assert worker is not None
+
+    async def _run(_prompt: str) -> AgentRunResult:
+        return AgentRunResult(success=True, output="not ready", messages=[], token_usage=TokenUsage(), tool_calls=[])
+
+    worker.run = _run  # type: ignore[method-assign]
+    result = await engine.run_tasks(team, [TaskSpec(title="task", description="verify", assignee="dev")])
+
+    assert result.success is False
+    assert result.stop_reason is not None
+    assert result.stop_reason.code == "verification_failed"
+    assert result.stop_reason.recoverable is True
+    assert [decision.outcome for decision in result.gate_decisions] == ["retry"]
+
+
+@pytest.mark.asyncio
+async def test_run_team_evaluates_complete_output_once_and_preserves_gate_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Coordinator output participates in ``after_team`` and its decision survives result aggregation."""
+    from anycode.core.orchestrator import AnyCode
+    from anycode.types import AgentConfig, AgentRunResult, LifecycleEvent, OrchestratorConfig, TeamConfig, TokenUsage
+
+    config = OrchestratorConfig(
+        verification=(
+            VerificationSensorConfig(
+                name="regex",
+                kind="computational",
+                phases=("after_team",),
+                options={"pattern": "COORDINATOR_ONLY", "expect": "no_match", "severity": "critical"},
+            ),
+        )
+    )
+    engine = AnyCode(config)
+    agent_config = AgentConfig(name="dev", model="fake-model")
+    team = engine.create_team("team", TeamConfig(name="team", agents=[agent_config]))
+    worker = engine._pool.get("dev")
+    assert worker is not None
+
+    async def _worker_run(_prompt: str) -> AgentRunResult:
+        return AgentRunResult(success=True, output="worker output", messages=[], token_usage=TokenUsage(), tool_calls=[])
+
+    async def _coordinator_run(_prompt: str) -> AgentRunResult:
+        return AgentRunResult(
+            success=True,
+            output="ASSIGN: dev | implementation | build it\nCOORDINATOR_ONLY",
+            messages=[],
+            token_usage=TokenUsage(),
+            tool_calls=[],
+            lifecycle_events=[LifecycleEvent(run_id="coordinator-run", agent_name="dev", phase="completed")],
+        )
+
+    class _Coordinator:
+        run = staticmethod(_coordinator_run)
+
+    monkeypatch.setattr(worker, "run", _worker_run)
+    monkeypatch.setattr(engine, "build_agent", lambda _config: _Coordinator())
+
+    result = await engine.run_team(team, "build")
+
+    assert result.success is False
+    assert result.stop_reason is not None
+    assert result.stop_reason.code == "verification_failed"
+    assert result.stop_reason.recoverable is False
+    assert set(result.agent_results) == {"dev"}
+    assert len(result.gate_decisions) == 1
+    assert result.gate_decisions[0].outcome == "block"
+    assert [verification.sensor_name for verification in result.verification_results] == ["regex"]
+    assert [event.run_id for event in result.lifecycle_events] == ["coordinator-run"]

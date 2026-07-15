@@ -26,7 +26,7 @@ Declarative YAML and TOML files use `format_version: 1`; an absent marker is tre
 | --- | --- | --- | --- |
 | `max_concurrency` | `int \| None` | `None` → `5` | Max agents running in parallel |
 | `default_model` | `str \| None` | `None` | Fallback model when an agent omits one |
-| `default_provider` | `str \| None` | `None` | One of `anthropic`, `openai`, `google`, `ollama`, `bedrock`, `azure` |
+| `default_provider` | `str \| None` | `None` | Built-in or registered plugin provider name |
 | `on_progress` | `Callable \| None` | `None` | Callback receiving each `OrchestratorEvent` |
 | `max_handoff_depth` | `int` | `3` | Max chained agent handoffs |
 | `handoff_policy` | `HandoffPolicy \| None` | `None` | Auto-handoff decision policy |
@@ -68,7 +68,7 @@ Tracing and guardrails are supplied via `AnyCode.configure(trace=TraceConfig(...
 | --- | --- | --- | --- |
 | `name` | `str` | required | Agent identifier |
 | `model` | `str` | required | LLM model id |
-| `provider` | `str \| None` | `None` | Provider override (same literals as above) |
+| `provider` | `str \| None` | `None` | Built-in or registered plugin provider name |
 | `system_prompt` | `str \| None` | `None` | System prompt |
 | `tools` | `list[str] \| None` | `None` | Allowed tool names — see [Built-in tools](built-in-tools.md) |
 | `max_turns` | `int \| None` | `None` → `10` | Turn cap |

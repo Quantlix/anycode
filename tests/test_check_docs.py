@@ -33,3 +33,11 @@ def test_readme_tool_inventory_preserves_registration_order(tmp_path: Path, monk
     check_docs.check_readme_tools(errors)
 
     assert errors == [f"README.md built-in tool order is {list(reversed(expected))}; expected {expected}"]
+
+
+def test_runtime_contract_matches_source_lifecycle_and_format_versions() -> None:
+    errors: list[str] = []
+
+    check_docs.check_runtime_contract(errors)
+
+    assert errors == []

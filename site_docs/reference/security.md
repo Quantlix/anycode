@@ -70,6 +70,23 @@ The current runtime is designed to preserve these invariants:
 9. Recognized credentials are redacted by default at built-in telemetry, checkpoint, run-store, memory, evaluation, and evidence boundaries. Redaction failures do not expose the original exception through built-in logging paths.
 10. Telemetry export failures do not change run behavior, and engine shutdown drains owned work before resource teardown.
 
+## Tool controls versus host isolation
+
+AnyCode tool controls are application policy enforced inside the Python process. They reduce accidental or model-directed misuse, but code running in that process shares its operating-system identity and can bypass framework policy through ordinary Python or native APIs.
+
+| Concern | AnyCode application control | Required host or service control |
+| --- | --- | --- |
+| Which registered tool an agent may request | `AgentConfig.tools`, MCP server scope, central `ToolExecutor` checks | Separate worker identities when workloads must not share authority |
+| Which path a built-in file tool may address | Resolved workspace roots and traversal rejection | Filesystem permissions, read-only mounts, volume boundaries, encryption |
+| Whether built-in shell execution is allowed | `allow_shell`, executable allowlists, timeout, output cap, filtered environment | Container, VM, or microVM isolation; seccomp or equivalent; non-root user; process and resource limits |
+| Which network destination code can reach | MCP URL and host validation for configured transports | Egress firewall, proxy, DNS policy, service mesh, private-network segmentation |
+| Whether a mutating tool call is replayed | Atomic idempotency claim and uncertain-outcome handling | Downstream idempotency or transaction key, durable shared claim service, reconciliation runbook |
+| Which credential a tool receives | Explicit environment filtering and credential references | Workload identity, secret broker, short-lived credentials, IAM authorization, rotation |
+| Whether untrusted code can escape | No in-process isolation guarantee | Dedicated sandbox or isolated service with an independently enforced security boundary |
+| CPU, memory, disk, and process containment | Timeouts and selected output limits | cgroups or host quotas, disk quotas, process limits, watchdog and kill authority |
+
+If a control must hold against malicious custom Python, a compromised plugin, an allowed interpreter, or native code, enforce it outside the AnyCode process. Do not describe `ToolSecurityPolicy`, path allowlists, approvals, or idempotency as a sandbox or tenant boundary.
+
 ## Threats, controls, and residual risk
 
 | Threat or failure | Framework control | Operator control and residual risk |

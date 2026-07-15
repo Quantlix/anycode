@@ -30,3 +30,4 @@ settings.local.json
 .anycode/
 RELEASE.md
 build_out/
+/docs/

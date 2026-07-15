@@ -51,6 +51,9 @@ jobs:
       - name: Run type checking
         run: uv run python -m pyright
 
+      - name: Capture runtime baseline evidence
+        run: uv run python examples/36_runtime_baseline.py
+
   tests:
     name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}

@@ -119,6 +119,7 @@ nav:
       - reference/index.md
       - Public API: reference/public-api.md
       - Complete API Inventory: reference/api-inventory.md
+      - Runtime Contracts and Baseline: reference/runtime-contracts.md
       - Security and Threat Model: reference/security.md
       - Compatibility: reference/compatibility.md
       - Built-in Tools: reference/built-in-tools.md
@@ -129,6 +130,9 @@ nav:
       - Maintainer Governance: contributing/maintainers.md
       - Release Process: contributing/releasing.md
       - Testing and CI: contributing/testing.md
+      - Architecture Decisions: contributing/architecture-decisions.md
+      - ADR Template: contributing/adr-template.md
+      - Contract Test Conventions: contributing/contract-tests.md
       - Documentation Guide: contributing/docs-guide.md
       - Docs Strategy and Case Studies: contributing/documentation-strategy.md
 

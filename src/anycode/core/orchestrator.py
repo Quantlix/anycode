@@ -433,23 +433,46 @@ class AnyCode:
                     success=False,
                     agent_results={coordinator_cfg.name: plan_result},
                     total_token_usage=plan_result.token_usage,
+                    lifecycle_events=tuple(plan_result.lifecycle_events),
+                    verification_results=tuple(plan_result.verification_results),
+                    gate_decisions=tuple(plan_result.gate_decisions),
+                    stop_reason=plan_result.stop_reason,
                 )
 
             task_specs = self._parse_task_specs(plan_result.output, agents)
             if not task_specs:
-                return TeamRunResult(
+                result = TeamRunResult(
                     success=True,
                     agent_results={coordinator_cfg.name: plan_result},
                     total_token_usage=plan_result.token_usage,
+                    lifecycle_events=tuple(plan_result.lifecycle_events),
+                    verification_results=tuple(plan_result.verification_results),
+                    gate_decisions=tuple(plan_result.gate_decisions),
                 )
+                return await self._evaluate_team_gate(team, result, run_id=self._compute_workflow_id([]))
 
-            task_results = await self._execute_tasks(team, task_specs)
+            task_results = await self._execute_tasks(team, task_specs, evaluate_team_gate=False)
             combined = {coordinator_cfg.name: plan_result, **task_results.agent_results}
             total = plan_result.token_usage
             for r in task_results.agent_results.values():
                 total = merge_usage(total, r.token_usage)
 
-            return TeamRunResult(success=task_results.success, agent_results=combined, total_token_usage=total)
+            result = task_results.model_copy(
+                update={
+                    "agent_results": combined,
+                    "total_token_usage": total,
+                    "lifecycle_events": (*plan_result.lifecycle_events, *task_results.lifecycle_events),
+                    "verification_results": (*plan_result.verification_results, *task_results.verification_results),
+                    "gate_decisions": (*plan_result.gate_decisions, *task_results.gate_decisions),
+                }
+            )
+            resolved = self._resolve_specs(task_specs)
+            return await self._evaluate_team_gate(
+                team,
+                result,
+                run_id=self._compute_workflow_id(resolved),
+                additional_outputs=(plan_result.output,),
+            )
         finally:
             if root_span and self._tracer:
                 self._tracer.end_span(root_span)
@@ -458,7 +481,14 @@ class AnyCode:
         """Run an explicit set of task specs with full dependency resolution."""
         return await self._pool.own_operation(lambda: self._execute_tasks(team, task_specs, resume_from=resume_from))
 
-    async def _execute_tasks(self, team: Team, specs: list[TaskSpec], *, resume_from: str | None = None) -> TeamRunResult:
+    async def _execute_tasks(
+        self,
+        team: Team,
+        specs: list[TaskSpec],
+        *,
+        resume_from: str | None = None,
+        evaluate_team_gate: bool = True,
+    ) -> TeamRunResult:
         resolved = self._resolve_specs(specs)
         queue = TaskQueue()
         agent_results: dict[str, AgentRunResult] = {}
@@ -548,29 +578,7 @@ class AnyCode:
 
         cost_report = build_cost_report(self._cost_tracker) if self._cost_tracker else None
 
-        # Run team-level after_team verification gate
-        if self._team_gate is not None and all_succeeded:
-            team_ctx = SensorContext(
-                phase="after_team",
-                agent_name=team.name,
-                run_id=self._compute_workflow_id(resolved),
-                output="\n\n".join(r.output for r in agent_results.values() if r.output),
-                messages=[],
-                tool_calls=[],
-                lifecycle_events=list(lifecycle_events),
-            )
-            team_decision = await self._team_gate.evaluate(team_ctx)
-            gate_decisions.append(team_decision)
-            verification_results.extend(team_decision.results)
-            if team_decision.outcome in ("block", "escalate"):
-                all_succeeded = False
-                team_stop_reason = StopReason(
-                    code="verification_failed",
-                    message=f"Team gate {team_decision.outcome}: {team_decision.message}",
-                    recoverable=team_decision.outcome == "escalate",
-                )
-
-        return TeamRunResult(
+        result = TeamRunResult(
             success=all_succeeded,
             agent_results=agent_results,
             total_token_usage=total_usage,
@@ -581,6 +589,57 @@ class AnyCode:
             verification_results=tuple(verification_results),
             gate_decisions=tuple(gate_decisions),
             stop_reason=team_stop_reason,
+        )
+        if not evaluate_team_gate:
+            return result
+        return await self._evaluate_team_gate(team, result, run_id=workflow_id)
+
+    async def _evaluate_team_gate(
+        self,
+        team: Team,
+        result: TeamRunResult,
+        *,
+        run_id: str,
+        additional_outputs: tuple[str, ...] = (),
+    ) -> TeamRunResult:
+        """Evaluate ``after_team`` sensors once and retain their evidence on the team result."""
+        if self._team_gate is None or not result.success:
+            return result
+
+        outputs = (*additional_outputs, *(agent_result.output for agent_result in result.agent_results.values()))
+        context = SensorContext(
+            phase="after_team",
+            agent_name=team.name,
+            run_id=run_id,
+            output="\n\n".join(output for output in outputs if output),
+            messages=[],
+            tool_calls=[],
+            lifecycle_events=list(result.lifecycle_events),
+        )
+        decision = await self._team_gate.evaluate(context)
+        verification_results = (*result.verification_results, *decision.results)
+        gate_decisions = (*result.gate_decisions, decision)
+
+        if decision.outcome not in ("retry", "block", "escalate"):
+            return result.model_copy(
+                update={
+                    "verification_results": verification_results,
+                    "gate_decisions": gate_decisions,
+                }
+            )
+
+        recoverable = decision.outcome in ("retry", "escalate")
+        return result.model_copy(
+            update={
+                "success": False,
+                "verification_results": verification_results,
+                "gate_decisions": gate_decisions,
+                "stop_reason": StopReason(
+                    code="verification_failed",
+                    message=f"Team gate {decision.outcome}: {decision.message}",
+                    recoverable=recoverable,
+                ),
+            }
         )
 
     async def _resume_from_checkpoint(

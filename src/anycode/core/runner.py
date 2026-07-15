@@ -874,6 +874,12 @@ class AgentRunner:
                 f"sensor.{r.sensor_name}",
                 {"passed": r.passed, "severity": r.severity, "kind": r.kind, "phase": phase},
             )
+        if decision.outcome not in ("block", "escalate"):
+            emitter.transition(
+                "executing",
+                metadata={"verification_phase": phase, "outcome": decision.outcome},
+            )
+            turn_span.set_attribute("phase", "executing")
         return decision
 
     async def _execute_tool_blocks(

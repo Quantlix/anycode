@@ -19,6 +19,7 @@ uv run python -m ruff check .
 uv run python -m ruff format --check src/
 uv run python -m pyright
 uv run python -m pytest
+uv run python examples/36_runtime_baseline.py
 uv run python -m mkdocs build --strict
 uv run python scripts/check_docs.py
 ```
@@ -41,7 +42,7 @@ An explicit `-m integration` overrides the default non-integration selection. Se
 
 | Job | Environment | Contract |
 | --- | --- | --- |
-| `Quality` | Ubuntu, Python 3.12 | Version consistency, locked dependencies, Ruff, formatting, and Pyright |
+| `Quality` | Ubuntu, Python 3.12 | Version consistency, locked dependencies, Ruff, formatting, Pyright, and reproducible runtime baseline evidence |
 | `Tests` | Ubuntu, Windows, and macOS; Python 3.12 and 3.13 | Complete non-integration suite on every supported platform/runtime pair |
 | `Optional extra` | Ubuntu, Python 3.12 | Core-only install plus an isolated install and import smoke test for every declared extra |
 | `Integration services` | Ubuntu, Python 3.12, Redis, and ChromaDB | All tests marked `integration`, with healthy external endpoints required |
@@ -76,3 +77,9 @@ The strict MkDocs build validates navigation, internal links, snippets, and gene
 - Every versioned documentation link in `site_docs/llms.txt` maps to a source page.
 
 Final release tags deploy docs. Pull requests, `main`, and manual dispatches validate docs without modifying published release versions.
+
+## Contract suites and fault evidence
+
+The [contract test conventions](contract-tests.md) define reusable suites, immutable golden fixtures, state-machine properties, real process-death tests, and failure injection around durable boundaries. Changes to a public or persisted contract also use the [ADR process](architecture-decisions.md) and its [copyable template](adr-template.md).
+
+The deterministic runtime baseline is not a pass/fail latency benchmark on shared CI. Its schema, workload sizes, event counts, checkpoint production, and monotonic context growth are contract-tested; elapsed observations remain comparable only on controlled, like-for-like runners. See [runtime contracts and baseline](../reference/runtime-contracts.md#reproduce-the-baseline).

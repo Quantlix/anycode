@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -435,6 +437,41 @@ async def test_kill_and_resume_continues_run(tmp_path: Path) -> None:
     # No completed tool call was repeated after resume.
     assert result.tool_calls == []
     assert fresh_store.read_record(record.run_id).status == "completed"  # type: ignore[union-attr]
+
+
+async def test_forced_process_exit_is_detected_and_resumes_without_repeating_completed_turn(tmp_path: Path) -> None:
+    """An OS-level process exit leaves a resumable checkpoint and no false terminal state."""
+    fixture = Path(__file__).parent / "fixtures" / "process_crash_runner.py"
+    completed = subprocess.run(
+        [sys.executable, str(fixture), str(tmp_path)],
+        cwd=Path(__file__).parent.parent,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert completed.returncode == 73, completed.stderr
+
+    store = FilesystemRunStore(tmp_path)
+    records = store.list_runs()
+    assert len(records) == 1
+    record = records[0]
+    assert record.status == "running"
+    assert store.mark_interrupted_runs(stale_after_seconds=0) == [record.run_id]
+    assert store.read_record(record.run_id).status == "interrupted"  # type: ignore[union-attr]
+
+    checkpoint = store.load_latest_checkpoint(record.run_id)
+    assert checkpoint is not None
+    completed_assistant_turns = [message for message in checkpoint.messages if message.role == "assistant"]
+    assert len(completed_assistant_turns) == 1
+
+    resumed_runner = _runner(FakeAdapter(responses=[FakeResponse(text="resumed")]), store, resume=checkpoint)
+    result = await resumed_runner.run([])
+
+    assert result.stop_reason is not None and result.stop_reason.code == "success"
+    assert result.output == "resumed"
+    assert result.tool_calls == []
+    assert store.read_record(record.run_id).status == "completed"  # type: ignore[union-attr]
 
 
 # -- checkpoint serializer v2 --

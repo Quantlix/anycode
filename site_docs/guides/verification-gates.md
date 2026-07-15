@@ -20,7 +20,16 @@ A **sensor** is a check that returns a pass/fail `VerificationResult` with a sev
 | `schema_sensor(Model)` | Output parses + validates against a Pydantic model | error |
 | `regex` (registry) | Output matches (or lacks) a pattern | error (configurable) |
 
-Sensors run at one of four **phases** — `before_tool`, `after_tool`, `after_task` (the default), and `after_team`.
+Sensors run at one of four **phases**:
+
+| Phase | Runtime boundary |
+| --- | --- |
+| `before_tool` | Before each non-empty tool batch; block and escalation prevent invocation. |
+| `after_tool` | After the complete tool batch returns and before results enter the next model turn. |
+| `after_task` | After a terminal model response and output validation, before task success is committed. This is the default. |
+| `after_team` | Once after a successful explicit task workflow or complete coordinator-plus-task run. Evidence remains on `TeamRunResult`. |
+
+An upstream failure skips `after_team`. A team-level `retry` decision returns a recoverable `verification_failed` result instead of automatically rerunning the whole team. See the [runtime contracts](../reference/runtime-contracts.md#verification-boundaries) for lifecycle transitions and exact attachment behavior.
 
 ## Build a gate in code
 
@@ -64,7 +73,7 @@ print(decision.message)
 | `warning` | `warn` | Run continues |
 | (all pass) | `pass` | Run continues |
 
-A gate that blocks three times in a row escalates instead. When a sensor's underlying tool is missing (for example `ruff` isn't installed), it returns a **warning**, not an error — so a gate can silently pass when its tooling is absent.
+A gate that blocks three times in a row escalates instead. When a sensor's underlying tool is missing (for example `ruff` isn't installed), it returns a **warning**, not an error, and the decision records `warn` while execution continues. Treat missing verification tooling as a deployment error when the check is mandatory.
 
 ## Attach sensors declaratively
 

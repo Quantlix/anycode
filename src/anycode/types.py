@@ -332,7 +332,7 @@ class EvalScenario(BaseModel):
     description: str = ""
     prompt: str
     system_prompt: str | None = None
-    provider: Literal["anthropic", "openai", "google", "ollama", "bedrock", "azure"] | None = None
+    provider: str | None = None
     model: str | None = None
     success_criteria: tuple[str, ...] = ()
     forbidden_substrings: tuple[str, ...] = ()
@@ -512,7 +512,7 @@ class AgentConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     name: str
     model: str
-    provider: Literal["anthropic", "openai", "google", "ollama", "bedrock", "azure"] | None = None
+    provider: str | None = None
     system_prompt: str | None = None
     tools: list[str] | None = None
     max_turns: int | None = None
@@ -620,7 +620,7 @@ class OrchestratorConfig(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
     max_concurrency: int | None = None
     default_model: str | None = None
-    default_provider: Literal["anthropic", "openai", "google", "ollama", "bedrock", "azure"] | None = None
+    default_provider: str | None = None
     on_progress: Callable[[OrchestratorEvent], None] | None = None
     memory: MemoryConfig | None = None
     checkpoint: CheckpointConfig | None = None

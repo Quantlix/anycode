@@ -9,10 +9,18 @@ import inspect
 import re
 import sys
 from pathlib import Path
+from typing import get_args
 
 import yaml
 
 import anycode
+from anycode.constants import (
+    CHECKPOINT_FORMAT_VERSION,
+    CHECKPOINT_MIN_FORMAT_VERSION,
+    CONFIG_FORMAT_VERSION,
+    CONFIG_MIN_FORMAT_VERSION,
+    RUN_STORE_FORMAT_VERSION,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_DIR = REPO_ROOT / "site_docs"
@@ -21,6 +29,7 @@ README_PATH = REPO_ROOT / "README.md"
 LLMS_PATH = DOCS_DIR / "llms.txt"
 EXAMPLES_DIR = REPO_ROOT / "examples"
 API_INVENTORY_HTML = SITE_DIR / "reference" / "api-inventory" / "index.html"
+RUNTIME_CONTRACT_PATH = DOCS_DIR / "reference" / "runtime-contracts.md"
 DOCS_SITE_PREFIX = "https://quantlix.github.io/anycode/latest/"
 
 
@@ -91,6 +100,45 @@ def check_example_inventory(errors: list[str]) -> None:
             errors.append(f"{path.relative_to(REPO_ROOT)} claims {wrong} runnable examples; found {len(examples)}")
 
 
+def check_runtime_contract(errors: list[str]) -> None:
+    text = RUNTIME_CONTRACT_PATH.read_text(encoding="utf-8")
+    rows = {
+        current: set(re.findall(r"`([^`]+)`", targets))
+        for current, targets in re.findall(r"^\| `([^`]+)` \| (.*?) \|$", text, re.MULTILINE)
+        if current in anycode.ALL_PHASES
+    }
+    for current in anycode.ALL_PHASES:
+        expected = {target for target in anycode.ALL_PHASES if anycode.is_valid_transition(current, target)}
+        documented = rows.get(current)
+        if documented is None:
+            errors.append(f"site_docs/reference/runtime-contracts.md omits lifecycle phase: {current}")
+        elif documented != expected:
+            errors.append(
+                "site_docs/reference/runtime-contracts.md has stale transitions for "
+                f"{current}: documented={sorted(documented)}, expected={sorted(expected)}"
+            )
+
+    verification = _markdown_section(text, "Verification boundaries") or ""
+    documented_sensor_phases = set(re.findall(r"^\| `([^`]+)` \|", verification, re.MULTILINE))
+    expected_sensor_phases = set(get_args(anycode.SensorPhase))
+    if documented_sensor_phases != expected_sensor_phases:
+        errors.append(
+            "site_docs/reference/runtime-contracts.md sensor phases are stale: "
+            f"documented={sorted(documented_sensor_phases)}, expected={sorted(expected_sensor_phases)}"
+        )
+
+    version_rows = (
+        f"| Declarative YAML/TOML | v{CONFIG_FORMAT_VERSION} | v{CONFIG_MIN_FORMAT_VERSION} |",
+        f"| Workflow checkpoint | v{CHECKPOINT_FORMAT_VERSION} | v{CHECKPOINT_MIN_FORMAT_VERSION}-v{CHECKPOINT_FORMAT_VERSION} |",
+        f"| Durable run record | v{RUN_STORE_FORMAT_VERSION} | v{RUN_STORE_FORMAT_VERSION} |",
+        f"| Durable transcript | v{RUN_STORE_FORMAT_VERSION} | v{RUN_STORE_FORMAT_VERSION} |",
+        f"| Durable turn checkpoint | v{RUN_STORE_FORMAT_VERSION} | v{RUN_STORE_FORMAT_VERSION} |",
+    )
+    missing_rows = [row for row in version_rows if row not in text]
+    if missing_rows:
+        errors.append(f"site_docs/reference/runtime-contracts.md has stale persisted-format rows: {missing_rows}")
+
+
 def check_frontmatter(errors: list[str]) -> None:
     for path in sorted(DOCS_DIR.rglob("*.md")):
         text = path.read_text(encoding="utf-8")
@@ -144,6 +192,7 @@ def main() -> int:
     check_api_inventory(errors)
     check_readme_tools(errors)
     check_example_inventory(errors)
+    check_runtime_contract(errors)
     check_frontmatter(errors)
     check_llms_links(errors)
 

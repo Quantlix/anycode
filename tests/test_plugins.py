@@ -8,7 +8,9 @@ import pytest
 from pydantic import BaseModel
 
 from anycode import (
+    AgentConfig,
     AnyCode,
+    FakeResponse,
     PluginBase,
     PluginManifest,
     PluginRegistry,
@@ -185,6 +187,23 @@ class TestProviderFactory:
     async def test_unknown_provider_still_raises(self) -> None:
         with pytest.raises(ValueError, match="Unknown provider"):
             await create_adapter("definitely-not-registered")
+
+    async def test_registered_provider_runs_through_agent_config(self) -> None:
+        async def _factory(**_: object) -> FakeAdapter:
+            return FakeAdapter(responses=[FakeResponse(text="plugin reply")])
+
+        register_provider_factory("agent-plugin-provider", _factory)
+        engine = AnyCode()
+        try:
+            result = await engine.run_agent(
+                AgentConfig(name="plugin-agent", model="fake-model", provider="agent-plugin-provider"),
+                "hello",
+            )
+        finally:
+            await engine.close()
+
+        assert result.success is True
+        assert result.output == "plugin reply"
 
     def test_duplicate_factory_for_same_name_rejected(self) -> None:
         async def _a(**_: object) -> FakeAdapter:
