@@ -199,6 +199,30 @@ scheduler = RunScheduler(store, resume=resume, interval_seconds=5.0)
 
 Only timed wakes (`at_time`, `on_provider_recovery`) fire automatically; `on_approval` and `manual` wakes resume through their own signal. For lightweight periodic jobs that aren't full agent runs, `run_scheduled_task` handles `notification`, `script`, `agent`, and `hybrid` modes.
 
+## Use a pluggable work backend
+
+`DurabilityBackend` is the preview semantic boundary for workers that outlive one runner process. It covers atomic run admission, ready-work placement, claims and lease heartbeats, monotonically increasing fencing generations, optimistic event append, cancellation, checkpoints, wakes, external signals, artifact references, export, health, and capability reporting.
+
+```python
+from anycode import InMemoryDurabilityBackend, SQLiteDurabilityBackend
+
+development = InMemoryDurabilityBackend()
+single_host = SQLiteDurabilityBackend(".anycode/backend.db")
+
+capabilities = single_host.capabilities()
+health = await single_host.health()
+```
+
+The in-memory implementation is deterministic and supports failure injection for tests. SQLite persists the same semantic snapshot transactionally and is intended for one service replica. Both reject a stale claimant's append or commit after lease reassignment.
+
+### Operate the Dapr state adapter
+
+`DaprDurabilityBackend` stores the semantic backend snapshot through Dapr state transactions and compare-and-set ETags. Configure a Dapr state component that supports transactions and optimistic concurrency, then inject `DaprHTTPTransport` or a host-owned `DaprStateTransport`. Do not infer guarantees from the adapter name: inspect `backend.capabilities()` and the selected Dapr state store's component capabilities before enabling multiple replicas.
+
+The initial Dapr adapter uses one versioned aggregate state record. That makes contract behavior explicit and portable, but it limits throughput and state size; partitioning is an intentional future migration, not a transparent scaling claim. Dapr sidecar health is necessary for readiness. Telemetry failure is never used as durable state.
+
+Use `export_filesystem_run()` to translate a legacy `FilesystemRunStore` record into a backend snapshot and `import_backend_snapshot()` for idempotent import. Retain the source until event counts, terminal state, checkpoints, and artifact references have been verified. `examples/38_pluggable_durability.py` demonstrates admission through restart; `examples/39_backend_failure_soak.py` is a duration-configurable injected-failure workload.
+
 ## Next steps
 
 - [Build a resumable pipeline](../tutorials/resumable-pipeline.md) — durability applied to a real crash-and-resume project.

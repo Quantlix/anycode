@@ -6,7 +6,7 @@ keywords: AnyCode lifecycle state machine, verification phases, checkpoint forma
 
 # Runtime Contracts and Baseline
 
-This page describes the behavior implemented by the embedded Python runtime. It is a current alpha contract, not a remote-worker protocol: execution remains in one Python process, persisted recovery is local, and general external side effects are not exactly-once.
+This page describes the embedded Python runtime and the preview infrastructure contracts layered around it. Embedded execution remains first-class. Distributed placement is available only to integrations that bind the durability and hosting protocols to an application service, and general external side effects are not exactly-once.
 
 ## Public model inventory
 
@@ -32,12 +32,13 @@ All Pydantic models in these groups are frozen. Runtime code creates updated cop
 | Workflow checkpoints and durable turn resume | Shipped | Local filesystem and SQLite checkpoint stores; supported fixtures and process-exit tests. |
 | Side-effect idempotency claims | Shipped locally | In-memory or SQLite claim store; no distributed fencing or general exactly-once external effect. |
 | Versioned semantic models, events, and JSON Schemas | Preview | Provider-neutral library contract and reference projections; no submit/stream transport binding. |
-| Fenced operation and artifact references | Preview | In-memory leased claim reference plus local artifact store; not a distributed durability claim. |
+| Fenced work and artifact references | Preview | Shared durability protocol with in-memory, SQLite, and Dapr state implementations; downstream effects must still honor idempotency or fencing. |
 | Tool allowlists, path policy, approvals, and shell controls | Shipped as application policy | Host isolation, IAM, network policy, and tenant boundaries remain operator-owned. |
 | MCP tool client and bridge | Partial interoperability | Implemented feature set; current-revision conformance and asynchronous MCP Tasks are not claimed. |
-| Transport-neutral run service and A2A | Absent | No public submit/get/list/stream/cancel service, Agent Card, or A2A binding. |
-| Distributed durable workers | Absent | No claim lease, heartbeat reassignment, generation, or stale-owner fencing contract. |
-| TypeScript client/runtime | Absent | Python package only. |
+| A2A deployment discovery | Preview | Endpoint-specific A2A 1.0 Agent Card model; a host integration supplies the HTTP binding and authorization. |
+| Distributed durable workers | Preview | Backend contract covers admission, queues, leases, heartbeat, generations, stale-owner fencing, wakes, signals, cancellation, and history. Dapr semantics depend on the configured state store. |
+| Identity, external policy, sandbox, and model routing | Preview | Portable immutable context, fail-open/fail-closed policy adapter, companion/Daytona sandbox providers, and hard-constraint routing. Host identity and isolation remain external controls. |
+| TypeScript service client | Preview | Browser and Node client for submit/get/list/stream/cancel/resume/message/artifact operations; not an embedded TypeScript runtime. |
 
 The [semantic contract reference](semantic-contracts.md) defines the preview wire vocabulary and its tested behaviors. It is an adapter foundation, not evidence that the current embedded scheduler performs distributed placement or persists its runtime lifecycle through that vocabulary.
 
