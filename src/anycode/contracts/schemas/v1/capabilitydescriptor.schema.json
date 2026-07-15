@@ -1,0 +1,91 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_forms": {
+      "default": [
+        "inline",
+        "reference"
+      ],
+      "items": {
+        "enum": [
+          "inline",
+          "reference"
+        ],
+        "type": "string"
+      },
+      "title": "Artifact Forms",
+      "type": "array"
+    },
+    "contract_versions": {
+      "default": [
+        "1.0"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Contract Versions",
+      "type": "array"
+    },
+    "extensions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Extensions",
+      "type": "object"
+    },
+    "implementation_version": {
+      "minLength": 1,
+      "title": "Implementation Version",
+      "type": "string"
+    },
+    "max_inline_artifact_bytes": {
+      "default": 65536,
+      "minimum": 0,
+      "title": "Max Inline Artifact Bytes",
+      "type": "integer"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "operations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Operations",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "supports_cancellation": {
+      "default": true,
+      "title": "Supports Cancellation",
+      "type": "boolean"
+    },
+    "supports_event_stream": {
+      "default": true,
+      "title": "Supports Event Stream",
+      "type": "boolean"
+    },
+    "supports_resume": {
+      "default": true,
+      "title": "Supports Resume",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "name",
+    "implementation_version"
+  ],
+  "title": "CapabilityDescriptor",
+  "type": "object"
+}

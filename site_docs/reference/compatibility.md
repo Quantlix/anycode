@@ -51,10 +51,13 @@ Adding an optional field does not require a format bump. A bump is required when
 | Declarative YAML/TOML | v1 | v1 | Treated as v1 | `UnsupportedConfigVersionError` |
 | Workflow checkpoint | v2 | v1-v2 | Treated as v1 | `UnsupportedCheckpointVersionError` |
 | Durable run record, transcript, and turn checkpoint | v1 | v1 | Treated as v1 | `UnsupportedRunStoreVersionError` |
+| Preview semantic JSON contract | 1.0 | 1.0 | Model default is 1.0; writers always emit it | Validation fails closed |
 
 Workflow checkpoint v2 added lifecycle, verification, context, retry, and terminal outcome fields. The v1 reader path supplies safe defaults for those absent fields.
 
 Durable run artifacts use one format version across run metadata, transcript events, and turn checkpoints. Protected payload envelopes have their own protector version; changing encryption or key metadata does not silently change the run schema.
+
+The preview semantic contract has checked-in JSON Schemas and immutable history fixtures. Additive fields must have safe defaults within `1.0`; removing, renaming, or reinterpreting a field requires a new contract version. Run `uv run python scripts/generate_contract_schemas.py --check` during upgrade validation. See [semantic contracts](semantic-contracts.md) for the wire boundary.
 
 ## Upgrade procedure
 

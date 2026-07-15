@@ -386,7 +386,7 @@ Custom tools use Pydantic input models and are registered through `define_tool()
 
 ## Examples Cookbook
 
-The `examples/` directory contains 36 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
+The `examples/` directory contains 37 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
 
 | Examples | Theme |
 | --- | --- |
@@ -402,6 +402,7 @@ The `examples/` directory contains 36 runnable scripts. They are arranged from b
 | `28_durable_runs.py` to `30_scheduled_wakeups.py` | Durable resumable runs, session chaining, and scheduled wakeups |
 | `31_streaming_runtime.py` to `34_list_files.py` | Provider-token streaming, reasoning-model controls, authenticated MCP over HTTP, and fast file listing |
 | `35_lifecycle_contract.py` to `36_runtime_baseline.py` | Complete team verification evidence and reproducible local-runtime baselines |
+| `37_semantic_contract.py` | Versioned semantic events, fenced operations, artifact integrity, and independent projections |
 
 Run an example from the repository root:
 

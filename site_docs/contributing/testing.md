@@ -18,8 +18,10 @@ uv run python scripts/check_versions.py
 uv run python -m ruff check .
 uv run python -m ruff format --check src/
 uv run python -m pyright
+uv run python scripts/generate_contract_schemas.py --check
 uv run python -m pytest
 uv run python examples/36_runtime_baseline.py
+uv run python examples/37_semantic_contract.py
 uv run python -m mkdocs build --strict
 uv run python scripts/check_docs.py
 ```
@@ -42,7 +44,7 @@ An explicit `-m integration` overrides the default non-integration selection. Se
 
 | Job | Environment | Contract |
 | --- | --- | --- |
-| `Quality` | Ubuntu, Python 3.12 | Version consistency, locked dependencies, Ruff, formatting, Pyright, and reproducible runtime baseline evidence |
+| `Quality` | Ubuntu, Python 3.12 | Version consistency, locked dependencies, Ruff, formatting, Pyright, semantic schemas, and reproducible contract evidence |
 | `Tests` | Ubuntu, Windows, and macOS; Python 3.12 and 3.13 | Complete non-integration suite on every supported platform/runtime pair |
 | `Optional extra` | Ubuntu, Python 3.12 | Core-only install plus an isolated install and import smoke test for every declared extra |
 | `Integration services` | Ubuntu, Python 3.12, Redis, and ChromaDB | All tests marked `integration`, with healthy external endpoints required |

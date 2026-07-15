@@ -62,13 +62,14 @@ The current runtime is designed to preserve these invariants:
 1. A provider-returned tool call is rejected when the tool is absent from a non-`None` `AgentConfig.tools` allowlist, even if the tool exists in the registry. An empty list means the agent has no ordinary tools.
 2. `ToolSecurityPolicy` is checked at the central `ToolExecutor` boundary for built-in, custom, and MCP calls. Denied tools, paths outside configured roots, disabled shell access, disallowed executables, and filtered environment variables fail before invocation.
 3. Side-effecting tools claim an idempotency key before execution. Conflicting, in-progress, or uncertain outcomes fail closed. All discovered MCP tools are side-effecting, regardless of server-supplied `readOnlyHint` metadata.
-4. MCP tools are invisible unless an agent opts into the exact configured server name. Tool ownership is recorded at discovery, so overlapping or normalized server-name prefixes do not widen access.
-5. A configured MCP bearer-token environment variable must exist and contain a value. A missing credential fails before the HTTP transport opens.
-6. MCP connection, initialization, discovery, and agent-attachment failures clean up entered resources and partial registrations. Cancellation remains caller-visible.
-7. An entry-point plugin denied by `PluginTrustPolicy` is filtered before `EntryPoint.load()` can import third-party code. Approved plugins remain trusted code.
-8. Declarative configuration rejects unknown fields and unsupported future format versions. Checkpoint and durable-run readers reject unsupported future schemas.
-9. Recognized credentials are redacted by default at built-in telemetry, checkpoint, run-store, memory, evaluation, and evidence boundaries. Redaction failures do not expose the original exception through built-in logging paths.
-10. Telemetry export failures do not change run behavior, and engine shutdown drains owned work before resource teardown.
+4. The preview operation contract binds input digests to leased owners and monotonically increasing fencing tokens. Its in-memory implementation prevents a stale owner from committing locally; remote enforcement requires a durable shared store and a downstream system that checks the token.
+5. MCP tools are invisible unless an agent opts into the exact configured server name. Tool ownership is recorded at discovery, so overlapping or normalized server-name prefixes do not widen access.
+6. A configured MCP bearer-token environment variable must exist and contain a value. A missing credential fails before the HTTP transport opens.
+7. MCP connection, initialization, discovery, and agent-attachment failures clean up entered resources and partial registrations. Cancellation remains caller-visible.
+8. An entry-point plugin denied by `PluginTrustPolicy` is filtered before `EntryPoint.load()` can import third-party code. Approved plugins remain trusted code.
+9. Declarative configuration rejects unknown fields and unsupported future format versions. Checkpoint and durable-run readers reject unsupported future schemas.
+10. Recognized credentials are redacted by default at built-in telemetry, checkpoint, run-store, memory, evaluation, and evidence boundaries. Redaction failures do not expose the original exception through built-in logging paths.
+11. Telemetry export failures do not change run behavior, and engine shutdown drains owned work before resource teardown.
 
 ## Tool controls versus host isolation
 
@@ -96,6 +97,7 @@ If a control must hold against malicious custom Python, a compromised plugin, an
 | Path traversal or symlink escape | Built-in file tools resolve paths and enforce configured roots | Run in a non-root container or VM. Custom tools and host mounts can bypass framework path policy. |
 | Shell injection or environment theft | Shell can be disabled; executable allowlists reject control operators; child environments can be filtered | Prefer `allow_shell=False`. An allowed interpreter or launcher can execute arbitrary code through arguments, so OS isolation remains mandatory. |
 | Duplicate or uncertain external effects | Atomic idempotency claims, replay, conflict detection, and `side_effect_unknown` terminal outcomes | Use a durable shared claim store and pass the same key to downstream APIs. Reconcile uncertain outcomes before retry. |
+| Unauthorized or corrupted preview artifacts | Local access hooks, atomic writes, content addressing, and digest verification | Hooks are application policy only. Enforce identity, storage ACLs, encryption, tenant separation, scanning, and retention outside AnyCode. |
 | Malicious or compromised MCP server | Exact per-agent scope, HTTPS defaults, host allowlist support, fail-closed auth, timeouts, and side-effect classification | Enforce DNS and egress policy outside AnyCode. Review stdio commands and isolate their processes. MCP output may still contain hostile content. |
 | DNS rebinding or hostname resolution to a private address | Private and link-local IP literals are rejected unless allowed | The framework does not resolve DNS for policy enforcement. Use a proxy, firewall, service mesh, or container network allowlist. |
 | Malicious plugin or custom tool | Entry-point filtering occurs before import; installation preflights expected conflicts | Approved code runs with host-process privileges. Pin and review it, or move it behind an isolated service boundary. |

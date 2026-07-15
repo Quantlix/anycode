@@ -51,8 +51,14 @@ jobs:
       - name: Run type checking
         run: uv run python -m pyright
 
+      - name: Verify semantic contract schemas
+        run: uv run python scripts/generate_contract_schemas.py --check
+
       - name: Capture runtime baseline evidence
         run: uv run python examples/36_runtime_baseline.py
+
+      - name: Exercise semantic contract
+        run: uv run python examples/37_semantic_contract.py
 
   tests:
     name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})

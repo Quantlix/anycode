@@ -34,6 +34,14 @@ Reference pages are **information-oriented**: exhaustive, accurate descriptions 
 
     [:octicons-arrow-right-24: Runtime contracts](runtime-contracts.md)
 
+-   **Semantic contracts**
+
+    ---
+
+    Versioned JSON models, deterministic state and cancellation semantics, projections, fenced operations, and artifacts.
+
+    [:octicons-arrow-right-24: Semantic contracts](semantic-contracts.md)
+
 -   **Built-in tools**
 
     ---

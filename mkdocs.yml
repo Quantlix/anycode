@@ -120,6 +120,7 @@ nav:
       - Public API: reference/public-api.md
       - Complete API Inventory: reference/api-inventory.md
       - Runtime Contracts and Baseline: reference/runtime-contracts.md
+      - Semantic Contracts: reference/semantic-contracts.md
       - Security and Threat Model: reference/security.md
       - Compatibility: reference/compatibility.md
       - Built-in Tools: reference/built-in-tools.md

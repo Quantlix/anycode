@@ -28,14 +28,18 @@ All Pydantic models in these groups are frozen. Runtime code creates updated cop
 | Capability | Status | Enforced boundary |
 | --- | --- | --- |
 | In-process agents, teams, DAG tasks, and bounded concurrency | Shipped | One Python process; no remote placement or worker lease. |
-| Lifecycle events and four verification attachment points | Shipped | Embedded runner and orchestrator results; not a versioned wire event stream. |
+| Lifecycle events and four verification attachment points | Shipped | Embedded runner and orchestrator results; they are not automatically emitted as semantic wire events. |
 | Workflow checkpoints and durable turn resume | Shipped | Local filesystem and SQLite checkpoint stores; supported fixtures and process-exit tests. |
 | Side-effect idempotency claims | Shipped locally | In-memory or SQLite claim store; no distributed fencing or general exactly-once external effect. |
+| Versioned semantic models, events, and JSON Schemas | Preview | Provider-neutral library contract and reference projections; no submit/stream transport binding. |
+| Fenced operation and artifact references | Preview | In-memory leased claim reference plus local artifact store; not a distributed durability claim. |
 | Tool allowlists, path policy, approvals, and shell controls | Shipped as application policy | Host isolation, IAM, network policy, and tenant boundaries remain operator-owned. |
 | MCP tool client and bridge | Partial interoperability | Implemented feature set; current-revision conformance and asynchronous MCP Tasks are not claimed. |
 | Transport-neutral run service and A2A | Absent | No public submit/get/list/stream/cancel service, Agent Card, or A2A binding. |
 | Distributed durable workers | Absent | No claim lease, heartbeat reassignment, generation, or stale-owner fencing contract. |
 | TypeScript client/runtime | Absent | Python package only. |
+
+The [semantic contract reference](semantic-contracts.md) defines the preview wire vocabulary and its tested behaviors. It is an adapter foundation, not evidence that the current embedded scheduler performs distributed placement or persists its runtime lifecycle through that vocabulary.
 
 ## Execution lifecycle
 

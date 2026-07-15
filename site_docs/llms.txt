@@ -54,6 +54,7 @@ Documentation is versioned; the links below point to the `latest` release alias.
 - [Public API](https://quantlix.github.io/anycode/latest/reference/public-api/): Core classes, config models, result models, tools, and provider factory.
 - [Complete API inventory](https://quantlix.github.io/anycode/latest/reference/api-inventory/): Every supported package-root export, generated from source docstrings.
 - [Runtime contracts and baseline](https://quantlix.github.io/anycode/latest/reference/runtime-contracts/): Lifecycle transitions, verification boundaries, persisted formats, supported local resume, and reproducible baseline evidence.
+- [Semantic contracts](https://quantlix.github.io/anycode/latest/reference/semantic-contracts/): Versioned JSON models, state and cancellation rules, event projections, fenced operations, and artifacts.
 - [Compatibility and versioning](https://quantlix.github.io/anycode/latest/reference/compatibility/): Public API, config, checkpoint, durable-data, upgrade, and rollback contracts.
 - [Security and threat model](https://quantlix.github.io/anycode/latest/reference/security/): Trust boundaries, enforced invariants, residual risk, and operator-owned controls.
 - [Built-in tools](https://quantlix.github.io/anycode/latest/reference/built-in-tools/): bash, file_read, file_write, file_edit, grep, list_files — parameters, defaults, limits.
@@ -64,7 +65,7 @@ Documentation is versioned; the links below point to the `latest` release alias.
 
 - [Repository](https://github.com/Quantlix/anycode): Source code.
 - [Documentation source](https://github.com/Quantlix/anycode/tree/main/site_docs): Markdown source for this site.
-- [Examples](https://github.com/Quantlix/anycode/tree/main/examples): 36 runnable example scripts, beginner to advanced.
+- [Examples](https://github.com/Quantlix/anycode/tree/main/examples): 37 runnable example scripts, beginner to advanced.
 - [README](https://github.com/Quantlix/anycode/blob/main/README.md): Project overview and package summary.
 
 ## Optional

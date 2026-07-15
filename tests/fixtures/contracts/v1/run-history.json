@@ -1,0 +1,101 @@
+{
+  "run": {
+    "schema_version": "1.0",
+    "id": "run-fixture",
+    "state": "succeeded",
+    "root_task_id": "task-fixture",
+    "correlation_id": "corr-fixture",
+    "causation_id": "event-4",
+    "generation": 1,
+    "attempt": 1,
+    "waiting_reason": null,
+    "cancellation": {
+      "status": "none",
+      "requested_at": null,
+      "acknowledged_at": null,
+      "reason": null
+    },
+    "error": null,
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-01-01T00:00:04Z",
+    "last_event_sequence": 5,
+    "metadata": {}
+  },
+  "events": [
+    {
+      "schema_version": "1.0",
+      "payload_version": 1,
+      "id": "event-1",
+      "run_id": "run-fixture",
+      "task_id": null,
+      "sequence": 1,
+      "type": "run.admitted",
+      "payload": {},
+      "correlation_id": "corr-fixture",
+      "causation_id": null,
+      "generation": 1,
+      "attempt": 1,
+      "emitted_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "schema_version": "1.0",
+      "payload_version": 1,
+      "id": "event-2",
+      "run_id": "run-fixture",
+      "task_id": null,
+      "sequence": 2,
+      "type": "run.transitioned",
+      "payload": {"from": "accepted", "to": "queued", "cancellation_status": "none"},
+      "correlation_id": "corr-fixture",
+      "causation_id": "event-1",
+      "generation": 1,
+      "attempt": 1,
+      "emitted_at": "2026-01-01T00:00:01Z"
+    },
+    {
+      "schema_version": "1.0",
+      "payload_version": 1,
+      "id": "event-3",
+      "run_id": "run-fixture",
+      "task_id": null,
+      "sequence": 3,
+      "type": "run.transitioned",
+      "payload": {"from": "queued", "to": "running", "cancellation_status": "none"},
+      "correlation_id": "corr-fixture",
+      "causation_id": "event-2",
+      "generation": 1,
+      "attempt": 1,
+      "emitted_at": "2026-01-01T00:00:02Z"
+    },
+    {
+      "schema_version": "1.0",
+      "payload_version": 1,
+      "id": "event-4",
+      "run_id": "run-fixture",
+      "task_id": "task-fixture",
+      "sequence": 4,
+      "type": "artifact.committed",
+      "payload": {"artifact_id": "artifact-fixture"},
+      "correlation_id": "corr-fixture",
+      "causation_id": "event-3",
+      "generation": 1,
+      "attempt": 1,
+      "emitted_at": "2026-01-01T00:00:03Z"
+    },
+    {
+      "schema_version": "1.0",
+      "payload_version": 1,
+      "id": "event-5",
+      "run_id": "run-fixture",
+      "task_id": null,
+      "sequence": 5,
+      "type": "run.transitioned",
+      "payload": {"from": "running", "to": "succeeded", "cancellation_status": "none"},
+      "correlation_id": "corr-fixture",
+      "causation_id": "event-4",
+      "generation": 1,
+      "attempt": 1,
+      "emitted_at": "2026-01-01T00:00:04Z"
+    }
+  ]
+}

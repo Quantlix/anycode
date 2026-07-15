@@ -1,0 +1,181 @@
+{
+  "$defs": {
+    "ArtifactPart": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "artifact",
+          "default": "artifact",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id"
+      ],
+      "title": "ArtifactPart",
+      "type": "object"
+    },
+    "DataPart": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "type": {
+          "const": "data",
+          "default": "data",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "DataPart",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "TextPart": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "text",
+          "default": "text",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "TextPart",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attempt": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Attempt",
+      "type": "integer"
+    },
+    "causation_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Causation Id"
+    },
+    "correlation_id": {
+      "minLength": 1,
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "generation": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Generation",
+      "type": "integer"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "parts": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "artifact": "#/$defs/ArtifactPart",
+            "data": "#/$defs/DataPart",
+            "text": "#/$defs/TextPart"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/TextPart"
+          },
+          {
+            "$ref": "#/$defs/DataPart"
+          },
+          {
+            "$ref": "#/$defs/ArtifactPart"
+          }
+        ]
+      },
+      "title": "Parts",
+      "type": "array"
+    },
+    "role": {
+      "enum": [
+        "system",
+        "user",
+        "agent",
+        "tool"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    }
+  },
+  "required": [
+    "id",
+    "run_id",
+    "role",
+    "parts",
+    "correlation_id"
+  ],
+  "title": "Message",
+  "type": "object"
+}
