@@ -23,7 +23,18 @@ from anycode.types import SpanAttributes, TraceConfig
 
 logger = logging.getLogger(__name__)
 
-_INHERITED_ATTRIBUTE_KEYS = ("run_id", "agent_name", "task_id", "model", "provider", "tool_name")
+_INHERITED_ATTRIBUTE_KEYS = (
+    "run_id",
+    "agent_name",
+    "task_id",
+    "model",
+    "provider",
+    "tool_name",
+    "principal",
+    "tenant_scope",
+    "classification",
+    "region",
+)
 
 
 def _resolve_config(config: TraceConfig | None) -> TraceConfig:

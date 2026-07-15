@@ -81,6 +81,36 @@ engine = AnyCode(config={"routing": RoutingConfig(enabled=True, default_model="c
 
 With routing enabled, the orchestrator classifies each task and applies a matching rule before the agent runs — so a wave of trivial tasks lands on a cheap model while the one expert task escalates to a stronger one.
 
+## Enforce provider policy before fallback
+
+`PolicyRouter` is the hard-constraint routing surface for multi-provider deployments. Each `ProviderCapabilityDescriptor` declares region, modalities, context size, structured output, tool use, classifications, health, cost, latency, and a fallback compatibility class. A request is filtered before selection, and every candidate retains inspectable rejection reasons.
+
+```python
+from anycode import ModelRoutingRequest, PolicyRouter, ProviderCapabilityDescriptor
+
+router = PolicyRouter((
+    ProviderCapabilityDescriptor(
+        provider="private-provider",
+        model="review-model",
+        context_window=128_000,
+        structured_output=True,
+        tool_use=True,
+        regions=("eu-west",),
+        allowed_classifications=("public", "internal", "confidential"),
+        compatibility_class="review-v1",
+    ),
+))
+
+decision = router.route(ModelRoutingRequest(
+    task_id="review-1",
+    classification="confidential",
+    required_region="eu-west",
+    structured_output=True,
+))
+```
+
+Fallback is not a relaxation path. Setting `fallback_compatibility_class` adds another hard filter; provider allow/deny lists, region, classification, budget, latency, health, modality, context, and capability restrictions continue to apply. A request with no eligible candidate returns a typed `no_eligible_model` error and the complete assessment set.
+
 ## Next steps
 
 - [Build a support-triage system](../tutorials/support-triage.md) — routing incoming tickets to specialist agents.

@@ -183,6 +183,26 @@ Start alert thresholds from measured baselines and service objectives. Useful fi
 
 Tune these examples to traffic volume. A low-volume service should alert on absolute failures as well as percentages.
 
+## Map GenAI operations safely
+
+`GenAITelemetryMapper` maps AnyCode model, tool, policy, verification, artifact, and A2A operations to the pinned OpenTelemetry GenAI semantic-convention snapshot reported by `OTEL_GENAI_CONVENTION_SNAPSHOT`. The mapping is versioned independently so a collector upgrade cannot silently change emitted attribute meaning.
+
+```python
+from anycode import GenAITelemetryConfig, GenAITelemetryMapper
+
+mapper = GenAITelemetryMapper(
+    GenAITelemetryConfig(profile="metadata", max_string_length=512)
+)
+record = mapper.map(
+    "model.chat",
+    {"provider": "openai", "model": "configured-model", "input_tokens": 120},
+)
+```
+
+Capture profiles are `off`, `metadata`, `redacted`, and `full`. Metadata excludes prompt, response, tool arguments, artifact bodies, and credential-like values. Redacted permits content only after key/value scrubbing; full still applies credential rejection, length limits, hashing rules, and cardinality bounds. Use full only with an independently protected telemetry destination and explicit data governance.
+
+`BoundedTelemetryBuffer` isolates exporter outages from run state and exposes dropped-record counts. Identity fields carried by `ExecutionContext` flow into runtime spans as audit metadata, while credential references and raw credentials are excluded.
+
 ## Next steps
 
 - [Visualize runs](visualization.md) - render the task graph and per-agent activity.

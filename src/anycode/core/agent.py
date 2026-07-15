@@ -82,6 +82,7 @@ class Agent:
             agent_role=(self.config.system_prompt or "assistant")[:AGENT_ROLE_MAX_LENGTH],
             verification=self.config.verification,
             tool_security=self.config.tool_security,
+            execution_context=self.config.execution_context,
         )
         self._runner = AgentRunner(
             adapter,

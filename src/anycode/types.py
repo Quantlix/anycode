@@ -10,6 +10,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict, Field
 
 from anycode.constants import CHECKPOINT_FORMAT_VERSION, DEFAULT_PROVIDER_CAPACITY_WAIT_SECONDS, DEFAULT_PROVIDER_CONCURRENCY
+from anycode.identity.context import ExecutionContext
 
 # -- Content blocks --
 
@@ -462,6 +463,7 @@ class ToolUseContext(BaseModel):
     metadata: dict[str, Any] | None = None
     security_policy: ToolSecurityPolicy | None = None
     idempotency_key: str | None = None
+    execution_context: ExecutionContext | None = None
 
 
 class ToolDefinition(BaseModel):
@@ -523,6 +525,7 @@ class AgentConfig(BaseModel):
     verification: tuple[VerificationSensorConfig, ...] = ()
     tool_security: ToolSecurityPolicy | None = None
     provider_resilience: ProviderResilienceConfig | None = None
+    execution_context: ExecutionContext | None = None
 
 
 class AgentState(BaseModel):
@@ -679,6 +682,7 @@ class LLMChatOptions(BaseModel):
     # a token budget on providers that express thinking as a budget instead.
     reasoning_effort: ReasoningEffort | None = None
     thinking_budget_tokens: int | None = None
+    execution_context: ExecutionContext | None = None
 
 
 class LLMStreamOptions(LLMChatOptions):
@@ -873,6 +877,7 @@ class RunnerOptions(BaseModel):
     thinking_budget_tokens: int | None = None
     streaming: RunnerStreamingConfig | None = None
     tool_security: ToolSecurityPolicy | None = None
+    execution_context: ExecutionContext | None = None
 
 
 class RunResult(BaseModel):
@@ -939,6 +944,10 @@ class TraceConfig(BaseModel):
     max_recorded_events: int = Field(default=10_000, ge=1)
     max_metric_series: int = Field(default=1_000, ge=1)
     max_histogram_samples: int = Field(default=1_000, ge=1)
+    capture_profile: Literal["off", "metadata", "redacted", "full"] = "redacted"
+    max_attribute_length: int = Field(default=4_096, ge=16)
+    max_attribute_count: int = Field(default=128, ge=1)
+    telemetry_buffer_capacity: int = Field(default=1_000, ge=1)
 
 
 class SpanAttributes(BaseModel):
@@ -957,6 +966,10 @@ class SpanAttributes(BaseModel):
     stop_reason: str | None = None
     recoverable: bool | None = None
     retry_count: int = 0
+    principal: str | None = None
+    tenant_scope: str | None = None
+    classification: str | None = None
+    region: str | None = None
 
 
 # -- Guardrails --

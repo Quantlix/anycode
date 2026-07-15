@@ -185,7 +185,9 @@ class AgentRunner:
 
         restored = self._resume_from
         run_id = restored.run_id if restored is not None else str(uuid7())
-        run_trace_id = run_id.replace("-", "")
+        execution_context = self._options.execution_context
+        run_trace_id = execution_context.trace_id if execution_context and execution_context.trace_id else run_id.replace("-", "")
+        identity_attributes = execution_context.audit_attributes() if execution_context else {}
         emitter = LifecycleEmitter(
             run_id=run_id,
             agent_name=agent_name,
@@ -269,6 +271,10 @@ class AgentRunner:
                         stop_reason=stop_reason.code,
                         recoverable=stop_reason.recoverable,
                         retry_count=retry_count,
+                        principal=identity_attributes.get("principal"),
+                        tenant_scope=identity_attributes.get("tenant_scope"),
+                        classification=identity_attributes.get("classification"),
+                        region=identity_attributes.get("region"),
                     )
                 )
 
@@ -293,6 +299,7 @@ class AgentRunner:
             enable_prompt_cache=cache_profile.supports_prompt_cache,
             reasoning_effort=self._options.reasoning_effort,
             thinking_budget_tokens=self._options.thinking_budget_tokens,
+            execution_context=execution_context,
         )
 
         try:
@@ -328,6 +335,10 @@ class AgentRunner:
                             model=self._options.model,
                             turn_number=turn_count,
                             phase="executing",
+                            principal=identity_attributes.get("principal"),
+                            tenant_scope=identity_attributes.get("tenant_scope"),
+                            classification=identity_attributes.get("classification"),
+                            region=identity_attributes.get("region"),
                         )
                     )
 
@@ -976,7 +987,11 @@ class AgentRunner:
         return None
 
     def _build_context(self) -> ToolUseContext:
-        return ToolUseContext(agent=self._build_agent_info(), security_policy=self._options.tool_security)
+        return ToolUseContext(
+            agent=self._build_agent_info(),
+            security_policy=self._options.tool_security,
+            execution_context=self._options.execution_context,
+        )
 
     def _build_agent_info(self) -> AgentInfo:
         return AgentInfo(
