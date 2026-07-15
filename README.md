@@ -72,12 +72,14 @@ Key use cases include:
 | MCP | Connect to MCP servers, discover tools, register prefixed MCP tools, and scope MCP tools per agent |
 | Safety and control | Guardrails, token and cost budgets, output validators, turn hooks, structured output, HITL approval gates |
 | Persistence | In-memory, SQLite, Redis, vector memory, ChromaDB support, checkpoint stores, and resume support |
+| Portable infrastructure | Pluggable durability backends, execution identity, external policy enforcement, GenAI telemetry mapping, sandbox adapters, and hosting lifecycle contracts |
 | Routing and handoff | Intelligent task routing, route decision reports, handoff requests, and context-preserving handoff execution |
 | Advanced runtime | Cost reports, self-reflection, critic loops, DAG visualization, RAG memory, lifecycle states, stop reasons, and context engineering reports |
 | Verification | Built-in `ruff`, `pyright`, `pytest`, `schema`, and `regex` sensors with quality gate decisions |
 | Evaluation | Scenario loading, deterministic fake responses, benchmark reports, markdown rendering, and report comparison |
 | Developer experience | CLI commands, YAML/TOML config, examples cookbook, CLI inspection, and deterministic eval reports |
 | Extension ecosystem | Typed `Plugin` bundles (tools, provider factories, sensors, hooks) registered via `engine.register_plugin()` or auto-discovered through the `anycode.plugins` entry-point group |
+| Service client | Dependency-free TypeScript preview for lifecycle, artifact, cancellation, and resumable-stream operations in Node.js 20+ and modern browsers |
 
 ## Architecture At A Glance
 
@@ -368,6 +370,7 @@ uv run anycode version
 | `bedrock` | AWS Bedrock adapter |
 | `azure` | Azure OpenAI adapter |
 | `mcp` | Model Context Protocol client and tool discovery |
+| `sandbox` | Daytona sandbox adapter |
 
 Provider support is protocol-based. You can bring your own adapter by implementing the `LLMAdapter` interface.
 
@@ -386,7 +389,7 @@ Custom tools use Pydantic input models and are registered through `define_tool()
 
 ## Examples Cookbook
 
-The `examples/` directory contains 37 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
+The `examples/` directory contains 40 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
 
 | Examples | Theme |
 | --- | --- |
@@ -403,6 +406,8 @@ The `examples/` directory contains 37 runnable scripts. They are arranged from b
 | `31_streaming_runtime.py` to `34_list_files.py` | Provider-token streaming, reasoning-model controls, authenticated MCP over HTTP, and fast file listing |
 | `35_lifecycle_contract.py` to `36_runtime_baseline.py` | Complete team verification evidence and reproducible local-runtime baselines |
 | `37_semantic_contract.py` | Versioned semantic events, fenced operations, artifact integrity, and independent projections |
+| `38_pluggable_durability.py` to `39_backend_failure_soak.py` | Backend portability, migrations, leases, fencing, and failure-soak behavior |
+| `40_operational_portability.py` | Execution identity, policy enforcement, model routing, and GenAI telemetry mapping |
 
 Run an example from the repository root:
 

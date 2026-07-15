@@ -7,30 +7,15 @@
   engines use to understand and cite the docs.
 -->
 
-{% block announce %}
-  <span class="ac-announce">
-    <span class="ac-announce__badge">Alpha</span>
-    AnyCode is under active development.
-    The <strong>TypeScript SDK</strong> is on the way &mdash;
-    <a href="{{ 'typescript/' | url }}">preview what&rsquo;s coming</a>.
-    Star us on
-    <a href="https://github.com/Quantlix/anycode" target="_blank" rel="noopener">GitHub</a>.
-  </span>
-{% endblock %}
-
 {% block extrahead %}
   {% set page_title = page.meta.title if page and page.meta and page.meta.title else (page.title if page and page.title else config.site_name) %}
   {% set page_desc = page.meta.description if page and page.meta and page.meta.description else config.site_description %}
-  <meta name="author" content="{{ config.site_author | default('Quantlix') }}">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-title" content="AnyCode">
-  <meta name="generator" content="AnyCode Docs">
   {% if page and page.meta and page.meta.keywords %}
   <meta name="keywords" content="{{ page.meta.keywords }}">
   {% endif %}
-  <link rel="canonical" href="{{ page.canonical_url }}">
-
   <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="{{ config.site_name }}">

@@ -1,11 +1,8 @@
 {% extends "main.html" %}
 
-<!-- Landing page: full-bleed hero rendered above the content grid. -->
-
 {% block extrahead %}
   {{ super() }}
   <style>
-    /* Landing-only: hide the edit/view page actions and tighten top spacing. */
     .md-content__button { display: none; }
     .md-content__inner { padding-top: 0; }
   </style>
@@ -13,68 +10,61 @@
 
 {% block tabs %}
   {{ super() }}
-  <section class="ac-hero" aria-label="AnyCode introduction">
+  <section class="ac-hero" aria-labelledby="ac-hero-title">
     <div class="ac-hero__bg" aria-hidden="true"></div>
     <div class="ac-hero__grid md-grid">
       <div class="ac-hero__copy">
-        <p class="ac-eyebrow">
-          <span class="ac-eyebrow__dot"></span>
-          Async-first multi-agent framework for Python
-        </p>
-        <h1 class="ac-hero__title">
-          Orchestrate AI&nbsp;agent&nbsp;teams,<br>
-          not single prompts.
-        </h1>
+        <div id="ac-hero-title" class="ac-hero__title" role="heading" aria-level="1">
+          Build AI agent teams with a runtime you can reason about.
+        </div>
         <p class="ac-hero__lede">
-          AnyCode is a typed Python runtime for coordinating LLM agents &mdash;
-          dependency-aware task graphs, built-in and Pydantic tools, shared memory,
-          provider-agnostic adapters, and verification gates you can trust.
+          AnyCode coordinates specialized agents through typed tools, dependency-aware
+          task graphs, shared context, provider-neutral adapters, durable execution,
+          and verification you can inspect.
         </p>
         <div class="ac-hero__cta">
           <a class="ac-btn ac-btn--primary" href="{{ 'getting-started/quickstart/' | url }}">
-            Get started
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            Start the quickstart
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
           <a class="ac-btn ac-btn--ghost" href="https://github.com/Quantlix/anycode" target="_blank" rel="noopener">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.3-1.7-1.3-1.7-1.06-.72.08-.71.08-.71 1.17.08 1.79 1.2 1.79 1.2 1.04 1.79 2.73 1.27 3.4.97.1-.75.4-1.27.73-1.56-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/></svg>
-            Star on GitHub
+            View on GitHub
           </a>
         </div>
-        <div class="ac-hero__badges">
-          <code>pip install anycode-py</code>
-          <span class="ac-pill">Python 3.12+</span>
-          <span class="ac-pill">MIT</span>
-          <span class="ac-pill ac-pill--alpha">Alpha</span>
+        <div class="ac-install" aria-label="Install AnyCode">
+          <span class="ac-install__prompt" aria-hidden="true">$</span>
+          <code>uv add anycode-py</code>
+          <a href="{{ 'getting-started/installation/' | url }}">Installation options</a>
         </div>
+        <p class="ac-hero__note">
+          Requires Python 3.12 or newer. AnyCode is under active development; review
+          the production-readiness boundary before deploying sensitive workloads.
+        </p>
       </div>
 
-      <div class="ac-hero__code">
+      <div class="ac-hero__code" aria-label="AnyCode team example">
         <div class="ac-window">
           <div class="ac-window__bar">
             <span class="ac-window__dot"></span>
             <span class="ac-window__dot"></span>
             <span class="ac-window__dot"></span>
-            <span class="ac-window__name">team.py</span>
+            <span class="ac-window__name">run_team.py</span>
           </div>
-          <pre class="ac-window__code"><code><span class="k">from</span> anycode <span class="k">import</span> AnyCode, AgentConfig, TaskSpec, TeamConfig
+          <pre class="ac-window__code"><code><span class="k">from</span> anycode <span class="k">import</span> AnyCode
 
-engine = AnyCode(config={<span class="s">"max_concurrency"</span>: <span class="n">3</span>})
+engine = AnyCode.from_config(<span class="s">"team.yaml"</span>)
 
-team = engine.create_team(<span class="s">"crew"</span>, TeamConfig(
-    name=<span class="s">"crew"</span>,
-    shared_memory=<span class="c">True</span>,
-    agents=[
-        AgentConfig(name=<span class="s">"planner"</span>, provider=<span class="s">"anthropic"</span>, model=MODEL),
-        AgentConfig(name=<span class="s">"builder"</span>, provider=<span class="s">"anthropic"</span>, model=MODEL),
-        AgentConfig(name=<span class="s">"reviewer"</span>, provider=<span class="s">"anthropic"</span>, model=MODEL),
-    ],
-))
+result = <span class="k">await</span> engine.run_team_from_config(
+    goal=<span class="s">"Ship a reviewed implementation"</span>
+)
 
-result = <span class="k">await</span> engine.run_tasks(team, [
-    TaskSpec(title=<span class="s">"Plan"</span>,   assignee=<span class="s">"planner"</span>),
-    TaskSpec(title=<span class="s">"Build"</span>,  assignee=<span class="s">"builder"</span>,  depends_on=[<span class="s">"Plan"</span>]),
-    TaskSpec(title=<span class="s">"Review"</span>, assignee=<span class="s">"reviewer"</span>, depends_on=[<span class="s">"Build"</span>]),
-])  <span class="c"># runs in dependency-ordered waves</span></code></pre>
+<span class="k">if</span> result.success:
+    print(<span class="s">"Ready to ship"</span>)</code></pre>
+        </div>
+        <div class="ac-flow" aria-label="Dependency-ordered workflow">
+          <span>Plan</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span>Build</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span>Review</span>
         </div>
       </div>
     </div>

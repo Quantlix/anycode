@@ -3,9 +3,9 @@
    Restrained indigo system layered on Material for MkDocs.
    Design rules: flat surfaces, 1px borders, small layered neutral shadows,
    one accent hue, AA contrast in both schemes.
-   Sections: 1) tokens  2) palette overrides  3) chrome  4) announce
-   5) buttons  6) hero  7) code window  8) landing sections
-   9) content polish  10) responsive
+   Sections: 1) tokens  2) palette overrides  3) chrome  4) buttons
+   5) hero  6) code window  7) landing sections  8) content polish
+   9) responsive
    ========================================================================== */
 
 /* 1) Brand tokens -------------------------------------------------------- */
@@ -35,6 +35,30 @@
   --md-primary-fg-color--light: var(--ac-indigo-500);
   --md-primary-fg-color--dark: var(--ac-indigo-800);
   --md-accent-fg-color: var(--ac-indigo-600);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-padding-top: 5rem;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.md-grid,
+.md-main__inner,
+.md-content,
+.md-content__inner,
+.md-typeset,
+.ac-hero__copy,
+.ac-hero__code {
+  min-width: 0;
 }
 
 /* Fonts fall back gracefully if Inter/JetBrains fail to load. */
@@ -114,32 +138,7 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
-/* 4) Announcement bar ----------------------------------------------------- */
-.md-banner {
-  background: var(--ac-ink-900);
-  color: #d9dcec;
-  font-size: 0.72rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-.md-banner a {
-  color: var(--ac-indigo-300);
-  font-weight: 600;
-}
-.ac-announce__badge {
-  display: inline-block;
-  margin-right: 0.5em;
-  padding: 0.1em 0.6em;
-  border-radius: 4px;
-  background: var(--ac-indigo-600);
-  color: #fff;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  vertical-align: middle;
-}
-
-/* 5) Buttons --------------------------------------------------------------
+/* 4) Buttons --------------------------------------------------------------
    Solid fills, small radius, restrained motion. No gradients or glows.    */
 .ac-btn {
   display: inline-flex;
@@ -154,6 +153,7 @@
   transition: background-color 140ms ease, border-color 140ms ease,
               box-shadow 140ms ease, transform 140ms ease;
   white-space: nowrap;
+  min-height: 44px;
 }
 .ac-btn svg { flex: none; }
 .ac-btn--primary {
@@ -194,7 +194,7 @@
   transform: translateY(-1px);
 }
 
-/* 6) Hero ------------------------------------------------------------------
+/* 5) Hero ------------------------------------------------------------------
    One dark navy surface with a faint indigo tint at the top edge.         */
 .ac-hero {
   position: relative;
@@ -221,40 +221,21 @@
   grid-template-columns: 1.05fr 1fr;
   gap: 3rem;
   align-items: center;
-  padding: 3.6rem 0 4rem;
-}
-.ac-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55em;
-  margin: 0 0 1.1rem;
-  padding: 0.35em 0.85em;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #d4d8f0;
-}
-.ac-eyebrow__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #34d399;
+  padding: 4.2rem clamp(1rem, 3vw, 2rem) 4.5rem;
 }
 .ac-hero__title {
   margin: 0 0 1rem;
-  font-size: clamp(2rem, 4.2vw, 3.1rem);
-  line-height: 1.08;
+  max-width: 12ch;
+  font-size: clamp(2.35rem, 5vw, 3.7rem);
+  line-height: 1.02;
   font-weight: 750;
   letter-spacing: -0.025em;
   color: #fff;
 }
 .ac-hero__lede {
   margin: 0 0 1.9rem;
-  max-width: 33rem;
-  font-size: 0.92rem;
+  max-width: 35rem;
+  font-size: clamp(0.88rem, 1.4vw, 1rem);
   line-height: 1.7;
   color: #c2c7e0;
 }
@@ -262,38 +243,47 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.8rem;
-  margin-bottom: 1.7rem;
+  margin-bottom: 1.25rem;
 }
-.ac-hero__badges {
+.ac-install {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 0.7rem;
-}
-.ac-hero__badges code {
-  padding: 0.45em 0.8em;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  gap: 0.65rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.65rem 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.72rem;
+}
+.ac-install code {
+  padding: 0;
+  background: transparent;
   color: #dde1f5;
   font-family: var(--md-code-font);
 }
-.ac-pill {
-  padding: 0.35em 0.7em;
-  border-radius: 999px;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #c2c7e0;
-  font-weight: 600;
+.ac-install__prompt {
+  color: #9fe8bb;
 }
-.ac-pill--alpha {
-  border-color: rgba(251, 191, 36, 0.45);
-  color: #fcd34d;
+.ac-install a {
+  margin-left: auto;
+  color: var(--ac-indigo-300);
+  font-weight: 600;
+  text-underline-offset: 0.2em;
+}
+.ac-hero__note {
+  max-width: 35rem;
+  margin: 0.85rem 0 0;
+  color: #959bb9;
+  font-size: 0.66rem;
+  line-height: 1.55;
 }
 
-/* 7) Code window ----------------------------------------------------------- */
+/* 6) Code window ----------------------------------------------------------- */
 .ac-window {
+  width: 100%;
   border-radius: 12px;
   overflow: hidden;
   background: var(--ac-ink-800);
@@ -328,13 +318,41 @@
   font-size: 0.7rem;
   line-height: 1.7;
   color: #dbdff2;
+  tab-size: 2;
 }
 .ac-window__code .k { color: #b6befc; font-weight: 600; }
 .ac-window__code .s { color: #9fe8bb; }
 .ac-window__code .n { color: #f2b8b8; }
 .ac-window__code .c { color: #8289ab; font-style: italic; }
 
-/* 8) Landing sections (rendered from index.md) ----------------------------- */
+.ac-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+  color: #b8bdd6;
+  font-size: 0.66rem;
+  font-weight: 650;
+  text-align: center;
+}
+.ac-flow span {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.ac-flow svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 7) Landing sections (rendered from index.md) ----------------------------- */
 .ac-section {
   margin: 3.4rem 0 0.6rem;
   text-align: center;
@@ -372,7 +390,7 @@
 /* Feature cards — real links; children are spans styled as blocks. */
 .ac-features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.9rem;
   margin: 2rem 0 1rem;
 }
@@ -488,7 +506,15 @@
   gap: 0.8rem;
 }
 
-/* 9) Content polish --------------------------------------------------------- */
+/* 8) Content polish --------------------------------------------------------- */
+.md-main__inner {
+  width: 100%;
+}
+
+.md-content__inner {
+  overflow-wrap: anywhere;
+}
+
 .md-typeset h1,
 .md-typeset h2,
 .md-typeset h3 {
@@ -503,6 +529,13 @@
 }
 .md-typeset a {
   text-underline-offset: 0.2em;
+}
+
+.md-typeset img,
+.md-typeset video,
+.md-typeset iframe,
+.md-typeset svg {
+  max-width: 100%;
 }
 
 /* Material grid cards used inside content pages */
@@ -544,6 +577,13 @@
   overflow: hidden;
   font-size: 0.72rem;
   box-shadow: 0 0 0 1px var(--md-default-fg-color--lightest);
+}
+
+.md-typeset__table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 .md-typeset table:not([class]) th {
   background: var(--md-default-bg-color--light);
@@ -588,22 +628,71 @@
   font-weight: 600;
 }
 
-/* 10) Responsive ------------------------------------------------------------ */
+/* Keyboard access ----------------------------------------------------------- */
+.ac-btn:focus-visible,
+.ac-install a:focus-visible,
+.md-typeset .ac-card:focus-visible,
+.md-typeset a:focus-visible {
+  outline: 3px solid var(--ac-indigo-300);
+  outline-offset: 3px;
+}
+
+/* 9) Responsive ------------------------------------------------------------- */
 @media screen and (max-width: 76.1875em) {
   .ac-hero__grid {
     grid-template-columns: 1fr;
     gap: 2.2rem;
-    padding: 2.6rem 0 2.8rem;
+    padding: 3rem clamp(1rem, 4vw, 2.2rem) 3.2rem;
+  }
+  .ac-hero__copy,
+  .ac-hero__code {
+    width: min(100%, 42rem);
+    margin-inline: auto;
   }
   .ac-hero__code { order: 2; }
+  .ac-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media screen and (max-width: 44.9375em) {
-  .ac-hero__grid { padding: 2rem 0 2.4rem; }
-  .ac-hero__title { font-size: clamp(1.8rem, 8vw, 2.3rem); }
+  .md-header__inner,
+  .md-tabs__list,
+  .md-main__inner,
+  .md-footer__inner,
+  .md-footer-meta__inner {
+    padding-inline: max(0.8rem, env(safe-area-inset-left));
+  }
+  .ac-hero__grid {
+    gap: 1.8rem;
+    padding: 2.4rem max(1rem, env(safe-area-inset-left)) 2.6rem;
+  }
+  .ac-hero__title {
+    max-width: 15ch;
+    font-size: clamp(2rem, 10.5vw, 2.7rem);
+  }
+  .ac-hero__lede { line-height: 1.6; }
   .ac-btn { width: 100%; justify-content: center; }
   .ac-hero__cta { flex-direction: column; }
-  .ac-window__code { font-size: 0.64rem; }
+  .ac-install { width: 100%; }
+  .ac-install a { width: 100%; margin-left: 1.05rem; }
+  .ac-window__code { padding: 0.9rem; font-size: 0.62rem; }
+  .ac-flow { gap: 0.35rem; }
+  .ac-flow span { padding-inline: 0.35rem; }
+  .ac-features { grid-template-columns: minmax(0, 1fr); }
+  .ac-section { margin-top: 2.5rem; }
+  .ac-providers { gap: 0.45rem; }
+  .ac-chip { font-size: 0.68rem; }
+  .md-typeset .ac-cta { padding: 2rem 1rem 2.2rem; }
+  .md-typeset h1 { font-size: clamp(1.65rem, 8vw, 2rem); }
+  .md-typeset h2 { font-size: clamp(1.25rem, 6vw, 1.55rem); }
+  .md-typeset pre { max-width: 100%; }
+  .md-typeset .tabbed-set { max-width: 100%; }
+  .md-typeset .tabbed-labels { overflow-x: auto; }
+}
+
+@media screen and (max-width: 23.4375em) {
+  .ac-flow svg { display: none; }
+  .ac-flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .md-header__title { font-size: 0.78rem; }
 }
 
 /* Respect reduced motion */

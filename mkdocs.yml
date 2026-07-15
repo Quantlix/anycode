@@ -1,5 +1,5 @@
 site_name: AnyCode
-site_description: AnyCode is an async-first Python framework for orchestrating multi-agent AI teams — typed tools, dependency-aware task graphs, shared memory, provider-agnostic LLM adapters, and verification gates.
+site_description: AnyCode is a Python framework for orchestrating multi-agent AI teams with typed tools, dependency-aware task graphs, durable execution, provider-neutral adapters, and verification gates.
 site_author: Quantlix
 site_url: https://quantlix.github.io/anycode/
 repo_url: https://github.com/Quantlix/anycode
@@ -8,7 +8,7 @@ edit_uri: edit/main/site_docs/
 docs_dir: site_docs
 site_dir: site
 copyright: >
-  Copyright &copy; 2025 Quantlix — released under the MIT License.
+  Copyright &copy; 2025&ndash;2026 Quantlix &mdash; released under the MIT License.
 strict: true
 
 theme:
@@ -104,6 +104,7 @@ nav:
           - Verification Gates: guides/verification-gates.md
           - Evaluate Agents: guides/evaluation.md
           - Observability: guides/observability.md
+          - Portable Infrastructure: guides/portable-infrastructure.md
           - Production Controls: guides/production-controls.md
           - Production Readiness: guides/production-readiness.md
       - Integrate and Extend:
@@ -228,7 +229,7 @@ extra:
       name: anycode-py on PyPI
   analytics:
     provider: google
-    property: !ENV [GOOGLE_ANALYTICS_KEY, ""]
+    property: !ENV GOOGLE_ANALYTICS_KEY
     feedback:
       title: Was this page helpful?
       ratings:

@@ -1,6 +1,6 @@
 ---
 title: "AnyCode — Multi-Agent AI Orchestration Framework for Python"
-description: AnyCode is an async-first Python framework for orchestrating multi-agent AI teams — dependency-aware task graphs, typed Pydantic tools, shared memory, provider-agnostic LLM adapters, and verification gates.
+description: AnyCode is a Python framework for orchestrating multi-agent AI teams with typed tools, dependency-aware task graphs, durable execution, provider-neutral adapters, and verification gates.
 keywords: python multi-agent framework, AI agent orchestration, LLM agent framework, agent task scheduling, tool use pydantic, multi-provider agents, agent verification
 template: home.html
 hide:
@@ -37,15 +37,25 @@ hide:
     <span class="ac-card__title">Provider-agnostic</span>
     <span class="ac-card__body">Mix Anthropic, OpenAI, Gemini, Ollama, Azure, and Bedrock in one team through a single typed <code>LLMAdapter</code> protocol.</span>
   </a>
-  <a class="ac-card" href="guides/production-controls/">
+  <a class="ac-card" href="guides/context-engineering/">
     <span class="ac-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 0 1 4 4c2 .5 3.5 2.2 3.5 4.4 0 1.7-.9 3.1-2.2 3.9M12 3a4 4 0 0 0-4 4c-2 .5-3.5 2.2-3.5 4.4 0 1.7.9 3.1 2.2 3.9M12 3v18M8 21h8"/></svg></span>
     <span class="ac-card__title">Memory &amp; context engineering</span>
     <span class="ac-card__body">Shared memory, RAG retrieval, checkpoints, and context policies that keep long runs inside the model's window.</span>
   </a>
-  <a class="ac-card" href="guides/production-controls/">
+  <a class="ac-card" href="guides/verification-gates/">
     <span class="ac-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8.4-7 9.5C8 19.4 5 15.4 5 11V6l7-3z"/><path d="M9 11.5l2 2 4-4"/></svg></span>
     <span class="ac-card__title">Verification gates</span>
     <span class="ac-card__body">Run <code>ruff</code>, <code>pyright</code>, <code>pytest</code>, schema, and regex sensors as quality gates that can block a bad result.</span>
+  </a>
+  <a class="ac-card" href="guides/durability/">
+    <span class="ac-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v12H4z"/><path d="M8 7V4h8v3M8 12h8M8 16h5"/></svg></span>
+    <span class="ac-card__title">Durable execution</span>
+    <span class="ac-card__body">Checkpoint work, resume interrupted runs, and move persistence between in-memory, SQLite, and external backends.</span>
+  </a>
+  <a class="ac-card" href="guides/portable-infrastructure/">
+    <span class="ac-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4.5 7.8L12 12l7.5-4.2M12 12v9"/></svg></span>
+    <span class="ac-card__title">Portable operations</span>
+    <span class="ac-card__body">Carry execution identity, policy, routing, telemetry, sandbox, and hosting contracts across deployment targets.</span>
   </a>
 </div>
 
@@ -72,19 +82,10 @@ hide:
   <p class="ac-section__lede">Requires Python 3.12+. Only one provider key is needed for the basic examples.</p>
 </section>
 
-=== "uv"
-
-    ```bash
-    uv add anycode-py          # core
-    uv add "anycode-py[cli]"   # + CLI and YAML/TOML config
-    ```
-
-=== "pip"
-
-    ```bash
-    pip install anycode-py
-    pip install "anycode-py[cli]"
-    ```
+```bash
+uv add anycode-py          # core
+uv add "anycode-py[cli]"   # CLI and YAML/TOML configuration
+```
 
 ```python title="one_agent.py"
 import asyncio
@@ -106,7 +107,7 @@ asyncio.run(main())
 
 <section class="ac-cta">
   <h2 class="ac-cta__title">Start orchestrating agent teams</h2>
-  <p class="ac-cta__lede">AnyCode is alpha and moving fast — perfect for prototypes, evaluation harnesses, and research. A TypeScript SDK is on the way.</p>
+  <p class="ac-cta__lede">Start with the Python runtime, or use the TypeScript service-client preview from Node.js and modern browsers.</p>
   <div class="ac-cta__actions">
     <a class="ac-btn ac-btn--inverse" href="getting-started/installation/">Install AnyCode</a>
     <a class="ac-btn ac-btn--ghost" href="https://github.com/Quantlix/anycode" target="_blank" rel="noopener">View on GitHub</a>
