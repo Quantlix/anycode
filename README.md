@@ -72,7 +72,7 @@ Key use cases include:
 | MCP | Connect to MCP servers, discover tools, register prefixed MCP tools, and scope MCP tools per agent |
 | Safety and control | Guardrails, token and cost budgets, output validators, turn hooks, structured output, HITL approval gates |
 | Persistence | In-memory, SQLite, Redis, vector memory, ChromaDB support, checkpoint stores, and resume support |
-| Portable infrastructure | Pluggable durability backends, execution identity, external policy enforcement, GenAI telemetry mapping, sandbox adapters, and hosting lifecycle contracts |
+| [Portable infrastructure](https://quantlix.github.io/anycode/latest/guides/portable-infrastructure/) | Pluggable durability backends, execution identity, external policy enforcement, GenAI telemetry mapping, sandbox adapters, and hosting lifecycle contracts |
 | Routing and handoff | Intelligent task routing, route decision reports, handoff requests, and context-preserving handoff execution |
 | Advanced runtime | Cost reports, self-reflection, critic loops, DAG visualization, RAG memory, lifecycle states, stop reasons, and context engineering reports |
 | Verification | Built-in `ruff`, `pyright`, `pytest`, `schema`, and `regex` sensors with quality gate decisions |
@@ -80,6 +80,8 @@ Key use cases include:
 | Developer experience | CLI commands, YAML/TOML config, examples cookbook, CLI inspection, and deterministic eval reports |
 | Extension ecosystem | Typed `Plugin` bundles (tools, provider factories, sensors, hooks) registered via `engine.register_plugin()` or auto-discovered through the `anycode.plugins` entry-point group |
 | Service client | Dependency-free TypeScript preview for lifecycle, artifact, cancellation, and resumable-stream operations in Node.js 20+ and modern browsers |
+
+Operational guides cover [durability backends](https://quantlix.github.io/anycode/latest/guides/durability-backends/), [execution identity and policy](https://quantlix.github.io/anycode/latest/guides/execution-identity/), [policy-constrained model routing](https://quantlix.github.io/anycode/latest/guides/policy-routing/), [sandbox providers](https://quantlix.github.io/anycode/latest/guides/sandbox-providers/), [service hosting](https://quantlix.github.io/anycode/latest/guides/hosting-services/), and [GenAI telemetry](https://quantlix.github.io/anycode/latest/guides/genai-telemetry/).
 
 ## Architecture At A Glance
 

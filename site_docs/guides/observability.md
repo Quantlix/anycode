@@ -203,7 +203,11 @@ Capture profiles are `off`, `metadata`, `redacted`, and `full`. Metadata exclude
 
 `BoundedTelemetryBuffer` isolates exporter outages from run state and exposes dropped-record counts. Identity fields carried by `ExecutionContext` flow into runtime spans as audit metadata, while credential references and raw credentials are excluded.
 
+See [Map GenAI telemetry safely](genai-telemetry.md) for capture profiles, attribute mapping, hashing, cardinality limits, buffering, and exporter-failure behavior.
+
 ## Next steps
+
+- [Map GenAI telemetry safely](genai-telemetry.md) - configure capture, redaction, buffering, and export.
 
 - [Visualize runs](visualization.md) - render the task graph and per-agent activity.
 - [Track and cap cost](cost-tracking.md) - enforce the budgets represented in telemetry.

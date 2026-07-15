@@ -66,6 +66,10 @@ How-to guides are **task-oriented**: each one solves a specific problem and assu
 
     [:octicons-arrow-right-24: Routing](routing.md)
 
+-   **Route models with policy**: filter providers by classification, region, capability, budget, and latency.
+
+    [:octicons-arrow-right-24: Policy routing](policy-routing.md)
+
 -   **Agent handoff** — let an agent delegate to a teammate mid-run.
 
     [:octicons-arrow-right-24: Handoff](handoff.md)
@@ -83,6 +87,22 @@ How-to guides are **task-oriented**: each one solves a specific problem and assu
 -   **Durable and resumable runs** — checkpoint, resume, chain, and schedule.
 
     [:octicons-arrow-right-24: Durability](durability.md)
+
+-   **Configure durability backends**: choose in-memory, SQLite, or Dapr state and verify its guarantees.
+
+    [:octicons-arrow-right-24: Durability backends](durability-backends.md)
+
+-   **Propagate identity and policy**: carry tenant and delegation context and enforce external decisions.
+
+    [:octicons-arrow-right-24: Execution identity](execution-identity.md)
+
+-   **Run work in sandboxes**: configure provider capabilities, network rules, secrets, and policy checks.
+
+    [:octicons-arrow-right-24: Sandbox providers](sandbox-providers.md)
+
+-   **Host AnyCode services**: control admission, readiness, graceful drain, and deployment Agent Cards.
+
+    [:octicons-arrow-right-24: Service hosting](hosting-services.md)
 
 -   **Human-in-the-loop approval** — gate sensitive actions on a person.
 
@@ -103,6 +123,14 @@ How-to guides are **task-oriented**: each one solves a specific problem and assu
 -   **Observability** — tracing, metrics, and events.
 
     [:octicons-arrow-right-24: Observability](observability.md)
+
+-   **Map GenAI telemetry**: apply capture profiles, redaction, bounded buffering, and safe export.
+
+    [:octicons-arrow-right-24: GenAI telemetry](genai-telemetry.md)
+
+-   **Deploy portable infrastructure**: connect identity, state, policy, sandbox, telemetry, and host boundaries.
+
+    [:octicons-arrow-right-24: Portable infrastructure](portable-infrastructure.md)
 
 -   **Production controls** — budgets, gates, and durability together.
 

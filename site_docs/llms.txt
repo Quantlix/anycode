@@ -34,14 +34,20 @@ Documentation is versioned; the links below point to the `latest` release alias.
 - [Memory and RAG](https://quantlix.github.io/anycode/latest/guides/memory-and-rag/): Persistent backends, shared memory, and automatic retrieval.
 - [Engineer the context window](https://quantlix.github.io/anycode/latest/guides/context-engineering/): Trim, mask, offload, and compact context by pressure.
 - [Route tasks by complexity](https://quantlix.github.io/anycode/latest/guides/routing/): Classify tasks and route each to the right model.
+- [Route models with policy](https://quantlix.github.io/anycode/latest/guides/policy-routing/): Filter models by classification, region, capability, budget, latency, and fallback compatibility.
 - [Agent handoff](https://quantlix.github.io/anycode/latest/guides/handoff/): Let an agent delegate to a teammate mid-run.
 - [Self-reflection](https://quantlix.github.io/anycode/latest/guides/reflection/): Critique and revise output against a quality threshold.
 - [Durable and resumable runs](https://quantlix.github.io/anycode/latest/guides/durability/): Checkpoints, durable runs, session chains, and scheduled wakeups.
+- [Configure durability backends](https://quantlix.github.io/anycode/latest/guides/durability-backends/): Choose and configure in-memory, SQLite, or Dapr state with explicit guarantees.
+- [Propagate execution identity and policy](https://quantlix.github.io/anycode/latest/guides/execution-identity/): Carry tenant, delegation, classification, placement, and credential references through protected operations.
+- [Run work through sandbox providers](https://quantlix.github.io/anycode/latest/guides/sandbox-providers/): Configure Daytona or companion execution with network, secret, policy, file, and cancellation boundaries.
+- [Host AnyCode services](https://quantlix.github.io/anycode/latest/guides/hosting-services/): Add admission limits, health, graceful drain, durable return, and deployment-specific A2A discovery.
 - [Human-in-the-loop approval](https://quantlix.github.io/anycode/latest/guides/human-in-the-loop/): Gate sensitive tool calls and tasks on a human.
 - [Track and cap cost](https://quantlix.github.io/anycode/latest/guides/cost-tracking/): Measure spend per agent and enforce a budget.
 - [Verification gates](https://quantlix.github.io/anycode/latest/guides/verification-gates/): Block output on ruff, pyright, pytest, regex, and schema sensors.
 - [Evaluate agents](https://quantlix.github.io/anycode/latest/guides/evaluation/): Scenario suites, scoring, and regression comparison.
 - [Observability](https://quantlix.github.io/anycode/latest/guides/observability/): Tracing, metrics, and events.
+- [Map GenAI telemetry](https://quantlix.github.io/anycode/latest/guides/genai-telemetry/): Apply capture profiles, redaction, OpenTelemetry GenAI mapping, bounded buffering, and safe export.
 - [Portable infrastructure](https://quantlix.github.io/anycode/latest/guides/portable-infrastructure/): Durability backends, execution identity, external policy, telemetry mapping, sandbox adapters, and hosting contracts.
 - [Connect MCP servers](https://quantlix.github.io/anycode/latest/guides/mcp/): stdio and streamable-http transports with bearer-token auth.
 - [Extend with plugins](https://quantlix.github.io/anycode/latest/guides/plugins/): Package tools, provider factories, sensors, and turn hooks.

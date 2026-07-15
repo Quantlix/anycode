@@ -95,15 +95,21 @@ nav:
           - Engineer the Context Window: guides/context-engineering.md
       - Coordination:
           - Route Tasks by Complexity: guides/routing.md
+          - Route Models With Policy: guides/policy-routing.md
           - Agent Handoff: guides/handoff.md
           - Self-Reflection: guides/reflection.md
       - Reliability and Ops:
           - Durable and Resumable Runs: guides/durability.md
+          - Configure Durability Backends: guides/durability-backends.md
+          - Propagate Identity and Policy: guides/execution-identity.md
+          - Run Work in Sandboxes: guides/sandbox-providers.md
+          - Host AnyCode Services: guides/hosting-services.md
           - Human-in-the-Loop Approval: guides/human-in-the-loop.md
           - Track and Cap Cost: guides/cost-tracking.md
           - Verification Gates: guides/verification-gates.md
           - Evaluate Agents: guides/evaluation.md
           - Observability: guides/observability.md
+          - Map GenAI Telemetry: guides/genai-telemetry.md
           - Portable Infrastructure: guides/portable-infrastructure.md
           - Production Controls: guides/production-controls.md
           - Production Readiness: guides/production-readiness.md

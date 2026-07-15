@@ -111,7 +111,11 @@ decision = router.route(ModelRoutingRequest(
 
 Fallback is not a relaxation path. Setting `fallback_compatibility_class` adds another hard filter; provider allow/deny lists, region, classification, budget, latency, health, modality, context, and capability restrictions continue to apply. A request with no eligible candidate returns a typed `no_eligible_model` error and the complete assessment set.
 
+For descriptor design, cost estimation, every rejection reason, and compatible fallback handling, see [Route models with hard policy constraints](policy-routing.md).
+
 ## Next steps
+
+- [Route models with hard policy constraints](policy-routing.md) - enforce region, classification, capability, budget, and latency requirements.
 
 - [Build a support-triage system](../tutorials/support-triage.md) — routing incoming tickets to specialist agents.
 - [Hand off between agents](handoff.md) — dynamic delegation as an alternative to static routing.

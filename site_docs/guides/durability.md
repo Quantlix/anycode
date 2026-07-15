@@ -223,7 +223,11 @@ The initial Dapr adapter uses one versioned aggregate state record. That makes c
 
 Use `export_filesystem_run()` to translate a legacy `FilesystemRunStore` record into a backend snapshot and `import_backend_snapshot()` for idempotent import. Retain the source until event counts, terminal state, checkpoints, and artifact references have been verified. `examples/38_pluggable_durability.py` demonstrates admission through restart; `examples/39_backend_failure_soak.py` is a duration-configurable injected-failure workload.
 
+See [Configure durability backends](durability-backends.md) for backend selection, SQLite and Dapr setup, migration code, operation guarantees, and deployment checks.
+
 ## Next steps
+
+- [Configure durability backends](durability-backends.md) - select and operate in-memory, SQLite, or Dapr state.
 
 - [Build a resumable pipeline](../tutorials/resumable-pipeline.md) — durability applied to a real crash-and-resume project.
 - [Track and cap cost](cost-tracking.md) — pair durable runs with a spend ceiling.
