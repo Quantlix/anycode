@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-16
+
 ### Added
 
 - **Portable agent infrastructure preview** - added pluggable in-memory, SQLite, and Dapr durability backends with leases, fencing, signals, migration, conformance, and failure-soak coverage; execution identity and fail-closed external policy enforcement; versioned OpenTelemetry GenAI mapping and capture profiles; companion and Daytona sandbox adapters; policy-constrained multi-provider routing; a browser/Node TypeScript service client; and container/Kubernetes hosting profiles with graceful drain and endpoint-specific A2A Agent Cards.
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Responsive documentation and discovery** - rebuilt the documentation home and content layouts for mobile navigation, narrow code blocks, scrollable tables, accessible focus states, and balanced desktop grids; removed promotional hero badges; corrected duplicate canonical and heading metadata; added dedicated durability-backend, execution-identity, policy-routing, sandbox-provider, service-hosting, and GenAI-telemetry guides; and synchronized the README, `llms.txt`, release runbook, feature guides, and TypeScript client coverage.
 - **Release-bound documentation publishing** - pushes to `main` now validate documentation without overwriting released pages. Final release tags publish the `X.Y` docs and move `latest`; pre-release tags publish a candidate version without moving `latest`. Package publishing resolves locked dependencies and runs repository-wide quality, test, documentation, build, and metadata gates before Trusted Publishing.
 - **Team verification lifecycle** - `run_team()` now evaluates `after_team` exactly once against coordinator and task output, preserves lifecycle and verification evidence on `TeamRunResult`, and returns a recoverable failure for team-level retry decisions. Passing tool-boundary gates return from `verifying` to `executing`, allowing `before_tool` and `after_tool` sensors to coexist in one legal lifecycle.
 
@@ -224,7 +227,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four examples: solo worker, crew workflow, staged pipeline, hybrid tooling.
 - Pydantic-based immutable type system (`frozen=True` on all models).
 
-[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Quantlix/anycode/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Quantlix/anycode/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Quantlix/anycode/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Quantlix/anycode/compare/v0.4.0...v0.5.0
