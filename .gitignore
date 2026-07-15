@@ -28,6 +28,5 @@ settings.local.json
 .env.test.local
 *.db
 .anycode/
-RELEASE.md
 build_out/
 /docs/
