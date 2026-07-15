@@ -1,5 +1,18 @@
 """AnyCode — scalable multi-agent AI orchestration framework for Python."""
 
+from anycode.backends import (
+    BACKEND_CONTRACT_VERSION,
+    Admission,
+    BackendCapabilities,
+    BackendSnapshot,
+    DaprDurabilityBackend,
+    DurabilityBackend,
+    InMemoryDurabilityBackend,
+    SQLiteDurabilityBackend,
+    WorkItem,
+    export_filesystem_run,
+    import_backend_snapshot,
+)
 from anycode.checkpoint.manager import CheckpointManager
 from anycode.checkpoint.serializer import UnsupportedCheckpointVersionError
 from anycode.checkpoint.store import FilesystemCheckpointStore
@@ -137,6 +150,8 @@ from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.helpers.uuid7 import uuid7
 from anycode.hitl.approval import ApprovalManager
 from anycode.hitl.channels import CallbackApprovalGate, StdinApprovalGate, WebhookApprovalGate
+from anycode.hosting import A2AAgentCard, HostLifecycle, build_deployment_agent_card
+from anycode.identity import DelegationGrant, ExecutionContext, PolicyEnforcer, PolicyRequest
 from anycode.mcp.bridge import discover_and_register as mcp_discover_and_register
 from anycode.mcp.bridge import mcp_tool_to_definition, schema_to_pydantic_model
 from anycode.mcp.client import MCPClient
@@ -168,10 +183,12 @@ from anycode.reflection.critic import DEFAULT_CRITIC_PROMPT, LLMCritic
 from anycode.reflection.evaluator import parse_critic_json
 from anycode.reflection.loop import ReflectionLoop
 from anycode.routing.classifier import classify_task
+from anycode.routing.policy import ModelRoutingRequest, PolicyRouter, ProviderCapabilityDescriptor
 from anycode.routing.router import DefaultRouter
 from anycode.routing.rules import evaluate_rules, match_rule
 from anycode.runstore.protocol import RunPayloadProtector, RunStore
 from anycode.runstore.store import FilesystemRunStore, ProtectedPayloadError, UnsupportedRunStoreVersionError
+from anycode.sandbox import CompanionSandboxAdapter, DaytonaSandboxProvider, PolicySandboxProvider, SandboxProvider, SandboxSpec
 from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
 from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
 from anycode.security import REDACTED_SECRET, redact_sensitive, redact_text, safe_exception_message
@@ -185,6 +202,7 @@ from anycode.structured.output import (
 from anycode.tasks.queue import TaskQueue
 from anycode.tasks.task import create_task, get_task_dependency_order, is_task_ready, validate_task_dependencies
 from anycode.telemetry.events import EventEmitter, TelemetryEvent
+from anycode.telemetry.genai import GenAITelemetryConfig, GenAITelemetryMapper
 from anycode.telemetry.metrics import MetricsCollector, Timer
 from anycode.telemetry.tracer import ConsoleExporter, JSONLExporter, OTLPExporter, Span, Tracer
 from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
@@ -380,6 +398,18 @@ __all__ = [
     "AgentPool",
     "Scheduler",
     "TaskSpec",
+    # Pluggable durability
+    "BACKEND_CONTRACT_VERSION",
+    "Admission",
+    "BackendCapabilities",
+    "BackendSnapshot",
+    "DaprDurabilityBackend",
+    "DurabilityBackend",
+    "InMemoryDurabilityBackend",
+    "SQLiteDurabilityBackend",
+    "WorkItem",
+    "export_filesystem_run",
+    "import_backend_snapshot",
     # Preview semantic contracts
     "CONTRACT_SCHEMA_VERSION",
     "RUN_TRANSITIONS",
@@ -536,6 +566,9 @@ __all__ = [
     "trim_context",
     # Routing
     "DefaultRouter",
+    "ModelRoutingRequest",
+    "PolicyRouter",
+    "ProviderCapabilityDescriptor",
     "classify_task",
     "evaluate_rules",
     "match_rule",
@@ -555,6 +588,21 @@ __all__ = [
     "CallbackApprovalGate",
     "StdinApprovalGate",
     "WebhookApprovalGate",
+    # Execution identity and policy
+    "DelegationGrant",
+    "ExecutionContext",
+    "PolicyEnforcer",
+    "PolicyRequest",
+    # Sandboxes
+    "CompanionSandboxAdapter",
+    "DaytonaSandboxProvider",
+    "PolicySandboxProvider",
+    "SandboxProvider",
+    "SandboxSpec",
+    # Managed hosting
+    "A2AAgentCard",
+    "HostLifecycle",
+    "build_deployment_agent_card",
     # Tasks
     "TaskQueue",
     "create_task",
@@ -587,6 +635,8 @@ __all__ = [
     "Timer",
     "EventEmitter",
     "TelemetryEvent",
+    "GenAITelemetryConfig",
+    "GenAITelemetryMapper",
     # Guardrails
     "BudgetTracker",
     "estimate_cost",
