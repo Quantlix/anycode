@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-07-19
+
 ### Changed
 
 - **Runnable, searchable documentation** - added complete copyable programs across core guides, expanded CLI and public API coverage, normalized page descriptions for search snippets, removed duplicate social metadata, and added regression checks for page structure and version-switcher deployment.
+
+### Fixed
+
+- **Release metadata recovery** - synchronized package and documentation release metadata for the required `v0.8.2` tag after the malformed `0.8.1` GitHub release failed before publishing a package or versioned documentation.
 
 ## [0.8.0] - 2026-07-16
 
@@ -231,7 +237,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four examples: solo worker, crew workflow, staged pipeline, hybrid tooling.
 - Pydantic-based immutable type system (`frozen=True` on all models).
 
-[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/Quantlix/anycode/compare/v0.8.0...v0.8.2
 [0.8.0]: https://github.com/Quantlix/anycode/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Quantlix/anycode/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Quantlix/anycode/compare/v0.5.0...v0.6.0
