@@ -93,16 +93,6 @@
   
   <meta name="keywords" content="AnyCode CLI, anycode command, anycode run, anycode init, anycode inspect, anycode eval, anycode runs, CLI reference">
   
-  <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="AnyCode">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="CLI Reference — AnyCode Python Framework">
-  <meta property="og:description" content="AnyCode CLI reference: scaffold projects, run YAML and TOML team configs, inspect tools and providers, run eval suites, and manage durable run stores.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/reference/cli/">
-  <meta name="twitter:title" content="CLI Reference — AnyCode Python Framework">
-  <meta name="twitter:description" content="AnyCode CLI reference: scaffold projects, run YAML and TOML team configs, inspect tools and providers, run eval suites, and manage durable run stores.">
-
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -2883,6 +2873,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="anycode eval">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#anycode-eval-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode eval run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anycode-eval-compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode eval compare
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2893,6 +2911,45 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anycode-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode harness
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="anycode harness">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#anycode-harness-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode harness manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anycode-harness-evolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode harness evolve
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3335,6 +3392,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="anycode eval">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#anycode-eval-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode eval run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anycode-eval-compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode eval compare
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3345,6 +3430,45 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anycode-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode harness
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="anycode harness">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#anycode-harness-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode harness manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anycode-harness-evolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        anycode harness evolve
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3468,11 +3592,15 @@
 </tr>
 <tr>
 <td><a href="#anycode-eval"><code>anycode eval</code></a></td>
-<td>Run evaluation scenarios from a suite file.</td>
+<td>Run (<code>run</code>) or compare (<code>compare</code>) evaluation suites.</td>
 </tr>
 <tr>
 <td><a href="#anycode-runs"><code>anycode runs</code></a></td>
 <td>Inspect durable run stores (list, show, tail, audit, sweep).</td>
+</tr>
+<tr>
+<td><a href="#anycode-harness"><code>anycode harness</code></a></td>
+<td>Emit a harness manifest (<code>manifest</code>) or run an experimental evolution sweep (<code>evolve</code>).</td>
 </tr>
 </tbody>
 </table>
@@ -3514,19 +3642,129 @@
 <p><code>inspect config</code> and <code>inspect team</code> resolve a config without executing it — a quick way to catch schema or wiring errors before a full run.</p>
 </div>
 <h2 id="anycode-eval"><code>anycode eval</code><a class="headerlink" href="#anycode-eval" title="Permanent link">&para;</a></h2>
-<p>Run evaluation scenarios from a suite file. Deterministic fake responses can be used for CI and harness tests without provider credentials.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span><span class="nb">eval</span><span class="w"> </span>tests/fixtures/eval/runtime_reliability_deterministic.yaml
+<p>Run and compare evaluation suites. The command has two subcommands, <code>run</code> and <code>compare</code>. Deterministic fake responses can be used for CI and harness tests without provider credentials.</p>
+<h3 id="anycode-eval-run"><code>anycode eval run</code><a class="headerlink" href="#anycode-eval-run" title="Permanent link">&para;</a></h3>
+<p>Execute every scenario in a suite file against the configured provider and write a JSON report.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span><span class="nb">eval</span><span class="w"> </span>run<span class="w"> </span>tests/fixtures/eval/runtime_reliability_deterministic.yaml
 </span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--variant</code>, <code>-v</code></td>
+<td><code>baseline</code></td>
+<td>Label for this harness variant, recorded in the report.</td>
+</tr>
+<tr>
+<td><code>--output</code>, <code>-o</code></td>
+<td><code>artifacts/eval/report.json</code></td>
+<td>Where to write the JSON report.</td>
+</tr>
+<tr>
+<td><code>--name</code>, <code>-n</code></td>
+<td><code>default</code></td>
+<td>Suite name recorded in the report.</td>
+</tr>
+<tr>
+<td><code>--markdown</code>, <code>-m</code></td>
+<td>off</td>
+<td>Also print a markdown summary table.</td>
+</tr>
+</tbody>
+</table>
+<p>The command exits non-zero if any scenario fails, so it doubles as a CI gate.</p>
+<h3 id="anycode-eval-compare"><code>anycode eval compare</code><a class="headerlink" href="#anycode-eval-compare" title="Permanent link">&para;</a></h3>
+<p>Diff two reports and surface regressions, improvements, and newly added scenarios.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span><span class="nb">eval</span><span class="w"> </span>compare<span class="w"> </span>artifacts/eval/baseline.json<span class="w"> </span>artifacts/eval/candidate.json
+</span></code></pre></div>
+<p>By default it exits non-zero when the candidate regresses against the baseline. Pass <code>--no-fail-on-regression</code> to report differences without failing.</p>
 <h2 id="anycode-runs"><code>anycode runs</code><a class="headerlink" href="#anycode-runs" title="Permanent link">&para;</a></h2>
 <p>Inspect durable run stores:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>list<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>show<span class="w"> </span>&lt;run-id&gt;<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>tail<span class="w"> </span>&lt;run-id&gt;<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>audit<span class="w"> </span>&lt;run-id&gt;<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>sweep<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>sweep<span class="w"> </span>--root<span class="w"> </span>.anycode/runs<span class="w"> </span>--retention-days<span class="w"> </span><span class="m">30</span><span class="w"> </span>--max-runs<span class="w"> </span><span class="m">1000</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>list<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>show<span class="w"> </span>&lt;run-id&gt;<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>tail<span class="w"> </span>&lt;run-id&gt;<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>audit<span class="w"> </span>&lt;run-id&gt;<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>sweep<span class="w"> </span>--root<span class="w"> </span>.anycode/runs
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>runs<span class="w"> </span>sweep<span class="w"> </span>--root<span class="w"> </span>.anycode/runs<span class="w"> </span>--retention-days<span class="w"> </span><span class="m">30</span><span class="w"> </span>--max-runs<span class="w"> </span><span class="m">1000</span>
 </span></code></pre></div>
 <p>Use these commands when workflows checkpoint turns, pause for wake conditions, or need an audit trail. Retention is disabled unless <code>--retention-days</code> or <code>--max-runs</code> is supplied; only terminal runs are eligible. See <a href="../../guides/production-controls/">Production controls</a> for durable-run configuration.</p>
+<h2 id="anycode-harness"><code>anycode harness</code><a class="headerlink" href="#anycode-harness" title="Permanent link">&para;</a></h2>
+<p>Inspect and — experimentally — evolve the harness itself. This is an advanced surface used by evaluation tooling; most projects never need it. See the <a href="../public-api/#adaptive-harness-advanced">adaptive harness section of the Public API</a>.</p>
+<h3 id="anycode-harness-manifest"><code>anycode harness manifest</code><a class="headerlink" href="#anycode-harness-manifest" title="Permanent link">&para;</a></h3>
+<p>Emit a deterministic manifest of every editable harness component for a configured team.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>harness<span class="w"> </span>manifest<span class="w"> </span>--config<span class="w"> </span>team.yaml
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--config</code>, <code>-c</code></td>
+<td><em>(required)</em></td>
+<td>AnyCode config file to build the manifest from.</td>
+</tr>
+<tr>
+<td><code>--output</code>, <code>-o</code></td>
+<td><code>artifacts/harness/manifest.json</code></td>
+<td>Where to write the manifest JSON.</td>
+</tr>
+<tr>
+<td><code>--notes</code></td>
+<td><em>(none)</em></td>
+<td>Optional note attached to the manifest.</td>
+</tr>
+<tr>
+<td><code>--pretty</code></td>
+<td>off</td>
+<td>Pretty-print the (secret-redacted) manifest to stdout.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="anycode-harness-evolve"><code>anycode harness evolve</code><a class="headerlink" href="#anycode-harness-evolve" title="Permanent link">&para;</a></h3>
+<p>Run a controlled, <strong>dry-run-by-default</strong> evolution sweep over an eval suite. It never writes back to your repository; accepted changes are emitted as reviewable JSON patches.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>uv<span class="w"> </span>run<span class="w"> </span>anycode<span class="w"> </span>harness<span class="w"> </span>evolve<span class="w"> </span>tests/fixtures/eval/runtime_reliability_deterministic.yaml
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--max-iterations</code></td>
+<td><code>3</code></td>
+<td>Maximum proposal cycles.</td>
+</tr>
+<tr>
+<td><code>--dry-run</code> / <code>--apply</code></td>
+<td><code>--dry-run</code></td>
+<td><code>--apply</code> is reserved for experimental tooling and currently exits early.</td>
+</tr>
+<tr>
+<td><code>--patch-dir</code></td>
+<td><code>artifacts/harness/patches</code></td>
+<td>Where to emit reviewable patches.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Experimental</p>
+<p>Harness evolution is experimental and intended for evaluation environments, not production runs. Keep it in dry-run mode and review every emitted patch by hand.</p>
+</div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../getting-started/quickstart/">Quickstart</a> — run your first agent and team.</li>

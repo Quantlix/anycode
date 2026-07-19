@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Block bad AnyCode output with quality gates: run ruff, pyright, pytest, regex, and schema sensors at defined phases and decide pass, retry, or block by severity.">
+        <meta name="description" content="Gate AnyCode output with ruff, pyright, pytest, regex, and schema sensors at defined phases, then decide whether to pass, retry, or block by severity.">
       
       
         <meta name="author" content="Quantlix">
@@ -93,16 +93,6 @@
   
   <meta name="keywords" content="anycode verification, quality gate, QualityGate, ruff_sensor pytest_sensor, schema_sensor, VerificationSensorConfig, decide_gate, block on failure, sensor phases">
   
-  <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="AnyCode">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Gate AnyCode Output with Verification Sensors">
-  <meta property="og:description" content="Block bad AnyCode output with quality gates: run ruff, pyright, pytest, regex, and schema sensors at defined phases and decide pass, retry, or block by severity.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/verification-gates/">
-  <meta name="twitter:title" content="Gate AnyCode Output with Verification Sensors">
-  <meta name="twitter:description" content="Block bad AnyCode output with quality gates: run ruff, pyright, pytest, regex, and schema sensors at defined phases and decide pass, retry, or block by severity.">
-
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -142,7 +132,7 @@
       {
         "@type": "TechArticle",
         "headline": "Gate AnyCode Output with Verification Sensors",
-        "description": "Block bad AnyCode output with quality gates: run ruff, pyright, pytest, regex, and schema sensors at defined phases and decide pass, retry, or block by severity.",
+        "description": "Gate AnyCode output with ruff, pyright, pytest, regex, and schema sensors at defined phases, then decide whether to pass, retry, or block by severity.",
         "url": "https://quantlix.github.io/anycode/0.8/guides/verification-gates/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.8#website" },
@@ -156,7 +146,7 @@
   
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Gate AnyCode Output with Verification Sensors - AnyCode" />
-<meta property="og:description" content="Block bad AnyCode output with quality gates: run ruff, pyright, pytest, regex, and schema sensors at defined phases and decide pass, retry, or block by severity." />
+<meta property="og:description" content="Gate AnyCode output with ruff, pyright, pytest, regex, and schema sensors at defined phases, then decide whether to pass, retry, or block by severity." />
 <meta property="og:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/verification-gates.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
@@ -164,7 +154,7 @@
 <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/verification-gates/" />
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:title" content="Gate AnyCode Output with Verification Sensors - AnyCode" />
-<meta property="twitter:description" content="Block bad AnyCode output with quality gates: run ruff, pyright, pytest, regex, and schema sensors at defined phases and decide pass, retry, or block by severity." />
+<meta property="twitter:description" content="Gate AnyCode output with ruff, pyright, pytest, regex, and schema sensors at defined phases, then decide whether to pass, retry, or block by severity." />
 <meta property="twitter:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/verification-gates.png" />
 </head>
   
@@ -2067,6 +2057,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3347,6 +3348,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3659,6 +3671,74 @@
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
 </span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">judge</span> <span class="o">=</span> <span class="n">Sensor</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">VerificationSensorConfig</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;no_todo&quot;</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;computational&quot;</span><span class="p">),</span> <span class="n">fn</span><span class="o">=</span><span class="n">_judge</span><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="the-complete-runnable-program">The complete, runnable program<a class="headerlink" href="#the-complete-runnable-program" title="Permanent link">&para;</a></h2>
+<p>The snippets above are fragments. Here is one self-contained file that runs entirely offline — no provider key, no network — so you can watch a gate accept and block deterministically. It builds two gates: a declarative <code>regex</code> sensor materialized from a <code>VerificationSensorConfig</code> (exactly what a YAML <code>verification:</code> block turns into), and a code-only <code>schema_sensor</code> that validates output against a Pydantic model.</p>
+<div class="language-python highlight"><span class="filename">gate.py</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">QualityGate</span><span class="p">,</span> <span class="n">SensorContext</span><span class="p">,</span> <span class="n">schema_sensor</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">VerificationSensorConfig</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.verification</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_sensors</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">class</span><span class="w"> </span><span class="nc">WeatherReport</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">city</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">temperature_celsius</span><span class="p">:</span> <span class="nb">float</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">summary</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_declarative_gate</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A registry sensor built from config, as a YAML `verification:` block materializes.&quot;&quot;&quot;</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="n">gate</span> <span class="o">=</span> <span class="n">QualityGate</span><span class="p">(</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>        <span class="n">build_sensors</span><span class="p">(</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>            <span class="p">(</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>                <span class="n">VerificationSensorConfig</span><span class="p">(</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>                    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;regex&quot;</span><span class="p">,</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>                    <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;computational&quot;</span><span class="p">,</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>                    <span class="n">phases</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;after_task&quot;</span><span class="p">,),</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>                    <span class="n">block_on_failure</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>                    <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pattern&quot;</span><span class="p">:</span> <span class="s2">&quot;DONE&quot;</span><span class="p">,</span> <span class="s2">&quot;expect&quot;</span><span class="p">:</span> <span class="s2">&quot;match&quot;</span><span class="p">},</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>                <span class="p">),</span>
+</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>            <span class="p">)</span>
+</span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>        <span class="p">)</span>
+</span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>    <span class="p">)</span>
+</span><span id="__span-3-31"><a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=== Declarative regex gate ===&quot;</span><span class="p">)</span>
+</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>    <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;the task is DONE.&quot;</span><span class="p">,</span> <span class="s2">&quot;still working on it...&quot;</span><span class="p">):</span>
+</span><span id="__span-3-33"><a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>        <span class="n">decision</span> <span class="o">=</span> <span class="k">await</span> <span class="n">gate</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
+</span><span id="__span-3-34"><a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>            <span class="n">SensorContext</span><span class="p">(</span><span class="n">phase</span><span class="o">=</span><span class="s2">&quot;after_task&quot;</span><span class="p">,</span> <span class="n">agent_name</span><span class="o">=</span><span class="s2">&quot;demo&quot;</span><span class="p">,</span> <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;run-regex&quot;</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
+</span><span id="__span-3-35"><a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>        <span class="p">)</span>
+</span><span id="__span-3-36"><a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  output=</span><span class="si">{</span><span class="n">output</span><span class="si">!r}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">decision</span><span class="o">.</span><span class="n">outcome</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-3-37"><a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>
+</span><span id="__span-3-38"><a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>
+</span><span id="__span-3-39"><a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_schema_gate</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-40"><a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A code-only gate: output must parse and validate against a Pydantic model.&quot;&quot;&quot;</span>
+</span><span id="__span-3-41"><a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a>    <span class="n">gate</span> <span class="o">=</span> <span class="n">QualityGate</span><span class="p">([</span><span class="n">schema_sensor</span><span class="p">(</span><span class="n">WeatherReport</span><span class="p">,</span> <span class="n">phases</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;after_task&quot;</span><span class="p">,))])</span>
+</span><span id="__span-3-42"><a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== Schema gate ===&quot;</span><span class="p">)</span>
+</span><span id="__span-3-43"><a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>    <span class="n">good</span> <span class="o">=</span> <span class="s1">&#39;{&quot;city&quot;: &quot;Paris&quot;, &quot;temperature_celsius&quot;: 18.5, &quot;summary&quot;: &quot;mild&quot;}&#39;</span>
+</span><span id="__span-3-44"><a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a>    <span class="n">bad</span> <span class="o">=</span> <span class="s1">&#39;{&quot;city&quot;: &quot;Paris&quot;}&#39;</span>  <span class="c1"># missing required fields</span>
+</span><span id="__span-3-45"><a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>    <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">output</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="n">good</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;bad&quot;</span><span class="p">,</span> <span class="n">bad</span><span class="p">)):</span>
+</span><span id="__span-3-46"><a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a>        <span class="n">decision</span> <span class="o">=</span> <span class="k">await</span> <span class="n">gate</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
+</span><span id="__span-3-47"><a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a>            <span class="n">SensorContext</span><span class="p">(</span><span class="n">phase</span><span class="o">=</span><span class="s2">&quot;after_task&quot;</span><span class="p">,</span> <span class="n">agent_name</span><span class="o">=</span><span class="s2">&quot;reporter&quot;</span><span class="p">,</span> <span class="n">run_id</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;run-</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
+</span><span id="__span-3-48"><a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>        <span class="p">)</span>
+</span><span id="__span-3-49"><a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> output -&gt; </span><span class="si">{</span><span class="n">decision</span><span class="o">.</span><span class="n">outcome</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">decision</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-3-50"><a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a>
+</span><span id="__span-3-51"><a id="__codelineno-3-51" name="__codelineno-3-51" href="#__codelineno-3-51"></a>
+</span><span id="__span-3-52"><a id="__codelineno-3-52" name="__codelineno-3-52" href="#__codelineno-3-52"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-53"><a id="__codelineno-3-53" name="__codelineno-3-53" href="#__codelineno-3-53"></a>    <span class="k">await</span> <span class="n">run_declarative_gate</span><span class="p">()</span>
+</span><span id="__span-3-54"><a id="__codelineno-3-54" name="__codelineno-3-54" href="#__codelineno-3-54"></a>    <span class="k">await</span> <span class="n">run_schema_gate</span><span class="p">()</span>
+</span><span id="__span-3-55"><a id="__codelineno-3-55" name="__codelineno-3-55" href="#__codelineno-3-55"></a>
+</span><span id="__span-3-56"><a id="__codelineno-3-56" name="__codelineno-3-56" href="#__codelineno-3-56"></a>
+</span><span id="__span-3-57"><a id="__codelineno-3-57" name="__codelineno-3-57" href="#__codelineno-3-57"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+</span><span id="__span-3-58"><a id="__codelineno-3-58" name="__codelineno-3-58" href="#__codelineno-3-58"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span></code></pre></div>
+<p>Run it from the project root:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gate.py
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tested copy</p>
+<p>See <a href="https://github.com/Quantlix/anycode/blob/main/examples/24_verification_gates.py"><code>examples/24_verification_gates.py</code></a> for the declarative registry path, and <a href="https://github.com/Quantlix/anycode/blob/main/examples/20_quality_gates.py"><code>examples/20_quality_gates.py</code></a> for computational, inferential (LLM-judge), and live-agent gates side by side.</p>
+</div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../tutorials/code-review-crew/">Build a code-review crew</a> — verification gates guarding real code changes.</li>

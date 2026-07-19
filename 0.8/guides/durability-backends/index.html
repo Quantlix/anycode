@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Choose and configure AnyCode in-memory, SQLite, or Dapr durability backends for runs, events, leases, checkpoints, wakes, and signals.">
+        <meta name="description" content="Choose AnyCode in-memory, SQLite, or Dapr durability backends and configure guarantees for runs, events, leases, checkpoints, wakes, migrations, and signals.">
       
       
         <meta name="author" content="Quantlix">
@@ -93,16 +93,6 @@
   
   <meta name="keywords" content="AnyCode durability backend, SQLite agent state, Dapr agent persistence, AI agent leases, durable agent runs">
   
-  <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="AnyCode">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Configure AnyCode Durability Backends">
-  <meta property="og:description" content="Choose and configure AnyCode in-memory, SQLite, or Dapr durability backends for runs, events, leases, checkpoints, wakes, and signals.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/durability-backends/">
-  <meta name="twitter:title" content="Configure AnyCode Durability Backends">
-  <meta name="twitter:description" content="Choose and configure AnyCode in-memory, SQLite, or Dapr durability backends for runs, events, leases, checkpoints, wakes, and signals.">
-
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -142,7 +132,7 @@
       {
         "@type": "TechArticle",
         "headline": "Configure AnyCode Durability Backends",
-        "description": "Choose and configure AnyCode in-memory, SQLite, or Dapr durability backends for runs, events, leases, checkpoints, wakes, and signals.",
+        "description": "Choose AnyCode in-memory, SQLite, or Dapr durability backends and configure guarantees for runs, events, leases, checkpoints, wakes, migrations, and signals.",
         "url": "https://quantlix.github.io/anycode/0.8/guides/durability-backends/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.8#website" },
@@ -156,7 +146,7 @@
   
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Configure AnyCode Durability Backends - AnyCode" />
-<meta property="og:description" content="Choose and configure AnyCode in-memory, SQLite, or Dapr durability backends for runs, events, leases, checkpoints, wakes, and signals." />
+<meta property="og:description" content="Choose AnyCode in-memory, SQLite, or Dapr durability backends and configure guarantees for runs, events, leases, checkpoints, wakes, migrations, and signals." />
 <meta property="og:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/durability-backends.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
@@ -164,7 +154,7 @@
 <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/durability-backends/" />
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:title" content="Configure AnyCode Durability Backends - AnyCode" />
-<meta property="twitter:description" content="Choose and configure AnyCode in-memory, SQLite, or Dapr durability backends for runs, events, leases, checkpoints, wakes, and signals." />
+<meta property="twitter:description" content="Choose AnyCode in-memory, SQLite, or Dapr durability backends and configure guarantees for runs, events, leases, checkpoints, wakes, migrations, and signals." />
 <meta property="twitter:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/durability-backends.png" />
 </head>
   
@@ -1921,6 +1911,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3391,6 +3392,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3664,6 +3676,91 @@
 <li><code>examples/39_backend_failure_soak.py</code> exercises partitions and ambiguous post-commit failures.</li>
 <li><code>tests/test_backend_conformance.py</code> is the reusable behavioral contract.</li>
 </ul>
+<h2 id="the-complete-runnable-program">The complete, runnable program<a class="headerlink" href="#the-complete-runnable-program" title="Permanent link">&para;</a></h2>
+<p>This one file runs the full backend workload end to end: admit a run, enqueue and claim its work under a lease, commit a state transition against the expected event sequence, save a checkpoint, register a timed wake, deliver an external signal, then export the portable snapshot. It uses <code>InMemoryDurabilityBackend</code>, so it needs no external services or extra dependencies. Swap the one backend line for <code>SQLiteDurabilityBackend(".anycode/backend.db")</code> (needs the <code>[persistence]</code> extra) or a configured <code>DaprDurabilityBackend</code> — the workload below does not change, which is the point of the contract.</p>
+<div class="language-python highlight"><span class="filename">durability_backend.py</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">UTC</span><span class="p">,</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">Admission</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">Checkpoint</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">Event</span><span class="p">,</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">InMemoryDurabilityBackend</span><span class="p">,</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">Run</span><span class="p">,</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">WorkItem</span><span class="p">,</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">transition_run</span><span class="p">,</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="n">uuid7</span><span class="p">,</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="p">)</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.backends</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExternalSignal</span><span class="p">,</span> <span class="n">WakeRegistration</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">LEASE_SECONDS</span> <span class="o">=</span> <span class="mf">30.0</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>    <span class="n">backend</span> <span class="o">=</span> <span class="n">InMemoryDurabilityBackend</span><span class="p">()</span>
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>    <span class="n">caps</span> <span class="o">=</span> <span class="n">backend</span><span class="o">.</span><span class="n">capabilities</span><span class="p">()</span>
+</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;backend=</span><span class="si">{</span><span class="n">caps</span><span class="o">.</span><span class="n">backend</span><span class="si">}</span><span class="s2"> persistent=</span><span class="si">{</span><span class="n">caps</span><span class="o">.</span><span class="n">persistent</span><span class="si">}</span><span class="s2"> external=</span><span class="si">{</span><span class="n">caps</span><span class="o">.</span><span class="n">external</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>    <span class="n">health</span> <span class="o">=</span> <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">health</span><span class="p">()</span>
+</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;health: </span><span class="si">{</span><span class="n">health</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>
+</span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>    <span class="n">run_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid7</span><span class="p">())</span>
+</span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>    <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">UTC</span><span class="p">)</span>
+</span><span id="__span-5-29"><a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>
+</span><span id="__span-5-30"><a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>    <span class="c1"># 1. Admit the run with its first event. The admission key is idempotent.</span>
+</span><span id="__span-5-31"><a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>    <span class="n">run</span> <span class="o">=</span> <span class="n">Run</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">correlation_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">created_at</span><span class="o">=</span><span class="n">now</span><span class="p">,</span> <span class="n">updated_at</span><span class="o">=</span><span class="n">now</span><span class="p">)</span>
+</span><span id="__span-5-32"><a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a>    <span class="n">initial</span> <span class="o">=</span> <span class="n">Event</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">uuid7</span><span class="p">()),</span> <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">sequence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;run.accepted&quot;</span><span class="p">,</span> <span class="n">correlation_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">emitted_at</span><span class="o">=</span><span class="n">now</span><span class="p">)</span>
+</span><span id="__span-5-33"><a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>    <span class="n">admitted</span> <span class="o">=</span> <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">admit</span><span class="p">(</span><span class="n">Admission</span><span class="p">(</span><span class="n">admission_key</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;example:</span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="n">run</span><span class="p">,</span> <span class="n">initial_event</span><span class="o">=</span><span class="n">initial</span><span class="p">))</span>
+</span><span id="__span-5-34"><a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">admitted</span><span class="o">.</span><span class="n">admitted</span> <span class="ow">or</span> <span class="n">admitted</span><span class="o">.</span><span class="n">run</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-35"><a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">admitted</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">message</span> <span class="k">if</span> <span class="n">admitted</span><span class="o">.</span><span class="n">error</span> <span class="k">else</span> <span class="s2">&quot;admission failed&quot;</span><span class="p">)</span>
+</span><span id="__span-5-36"><a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>
+</span><span id="__span-5-37"><a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>    <span class="c1"># 2. Enqueue ready work and claim it under a lease.</span>
+</span><span id="__span-5-38"><a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a>    <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">enqueue</span><span class="p">(</span><span class="n">WorkItem</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">uuid7</span><span class="p">()),</span> <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;export-task&quot;</span><span class="p">,</span> <span class="n">available_at</span><span class="o">=</span><span class="n">now</span><span class="p">))</span>
+</span><span id="__span-5-39"><a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a>    <span class="n">claimed</span> <span class="o">=</span> <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">claim</span><span class="p">(</span><span class="s2">&quot;worker-1&quot;</span><span class="p">,</span> <span class="n">lease_seconds</span><span class="o">=</span><span class="n">LEASE_SECONDS</span><span class="p">)</span>
+</span><span id="__span-5-40"><a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a>    <span class="k">if</span> <span class="n">claimed</span><span class="o">.</span><span class="n">claim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-41"><a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a>        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;ready work could not be claimed&quot;</span><span class="p">)</span>
+</span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a>
+</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a>    <span class="c1"># 3. Commit a state transition against the expected event sequence.</span>
+</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a>    <span class="n">queued</span> <span class="o">=</span> <span class="n">transition_run</span><span class="p">(</span><span class="n">admitted</span><span class="o">.</span><span class="n">run</span><span class="p">,</span> <span class="s2">&quot;queued&quot;</span><span class="p">,</span> <span class="n">now</span><span class="o">=</span><span class="n">now</span><span class="p">)</span>
+</span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a>    <span class="k">if</span> <span class="n">queued</span><span class="o">.</span><span class="n">run</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">queued</span><span class="o">.</span><span class="n">event</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a>        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">queued</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">message</span> <span class="k">if</span> <span class="n">queued</span><span class="o">.</span><span class="n">error</span> <span class="k">else</span> <span class="s2">&quot;run transition failed&quot;</span><span class="p">)</span>
+</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a>    <span class="n">committed</span> <span class="o">=</span> <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">commit</span><span class="p">(</span><span class="n">claimed</span><span class="o">.</span><span class="n">claim</span><span class="p">,</span> <span class="n">queued</span><span class="o">.</span><span class="n">event</span><span class="p">,</span> <span class="n">expected_sequence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="n">queued</span><span class="o">.</span><span class="n">run</span><span class="p">)</span>
+</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">committed</span><span class="o">.</span><span class="n">accepted</span><span class="p">:</span>
+</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a>        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">committed</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">message</span> <span class="k">if</span> <span class="n">committed</span><span class="o">.</span><span class="n">error</span> <span class="k">else</span> <span class="s2">&quot;commit failed&quot;</span><span class="p">)</span>
+</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a>
+</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51" href="#__codelineno-5-51"></a>    <span class="c1"># 4. Save a checkpoint, register a timed wake, and deliver an external signal.</span>
+</span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52" href="#__codelineno-5-52"></a>    <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">Checkpoint</span><span class="p">(</span>
+</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53" href="#__codelineno-5-53"></a>        <span class="nb">id</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">uuid7</span><span class="p">()),</span>
+</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54" href="#__codelineno-5-54"></a>        <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55" href="#__codelineno-5-55"></a>        <span class="n">event_cursor</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56" href="#__codelineno-5-56"></a>        <span class="n">generation</span><span class="o">=</span><span class="n">queued</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">generation</span><span class="p">,</span>
+</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57" href="#__codelineno-5-57"></a>        <span class="n">attempt</span><span class="o">=</span><span class="n">queued</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span>
+</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58" href="#__codelineno-5-58"></a>        <span class="n">correlation_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59" href="#__codelineno-5-59"></a>        <span class="n">run</span><span class="o">=</span><span class="n">queued</span><span class="o">.</span><span class="n">run</span><span class="p">,</span>
+</span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60" href="#__codelineno-5-60"></a>    <span class="p">)</span>
+</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61" href="#__codelineno-5-61"></a>    <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">save_checkpoint</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
+</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62" href="#__codelineno-5-62"></a>    <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">register_wake</span><span class="p">(</span>
+</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63" href="#__codelineno-5-63"></a>        <span class="n">WakeRegistration</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">uuid7</span><span class="p">()),</span> <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">wake_at</span><span class="o">=</span><span class="n">now</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;scheduled follow-up&quot;</span><span class="p">)</span>
+</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64" href="#__codelineno-5-64"></a>    <span class="p">)</span>
+</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65" href="#__codelineno-5-65"></a>    <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">deliver_signal</span><span class="p">(</span><span class="n">ExternalSignal</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">uuid7</span><span class="p">()),</span> <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;operator-note&quot;</span><span class="p">,</span> <span class="n">payload</span><span class="o">=</span><span class="s2">&quot;continue&quot;</span><span class="p">))</span>
+</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66" href="#__codelineno-5-66"></a>
+</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67" href="#__codelineno-5-67"></a>    <span class="c1"># 5. Export the portable snapshot — the same shape every backend produces.</span>
+</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68" href="#__codelineno-5-68"></a>    <span class="n">snapshot</span> <span class="o">=</span> <span class="k">await</span> <span class="n">backend</span><span class="o">.</span><span class="n">export_run</span><span class="p">(</span><span class="n">run_id</span><span class="p">)</span>
+</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69" href="#__codelineno-5-69"></a>    <span class="k">assert</span> <span class="n">snapshot</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70" href="#__codelineno-5-70"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;exported run=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> state=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">state</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71" href="#__codelineno-5-71"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;events=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">snapshot</span><span class="o">.</span><span class="n">events</span><span class="p">)</span><span class="si">}</span><span class="s2"> wakes=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">snapshot</span><span class="o">.</span><span class="n">wakes</span><span class="p">)</span><span class="si">}</span><span class="s2"> signals=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">snapshot</span><span class="o">.</span><span class="n">signals</span><span class="p">)</span><span class="si">}</span><span class="s2"> checkpoint=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">checkpoint</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="kc">None</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-5-72"><a id="__codelineno-5-72" name="__codelineno-5-72" href="#__codelineno-5-72"></a>
+</span><span id="__span-5-73"><a id="__codelineno-5-73" name="__codelineno-5-73" href="#__codelineno-5-73"></a>
+</span><span id="__span-5-74"><a id="__codelineno-5-74" name="__codelineno-5-74" href="#__codelineno-5-74"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+</span><span id="__span-5-75"><a id="__codelineno-5-75" name="__codelineno-5-75" href="#__codelineno-5-75"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span></code></pre></div>
+<p>Run it from the project root:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>durability_backend.py
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tested copy</p>
+<p>See <a href="https://github.com/Quantlix/anycode/blob/main/examples/38_pluggable_durability.py"><code>examples/38_pluggable_durability.py</code></a> for the CI-tested version, which runs the same workload against SQLite or a Dapr state store, and <a href="https://github.com/Quantlix/anycode/blob/main/examples/39_backend_failure_soak.py"><code>examples/39_backend_failure_soak.py</code></a> for the injected-failure soak that proves an ambiguous commit never duplicates an event.</p>
+</div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../execution-identity/">Propagate execution identity and policy</a></li>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention.">
+        <meta name="description" content="Trace AnyCode runs with correlated spans, bounded metrics and events, redacted JSONL logs, or failure-isolated OTLP export for production observability.">
       
       
         <meta name="author" content="Quantlix">
@@ -93,16 +93,6 @@
   
   <meta name="keywords" content="anycode telemetry, tracing, TraceConfig, structured JSONL logs, opentelemetry otlp, runtime metrics, correlation IDs, observability, alerts">
   
-  <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="AnyCode">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Trace and Measure AnyCode Runs with Telemetry">
-  <meta property="og:description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/observability/">
-  <meta name="twitter:title" content="Trace and Measure AnyCode Runs with Telemetry">
-  <meta name="twitter:description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention.">
-
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -142,7 +132,7 @@
       {
         "@type": "TechArticle",
         "headline": "Trace and Measure AnyCode Runs with Telemetry",
-        "description": "Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention.",
+        "description": "Trace AnyCode runs with correlated spans, bounded metrics and events, redacted JSONL logs, or failure-isolated OTLP export for production observability.",
         "url": "https://quantlix.github.io/anycode/0.8/guides/observability/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.8#website" },
@@ -156,7 +146,7 @@
   
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Trace and Measure AnyCode Runs with Telemetry - AnyCode" />
-<meta property="og:description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention." />
+<meta property="og:description" content="Trace AnyCode runs with correlated spans, bounded metrics and events, redacted JSONL logs, or failure-isolated OTLP export for production observability." />
 <meta property="og:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/observability.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
@@ -164,7 +154,7 @@
 <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/observability/" />
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:title" content="Trace and Measure AnyCode Runs with Telemetry - AnyCode" />
-<meta property="twitter:description" content="Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention." />
+<meta property="twitter:description" content="Trace AnyCode runs with correlated spans, bounded metrics and events, redacted JSONL logs, or failure-isolated OTLP export for production observability." />
 <meta property="twitter:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/observability.png" />
 </head>
   
@@ -2156,6 +2146,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3413,6 +3414,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3782,6 +3794,91 @@
 <p>Capture profiles are <code>off</code>, <code>metadata</code>, <code>redacted</code>, and <code>full</code>. Metadata excludes prompt, response, tool arguments, artifact bodies, and credential-like values. Redacted permits content only after key/value scrubbing; full still applies credential rejection, length limits, hashing rules, and cardinality bounds. Use full only with an independently protected telemetry destination and explicit data governance.</p>
 <p><code>BoundedTelemetryBuffer</code> isolates exporter outages from run state and exposes dropped-record counts. Identity fields carried by <code>ExecutionContext</code> flow into runtime spans as audit metadata, while credential references and raw credentials are excluded.</p>
 <p>See <a href="../genai-telemetry/">Map GenAI telemetry safely</a> for capture profiles, attribute mapping, hashing, cardinality limits, buffering, and exporter-failure behavior.</p>
+<h2 id="the-complete-runnable-program">The complete, runnable program<a class="headerlink" href="#the-complete-runnable-program" title="Permanent link">&para;</a></h2>
+<p>The snippets above are fragments. Here is one self-contained file that enables a tracer, produces the spans an instrumented agent run would emit, and then reads back the correlated events, the derived metrics, and the retention counters. It runs fully offline with no API key: telemetry is synchronous, and the spans stand in for a live run so the output is deterministic.</p>
+<div class="language-python highlight"><span class="filename">telemetry_demo.py</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tracer</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpanAttributes</span><span class="p">,</span> <span class="n">TraceConfig</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">simulate_instrumented_run</span><span class="p">(</span><span class="n">tracer</span><span class="p">:</span> <span class="n">Tracer</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Open the spans an agent run would emit, driving metrics and events.</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="sd">    With the JSONL exporter, each completed sampled span prints one redacted</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="sd">    JSON line as it closes.</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">span</span><span class="p">(</span><span class="s2">&quot;anycode.run_agent.deployer&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">root</span><span class="p">:</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        <span class="n">root</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>            <span class="n">SpanAttributes</span><span class="p">(</span><span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span> <span class="n">agent_name</span><span class="o">=</span><span class="s2">&quot;deployer&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">)</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>        <span class="p">)</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>        <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">span</span><span class="p">(</span><span class="s2">&quot;anycode.llm.chat&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">root</span><span class="p">)</span> <span class="k">as</span> <span class="n">llm_span</span><span class="p">:</span>
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>            <span class="n">llm_span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>                <span class="n">SpanAttributes</span><span class="p">(</span>
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>                    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span>
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>                    <span class="n">provider</span><span class="o">=</span><span class="s2">&quot;anthropic&quot;</span><span class="p">,</span>
+</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>                    <span class="n">token_input</span><span class="o">=</span><span class="mi">350</span><span class="p">,</span>
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>                    <span class="n">token_output</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>                    <span class="n">cost_usd</span><span class="o">=</span><span class="mf">0.0012</span><span class="p">,</span>
+</span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>                <span class="p">)</span>
+</span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>            <span class="p">)</span>
+</span><span id="__span-10-26"><a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>
+</span><span id="__span-10-27"><a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>        <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">span</span><span class="p">(</span><span class="s2">&quot;anycode.tool.file_read&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">root</span><span class="p">)</span> <span class="k">as</span> <span class="n">tool_span</span><span class="p">:</span>
+</span><span id="__span-10-28"><a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a>            <span class="n">tool_span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span><span class="n">SpanAttributes</span><span class="p">(</span><span class="n">tool_name</span><span class="o">=</span><span class="s2">&quot;file_read&quot;</span><span class="p">))</span>
+</span><span id="__span-10-29"><a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>
+</span><span id="__span-10-30"><a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a>        <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">span</span><span class="p">(</span><span class="s2">&quot;anycode.run_agent.deployer.terminal&quot;</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">root</span><span class="p">)</span> <span class="k">as</span> <span class="n">terminal</span><span class="p">:</span>
+</span><span id="__span-10-31"><a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>            <span class="n">terminal</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+</span><span id="__span-10-32"><a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a>                <span class="n">SpanAttributes</span><span class="p">(</span><span class="n">phase</span><span class="o">=</span><span class="s2">&quot;completed&quot;</span><span class="p">,</span> <span class="n">stop_reason</span><span class="o">=</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="n">retry_count</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>            <span class="p">)</span>
+</span><span id="__span-10-34"><a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>
+</span><span id="__span-10-35"><a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>
+</span><span id="__span-10-36"><a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-10-37"><a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a>    <span class="n">tracer</span> <span class="o">=</span> <span class="n">Tracer</span><span class="p">(</span><span class="n">TraceConfig</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exporter</span><span class="o">=</span><span class="s2">&quot;jsonl&quot;</span><span class="p">))</span>
+</span><span id="__span-10-38"><a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a>    <span class="n">run_id</span> <span class="o">=</span> <span class="s2">&quot;7ed62e65-86be-44ba-b825-96fdfab73231&quot;</span>
+</span><span id="__span-10-39"><a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>
+</span><span id="__span-10-40"><a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--- JSONL span logs ---&quot;</span><span class="p">)</span>
+</span><span id="__span-10-41"><a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a>    <span class="n">simulate_instrumented_run</span><span class="p">(</span><span class="n">tracer</span><span class="p">,</span> <span class="n">run_id</span><span class="p">)</span>
+</span><span id="__span-10-42"><a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a>
+</span><span id="__span-10-43"><a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a>    <span class="c1"># Correlate: every completion event that belongs to this run.</span>
+</span><span id="__span-10-44"><a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- Completion events for run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2"> ---&quot;</span><span class="p">)</span>
+</span><span id="__span-10-45"><a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a>    <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">tracer</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">events</span><span class="p">:</span>
+</span><span id="__span-10-46"><a id="__codelineno-10-46" name="__codelineno-10-46" href="#__codelineno-10-46"></a>        <span class="n">attributes</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s2">&quot;attributes&quot;</span><span class="p">]</span>
+</span><span id="__span-10-47"><a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a>        <span class="k">if</span> <span class="n">attributes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_id&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">run_id</span><span class="p">:</span>
+</span><span id="__span-10-48"><a id="__codelineno-10-48" name="__codelineno-10-48" href="#__codelineno-10-48"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">attributes</span><span class="p">[</span><span class="s1">&#39;operation&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">  status=</span><span class="si">{</span><span class="n">attributes</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-10-49"><a id="__codelineno-10-49" name="__codelineno-10-49" href="#__codelineno-10-49"></a>
+</span><span id="__span-10-50"><a id="__codelineno-10-50" name="__codelineno-10-50" href="#__codelineno-10-50"></a>    <span class="c1"># Automatic metrics derived from the completed spans.</span>
+</span><span id="__span-10-51"><a id="__codelineno-10-51" name="__codelineno-10-51" href="#__codelineno-10-51"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- Metric counters ---&quot;</span><span class="p">)</span>
+</span><span id="__span-10-52"><a id="__codelineno-10-52" name="__codelineno-10-52" href="#__codelineno-10-52"></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">tracer</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()[</span><span class="s2">&quot;counters&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="__span-10-53"><a id="__codelineno-10-53" name="__codelineno-10-53" href="#__codelineno-10-53"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-10-54"><a id="__codelineno-10-54" name="__codelineno-10-54" href="#__codelineno-10-54"></a>    <span class="n">runs</span> <span class="o">=</span> <span class="n">tracer</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">get_counter</span><span class="p">(</span>
+</span><span id="__span-10-55"><a id="__codelineno-10-55" name="__codelineno-10-55" href="#__codelineno-10-55"></a>        <span class="s2">&quot;anycode.runs&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;outcome&quot;</span><span class="p">:</span> <span class="s2">&quot;completed&quot;</span><span class="p">,</span> <span class="s2">&quot;stop_reason&quot;</span><span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">}</span>
+</span><span id="__span-10-56"><a id="__codelineno-10-56" name="__codelineno-10-56" href="#__codelineno-10-56"></a>    <span class="p">)</span>
+</span><span id="__span-10-57"><a id="__codelineno-10-57" name="__codelineno-10-57" href="#__codelineno-10-57"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  completed-success runs: </span><span class="si">{</span><span class="n">runs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-10-58"><a id="__codelineno-10-58" name="__codelineno-10-58" href="#__codelineno-10-58"></a>
+</span><span id="__span-10-59"><a id="__codelineno-10-59" name="__codelineno-10-59" href="#__codelineno-10-59"></a>    <span class="c1"># Retention health — all in-memory telemetry is bounded.</span>
+</span><span id="__span-10-60"><a id="__codelineno-10-60" name="__codelineno-10-60" href="#__codelineno-10-60"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- Retention health ---&quot;</span><span class="p">)</span>
+</span><span id="__span-10-61"><a id="__codelineno-10-61" name="__codelineno-10-61" href="#__codelineno-10-61"></a>    <span class="n">health</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-10-62"><a id="__codelineno-10-62" name="__codelineno-10-62" href="#__codelineno-10-62"></a>        <span class="s2">&quot;dropped_spans&quot;</span><span class="p">:</span> <span class="n">tracer</span><span class="o">.</span><span class="n">dropped_spans</span><span class="p">,</span>
+</span><span id="__span-10-63"><a id="__codelineno-10-63" name="__codelineno-10-63" href="#__codelineno-10-63"></a>        <span class="s2">&quot;dropped_events&quot;</span><span class="p">:</span> <span class="n">tracer</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">dropped_events</span><span class="p">,</span>
+</span><span id="__span-10-64"><a id="__codelineno-10-64" name="__codelineno-10-64" href="#__codelineno-10-64"></a>        <span class="s2">&quot;dropped_metric_series&quot;</span><span class="p">:</span> <span class="n">tracer</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">dropped_series</span><span class="p">,</span>
+</span><span id="__span-10-65"><a id="__codelineno-10-65" name="__codelineno-10-65" href="#__codelineno-10-65"></a>        <span class="s2">&quot;dropped_histogram_samples&quot;</span><span class="p">:</span> <span class="n">tracer</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">dropped_histogram_samples</span><span class="p">,</span>
+</span><span id="__span-10-66"><a id="__codelineno-10-66" name="__codelineno-10-66" href="#__codelineno-10-66"></a>    <span class="p">}</span>
+</span><span id="__span-10-67"><a id="__codelineno-10-67" name="__codelineno-10-67" href="#__codelineno-10-67"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">health</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-10-68"><a id="__codelineno-10-68" name="__codelineno-10-68" href="#__codelineno-10-68"></a>
+</span><span id="__span-10-69"><a id="__codelineno-10-69" name="__codelineno-10-69" href="#__codelineno-10-69"></a>    <span class="c1"># Flush and close before a short-lived process exits (required for OTLP).</span>
+</span><span id="__span-10-70"><a id="__codelineno-10-70" name="__codelineno-10-70" href="#__codelineno-10-70"></a>    <span class="n">tracer</span><span class="o">.</span><span class="n">force_flush</span><span class="p">(</span><span class="n">timeout_millis</span><span class="o">=</span><span class="mi">30_000</span><span class="p">)</span>
+</span><span id="__span-10-71"><a id="__codelineno-10-71" name="__codelineno-10-71" href="#__codelineno-10-71"></a>    <span class="n">tracer</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+</span><span id="__span-10-72"><a id="__codelineno-10-72" name="__codelineno-10-72" href="#__codelineno-10-72"></a>
+</span><span id="__span-10-73"><a id="__codelineno-10-73" name="__codelineno-10-73" href="#__codelineno-10-73"></a>
+</span><span id="__span-10-74"><a id="__codelineno-10-74" name="__codelineno-10-74" href="#__codelineno-10-74"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+</span><span id="__span-10-75"><a id="__codelineno-10-75" name="__codelineno-10-75" href="#__codelineno-10-75"></a>    <span class="n">main</span><span class="p">()</span>
+</span></code></pre></div>
+<p>Run it from the project root:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>telemetry_demo.py
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Prefer a tested copy? Use the examples directory</p>
+<p>The repository ships a runnable, CI-tested version of this pattern. See <a href="https://github.com/Quantlix/anycode/blob/main/examples/05_production_features.py"><code>examples/05_production_features.py</code></a>, whose observability section drives the console exporter, <code>MetricsCollector</code>, <code>Timer</code>, and <code>EventEmitter</code> end to end.</p>
+</div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li>

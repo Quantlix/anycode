@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Require a human to approve sensitive AnyCode tool calls or tasks with ApprovalManager and approval gates for stdin, callbacks, or webhooks, including timeout policy.">
+        <meta name="description" content="Require human approval for sensitive AnyCode tools or tasks with stdin, callback, or webhook gates, audit history, timeout policy, and explicit denial.">
       
       
         <meta name="author" content="Quantlix">
@@ -93,16 +93,6 @@
   
   <meta name="keywords" content="anycode human in the loop, HITL approval, ApprovalManager, ApprovalConfig, approval gate, StdinApprovalGate, WebhookApprovalGate, approve tool call, require_approval_tools">
   
-  <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="AnyCode">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Add Human-in-the-Loop Approval Gates to AnyCode">
-  <meta property="og:description" content="Require a human to approve sensitive AnyCode tool calls or tasks with ApprovalManager and approval gates for stdin, callbacks, or webhooks, including timeout policy.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/human-in-the-loop/">
-  <meta name="twitter:title" content="Add Human-in-the-Loop Approval Gates to AnyCode">
-  <meta name="twitter:description" content="Require a human to approve sensitive AnyCode tool calls or tasks with ApprovalManager and approval gates for stdin, callbacks, or webhooks, including timeout policy.">
-
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -142,7 +132,7 @@
       {
         "@type": "TechArticle",
         "headline": "Add Human-in-the-Loop Approval Gates to AnyCode",
-        "description": "Require a human to approve sensitive AnyCode tool calls or tasks with ApprovalManager and approval gates for stdin, callbacks, or webhooks, including timeout policy.",
+        "description": "Require human approval for sensitive AnyCode tools or tasks with stdin, callback, or webhook gates, audit history, timeout policy, and explicit denial.",
         "url": "https://quantlix.github.io/anycode/0.8/guides/human-in-the-loop/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.8#website" },
@@ -156,7 +146,7 @@
   
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Add Human-in-the-Loop Approval Gates to AnyCode - AnyCode" />
-<meta property="og:description" content="Require a human to approve sensitive AnyCode tool calls or tasks with ApprovalManager and approval gates for stdin, callbacks, or webhooks, including timeout policy." />
+<meta property="og:description" content="Require human approval for sensitive AnyCode tools or tasks with stdin, callback, or webhook gates, audit history, timeout policy, and explicit denial." />
 <meta property="og:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/human-in-the-loop.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
@@ -164,7 +154,7 @@
 <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/human-in-the-loop/" />
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:title" content="Add Human-in-the-Loop Approval Gates to AnyCode - AnyCode" />
-<meta property="twitter:description" content="Require a human to approve sensitive AnyCode tool calls or tasks with ApprovalManager and approval gates for stdin, callbacks, or webhooks, including timeout policy." />
+<meta property="twitter:description" content="Require human approval for sensitive AnyCode tools or tasks with stdin, callback, or webhook gates, audit history, timeout policy, and explicit denial." />
 <meta property="twitter:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/human-in-the-loop.png" />
 </head>
   
@@ -2011,6 +2001,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3347,6 +3348,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3568,6 +3580,72 @@
 <div class="admonition danger">
 <p class="admonition-title">No handler, no gate</p>
 <p>If <code>approval_handler</code> is <code>None</code>, no approval manager is created even when <code>enabled=True</code>. There is no default gate — you must supply one.</p>
+</div>
+<h2 id="the-complete-runnable-program">The complete, runnable program<a class="headerlink" href="#the-complete-runnable-program" title="Permanent link">&para;</a></h2>
+<p>Here is one whole file that puts the pieces together: an <code>ApprovalConfig</code> that gates only <code>bash</code> and <code>file_write</code>, a <code>CallbackApprovalGate</code> whose handler rejects shell commands, and a loop that shows all three outcomes — approved, rejected, and skipped (<code>None</code>, not required) — then prints the audit trail. It uses callback gates only, so it runs with no TTY, no API key, and no network.</p>
+<div class="language-python highlight"><span class="filename">approval.py</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">UTC</span><span class="p">,</span> <span class="n">datetime</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApprovalManager</span><span class="p">,</span> <span class="n">CallbackApprovalGate</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApprovalConfig</span><span class="p">,</span> <span class="n">ApprovalRequest</span><span class="p">,</span> <span class="n">ApprovalResponse</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">review</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">ApprovalRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ApprovalResponse</span><span class="p">:</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Decide each request. In production, route this to a UI, queue, or chatbot.&quot;&quot;&quot;</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">tool_name</span> <span class="o">=</span> <span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tool_name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="k">if</span> <span class="n">tool_name</span> <span class="o">==</span> <span class="s2">&quot;bash&quot;</span><span class="p">:</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="k">return</span> <span class="n">ApprovalResponse</span><span class="p">(</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>            <span class="n">approved</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>            <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;Shell commands require manual review&quot;</span><span class="p">,</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>            <span class="n">request_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>            <span class="n">responded_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">UTC</span><span class="p">),</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>        <span class="p">)</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="k">return</span> <span class="n">ApprovalResponse</span><span class="p">(</span><span class="n">approved</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">request_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">responded_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">UTC</span><span class="p">))</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">ApprovalConfig</span><span class="p">(</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="n">require_approval_tools</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;bash&quot;</span><span class="p">,</span> <span class="s2">&quot;file_write&quot;</span><span class="p">],</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>        <span class="n">timeout_seconds</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>        <span class="n">default_on_timeout</span><span class="o">=</span><span class="s2">&quot;reject&quot;</span><span class="p">,</span>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>    <span class="p">)</span>
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>    <span class="n">manager</span> <span class="o">=</span> <span class="n">ApprovalManager</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">CallbackApprovalGate</span><span class="p">(</span><span class="n">review</span><span class="p">))</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>    <span class="n">attempts</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>        <span class="p">(</span><span class="s2">&quot;bash&quot;</span><span class="p">,</span> <span class="s2">&quot;Run: rm -rf ./build&quot;</span><span class="p">),</span>
+</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>        <span class="p">(</span><span class="s2">&quot;file_write&quot;</span><span class="p">,</span> <span class="s2">&quot;Write report to ./out/report.md&quot;</span><span class="p">),</span>
+</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>        <span class="p">(</span><span class="s2">&quot;file_read&quot;</span><span class="p">,</span> <span class="s2">&quot;Read ./src/app.py&quot;</span><span class="p">),</span>
+</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>    <span class="p">]</span>
+</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>    <span class="k">for</span> <span class="n">tool_name</span><span class="p">,</span> <span class="n">description</span> <span class="ow">in</span> <span class="n">attempts</span><span class="p">:</span>
+</span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>        <span class="n">decision</span> <span class="o">=</span> <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">check_and_request</span><span class="p">(</span>
+</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>            <span class="n">request_type</span><span class="o">=</span><span class="s2">&quot;tool_call&quot;</span><span class="p">,</span>
+</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>            <span class="n">agent</span><span class="o">=</span><span class="s2">&quot;worker&quot;</span><span class="p">,</span>
+</span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>            <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+</span><span id="__span-2-40"><a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>            <span class="n">context</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;tool_name&quot;</span><span class="p">:</span> <span class="n">tool_name</span><span class="p">},</span>
+</span><span id="__span-2-41"><a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a>        <span class="p">)</span>
+</span><span id="__span-2-42"><a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a>        <span class="k">if</span> <span class="n">decision</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-2-43"><a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[skipped ] </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">: approval not required&quot;</span><span class="p">)</span>
+</span><span id="__span-2-44"><a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a>        <span class="k">elif</span> <span class="n">decision</span><span class="o">.</span><span class="n">approved</span><span class="p">:</span>
+</span><span id="__span-2-45"><a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[approved] </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-2-46"><a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a>        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-2-47"><a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[rejected] </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">decision</span><span class="o">.</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-2-48"><a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a>
+</span><span id="__span-2-49"><a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- audit trail ---&quot;</span><span class="p">)</span>
+</span><span id="__span-2-50"><a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a>    <span class="k">for</span> <span class="n">request</span><span class="p">,</span> <span class="n">response</span> <span class="ow">in</span> <span class="n">manager</span><span class="o">.</span><span class="n">history</span><span class="p">:</span>
+</span><span id="__span-2-51"><a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a>        <span class="n">verdict</span> <span class="o">=</span> <span class="s2">&quot;APPROVED&quot;</span> <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">approved</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;REJECTED (</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">reason</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span id="__span-2-52"><a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">description</span><span class="si">:</span><span class="s2">34s</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">verdict</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-2-53"><a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a>
+</span><span id="__span-2-54"><a id="__codelineno-2-54" name="__codelineno-2-54" href="#__codelineno-2-54"></a>
+</span><span id="__span-2-55"><a id="__codelineno-2-55" name="__codelineno-2-55" href="#__codelineno-2-55"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+</span><span id="__span-2-56"><a id="__codelineno-2-56" name="__codelineno-2-56" href="#__codelineno-2-56"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span></code></pre></div>
+<p>Run it from the project root:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>approval.py
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tested copy</p>
+<p>See <a href="https://github.com/Quantlix/anycode/blob/main/examples/08_hitl_approval.py"><code>examples/08_hitl_approval.py</code></a> for the CI-tested version, which also covers timeout handling, modified-input flows, task-level gates, and console rendering of a request.</p>
 </div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>

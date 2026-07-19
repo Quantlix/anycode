@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Configure identity, external policy, sandbox providers, durable state, telemetry, and safe container or Kubernetes hosting for AnyCode.">
+        <meta name="description" content="Deploy AnyCode portably with durable state, execution identity, external policy, sandbox providers, GenAI telemetry, and safe container or Kubernetes hosting.">
       
       
         <meta name="author" content="Quantlix">
@@ -93,16 +93,6 @@
   
   <meta name="keywords" content="AnyCode deployment, workload identity, Dapr state, Daytona sandbox, Kubernetes agents, external policy">
   
-  <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="AnyCode">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Deploy Portable AnyCode Infrastructure">
-  <meta property="og:description" content="Configure identity, external policy, sandbox providers, durable state, telemetry, and safe container or Kubernetes hosting for AnyCode.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/portable-infrastructure/">
-  <meta name="twitter:title" content="Deploy Portable AnyCode Infrastructure">
-  <meta name="twitter:description" content="Configure identity, external policy, sandbox providers, durable state, telemetry, and safe container or Kubernetes hosting for AnyCode.">
-
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -142,7 +132,7 @@
       {
         "@type": "TechArticle",
         "headline": "Deploy Portable AnyCode Infrastructure",
-        "description": "Configure identity, external policy, sandbox providers, durable state, telemetry, and safe container or Kubernetes hosting for AnyCode.",
+        "description": "Deploy AnyCode portably with durable state, execution identity, external policy, sandbox providers, GenAI telemetry, and safe container or Kubernetes hosting.",
         "url": "https://quantlix.github.io/anycode/0.8/guides/portable-infrastructure/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.8#website" },
@@ -156,7 +146,7 @@
   
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Deploy Portable AnyCode Infrastructure - AnyCode" />
-<meta property="og:description" content="Configure identity, external policy, sandbox providers, durable state, telemetry, and safe container or Kubernetes hosting for AnyCode." />
+<meta property="og:description" content="Deploy AnyCode portably with durable state, execution identity, external policy, sandbox providers, GenAI telemetry, and safe container or Kubernetes hosting." />
 <meta property="og:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/portable-infrastructure.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
@@ -164,7 +154,7 @@
 <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/portable-infrastructure/" />
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:title" content="Deploy Portable AnyCode Infrastructure - AnyCode" />
-<meta property="twitter:description" content="Configure identity, external policy, sandbox providers, durable state, telemetry, and safe container or Kubernetes hosting for AnyCode." />
+<meta property="twitter:description" content="Deploy AnyCode portably with durable state, execution identity, external policy, sandbox providers, GenAI telemetry, and safe container or Kubernetes hosting." />
 <meta property="twitter:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/portable-infrastructure.png" />
 </head>
   
@@ -2184,6 +2174,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3347,6 +3348,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3553,6 +3565,162 @@
 </table>
 <p>Before an upgrade, verify the candidate can read the deployed contract/backend versions and run conformance against a canary. Stop admission before drain; durably return work that misses the termination window. Roll back the immutable image without deleting or reversing durable history. Do not overlap versions whose supported contract ranges do not intersect.</p>
 <p>See <code>deploy/IMAGE_CONTRACT.md</code> and <code>deploy/README.md</code> for the concrete image, upgrade, and rollback contract. <code>examples/40_operational_portability.py</code> runs identity, policy, telemetry, routing, and companion-sandbox behavior without credentials.</p>
+<h2 id="the-complete-runnable-program">The complete, runnable program<a class="headerlink" href="#the-complete-runnable-program" title="Permanent link">&para;</a></h2>
+<p>The sections above each cover one control. Here is a single file that ties them together and runs offline with no provider key. It builds one immutable <code>ExecutionContext</code>, enforces external policy at the model boundary, routes to a region- and classification-compatible provider, maps a runtime event to telemetry without exporting prompt content, carries the same identity across the sandbox boundary, and drains a host before publishing an A2A Agent Card. One identity envelope flows through every boundary.</p>
+<div class="language-python highlight"><span class="filename">portable_infrastructure.py</span><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">A2A_AGENT_CARD_PATH</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">CapabilityDescriptor</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">ExecutionContext</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">GenAITelemetryConfig</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">GenAITelemetryMapper</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">HostLifecycle</span><span class="p">,</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">ModelRoutingRequest</span><span class="p">,</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">PolicyDecision</span><span class="p">,</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">PolicyEnforcer</span><span class="p">,</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">PolicyRequest</span><span class="p">,</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">PolicyRouter</span><span class="p">,</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">ProviderCapabilityDescriptor</span><span class="p">,</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">SandboxSpec</span><span class="p">,</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">build_deployment_agent_card</span><span class="p">,</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">uuid7</span><span class="p">,</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="p">)</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="k">class</span><span class="w"> </span><span class="nc">RegionPolicy</span><span class="p">:</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;External policy adapter returning the versioned decision contract.&quot;&quot;&quot;</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">decide</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">PolicyRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PolicyDecision</span><span class="p">:</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>        <span class="n">allowed</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">required_region</span> <span class="ow">in</span> <span class="n">request</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">allowed_regions</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>        <span class="k">return</span> <span class="n">PolicyDecision</span><span class="p">(</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>            <span class="nb">id</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">uuid7</span><span class="p">()),</span>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>            <span class="n">run_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>            <span class="n">task_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">task_id</span><span class="p">,</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>            <span class="n">outcome</span><span class="o">=</span><span class="s2">&quot;allow&quot;</span> <span class="k">if</span> <span class="n">allowed</span> <span class="k">else</span> <span class="s2">&quot;deny&quot;</span><span class="p">,</span>
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>            <span class="n">policy_version</span><span class="o">=</span><span class="s2">&quot;region-policy/1&quot;</span><span class="p">,</span>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>            <span class="n">reason_codes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;region_allowed&quot;</span> <span class="k">if</span> <span class="n">allowed</span> <span class="k">else</span> <span class="s2">&quot;region_denied&quot;</span><span class="p">,),</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>            <span class="n">correlation_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">correlation_id</span><span class="p">,</span>
+</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>            <span class="n">causation_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">causation_id</span><span class="p">,</span>
+</span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>            <span class="n">generation</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">generation</span><span class="p">,</span>
+</span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>            <span class="n">attempt</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span>
+</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>        <span class="p">)</span>
+</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>
+</span><span id="__span-1-40"><a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>
+</span><span id="__span-1-41"><a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_context</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ExecutionContext</span><span class="p">:</span>
+</span><span id="__span-1-42"><a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>    <span class="k">return</span> <span class="n">ExecutionContext</span><span class="p">(</span>
+</span><span id="__span-1-43"><a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>        <span class="n">principal</span><span class="o">=</span><span class="s2">&quot;user:reviewer-42&quot;</span><span class="p">,</span>
+</span><span id="__span-1-44"><a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>        <span class="n">subject</span><span class="o">=</span><span class="s2">&quot;document:release-notes&quot;</span><span class="p">,</span>
+</span><span id="__span-1-45"><a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>        <span class="n">workload_identity</span><span class="o">=</span><span class="s2">&quot;kubernetes:serviceaccount:anycode-service&quot;</span><span class="p">,</span>
+</span><span id="__span-1-46"><a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>        <span class="n">tenant_scope</span><span class="o">=</span><span class="s2">&quot;tenant:example&quot;</span><span class="p">,</span>
+</span><span id="__span-1-47"><a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a>        <span class="n">classification</span><span class="o">=</span><span class="s2">&quot;confidential&quot;</span><span class="p">,</span>
+</span><span id="__span-1-48"><a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>        <span class="n">allowed_regions</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;eu-west&quot;</span><span class="p">,),</span>
+</span><span id="__span-1-49"><a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a>        <span class="n">required_region</span><span class="o">=</span><span class="s2">&quot;eu-west&quot;</span><span class="p">,</span>
+</span><span id="__span-1-50"><a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a>        <span class="n">credential_references</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;vault:providers/reviewer&quot;</span><span class="p">,),</span>
+</span><span id="__span-1-51"><a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>    <span class="p">)</span>
+</span><span id="__span-1-52"><a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a>
+</span><span id="__span-1-53"><a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a>
+</span><span id="__span-1-54"><a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-1-55"><a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>    <span class="n">context</span> <span class="o">=</span> <span class="n">build_context</span><span class="p">()</span>
+</span><span id="__span-1-56"><a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a>
+</span><span id="__span-1-57"><a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a>    <span class="c1"># 1. Identity plus external policy at the model boundary, failing closed.</span>
+</span><span id="__span-1-58"><a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a>    <span class="n">enforcer</span> <span class="o">=</span> <span class="n">PolicyEnforcer</span><span class="p">(</span><span class="n">RegionPolicy</span><span class="p">(),</span> <span class="n">fail_closed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-1-59"><a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a>    <span class="n">decision</span> <span class="o">=</span> <span class="k">await</span> <span class="n">enforcer</span><span class="o">.</span><span class="n">enforce</span><span class="p">(</span>
+</span><span id="__span-1-60"><a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a>        <span class="n">PolicyRequest</span><span class="p">(</span>
+</span><span id="__span-1-61"><a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a>            <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;run-42&quot;</span><span class="p">,</span>
+</span><span id="__span-1-62"><a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a>            <span class="n">action</span><span class="o">=</span><span class="s2">&quot;model.invoke&quot;</span><span class="p">,</span>
+</span><span id="__span-1-63"><a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a>            <span class="n">resource</span><span class="o">=</span><span class="s2">&quot;model:secure-eu&quot;</span><span class="p">,</span>
+</span><span id="__span-1-64"><a id="__codelineno-1-64" name="__codelineno-1-64" href="#__codelineno-1-64"></a>            <span class="n">boundary</span><span class="o">=</span><span class="s2">&quot;model&quot;</span><span class="p">,</span>
+</span><span id="__span-1-65"><a id="__codelineno-1-65" name="__codelineno-1-65" href="#__codelineno-1-65"></a>            <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+</span><span id="__span-1-66"><a id="__codelineno-1-66" name="__codelineno-1-66" href="#__codelineno-1-66"></a>            <span class="n">correlation_id</span><span class="o">=</span><span class="s2">&quot;correlation-42&quot;</span><span class="p">,</span>
+</span><span id="__span-1-67"><a id="__codelineno-1-67" name="__codelineno-1-67" href="#__codelineno-1-67"></a>        <span class="p">)</span>
+</span><span id="__span-1-68"><a id="__codelineno-1-68" name="__codelineno-1-68" href="#__codelineno-1-68"></a>    <span class="p">)</span>
+</span><span id="__span-1-69"><a id="__codelineno-1-69" name="__codelineno-1-69" href="#__codelineno-1-69"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">decision</span><span class="o">.</span><span class="n">allowed</span><span class="p">:</span>
+</span><span id="__span-1-70"><a id="__codelineno-1-70" name="__codelineno-1-70" href="#__codelineno-1-70"></a>        <span class="k">raise</span> <span class="ne">PermissionError</span><span class="p">(</span><span class="n">decision</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">message</span> <span class="k">if</span> <span class="n">decision</span><span class="o">.</span><span class="n">error</span> <span class="k">else</span> <span class="s2">&quot;denied&quot;</span><span class="p">)</span>
+</span><span id="__span-1-71"><a id="__codelineno-1-71" name="__codelineno-1-71" href="#__codelineno-1-71"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;policy:&quot;</span><span class="p">,</span> <span class="n">decision</span><span class="o">.</span><span class="n">decision</span><span class="o">.</span><span class="n">outcome</span><span class="p">,</span> <span class="n">decision</span><span class="o">.</span><span class="n">decision</span><span class="o">.</span><span class="n">reason_codes</span><span class="p">)</span>
+</span><span id="__span-1-72"><a id="__codelineno-1-72" name="__codelineno-1-72" href="#__codelineno-1-72"></a>
+</span><span id="__span-1-73"><a id="__codelineno-1-73" name="__codelineno-1-73" href="#__codelineno-1-73"></a>    <span class="c1"># 2. Route to a provider that satisfies region, classification, and capability.</span>
+</span><span id="__span-1-74"><a id="__codelineno-1-74" name="__codelineno-1-74" href="#__codelineno-1-74"></a>    <span class="n">router</span> <span class="o">=</span> <span class="n">PolicyRouter</span><span class="p">(</span>
+</span><span id="__span-1-75"><a id="__codelineno-1-75" name="__codelineno-1-75" href="#__codelineno-1-75"></a>        <span class="p">(</span>
+</span><span id="__span-1-76"><a id="__codelineno-1-76" name="__codelineno-1-76" href="#__codelineno-1-76"></a>            <span class="n">ProviderCapabilityDescriptor</span><span class="p">(</span>
+</span><span id="__span-1-77"><a id="__codelineno-1-77" name="__codelineno-1-77" href="#__codelineno-1-77"></a>                <span class="n">provider</span><span class="o">=</span><span class="s2">&quot;provider-eu&quot;</span><span class="p">,</span>
+</span><span id="__span-1-78"><a id="__codelineno-1-78" name="__codelineno-1-78" href="#__codelineno-1-78"></a>                <span class="n">model</span><span class="o">=</span><span class="s2">&quot;secure-eu&quot;</span><span class="p">,</span>
+</span><span id="__span-1-79"><a id="__codelineno-1-79" name="__codelineno-1-79" href="#__codelineno-1-79"></a>                <span class="n">context_window</span><span class="o">=</span><span class="mi">128_000</span><span class="p">,</span>
+</span><span id="__span-1-80"><a id="__codelineno-1-80" name="__codelineno-1-80" href="#__codelineno-1-80"></a>                <span class="n">structured_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-1-81"><a id="__codelineno-1-81" name="__codelineno-1-81" href="#__codelineno-1-81"></a>                <span class="n">tool_use</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-1-82"><a id="__codelineno-1-82" name="__codelineno-1-82" href="#__codelineno-1-82"></a>                <span class="n">regions</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;eu-west&quot;</span><span class="p">,),</span>
+</span><span id="__span-1-83"><a id="__codelineno-1-83" name="__codelineno-1-83" href="#__codelineno-1-83"></a>                <span class="n">allowed_classifications</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;public&quot;</span><span class="p">,</span> <span class="s2">&quot;internal&quot;</span><span class="p">,</span> <span class="s2">&quot;confidential&quot;</span><span class="p">),</span>
+</span><span id="__span-1-84"><a id="__codelineno-1-84" name="__codelineno-1-84" href="#__codelineno-1-84"></a>                <span class="n">compatibility_class</span><span class="o">=</span><span class="s2">&quot;chat-json-v1&quot;</span><span class="p">,</span>
+</span><span id="__span-1-85"><a id="__codelineno-1-85" name="__codelineno-1-85" href="#__codelineno-1-85"></a>            <span class="p">),</span>
+</span><span id="__span-1-86"><a id="__codelineno-1-86" name="__codelineno-1-86" href="#__codelineno-1-86"></a>        <span class="p">)</span>
+</span><span id="__span-1-87"><a id="__codelineno-1-87" name="__codelineno-1-87" href="#__codelineno-1-87"></a>    <span class="p">)</span>
+</span><span id="__span-1-88"><a id="__codelineno-1-88" name="__codelineno-1-88" href="#__codelineno-1-88"></a>    <span class="n">route</span> <span class="o">=</span> <span class="n">router</span><span class="o">.</span><span class="n">route</span><span class="p">(</span>
+</span><span id="__span-1-89"><a id="__codelineno-1-89" name="__codelineno-1-89" href="#__codelineno-1-89"></a>        <span class="n">ModelRoutingRequest</span><span class="p">(</span>
+</span><span id="__span-1-90"><a id="__codelineno-1-90" name="__codelineno-1-90" href="#__codelineno-1-90"></a>            <span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;task-review&quot;</span><span class="p">,</span>
+</span><span id="__span-1-91"><a id="__codelineno-1-91" name="__codelineno-1-91" href="#__codelineno-1-91"></a>            <span class="n">structured_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-1-92"><a id="__codelineno-1-92" name="__codelineno-1-92" href="#__codelineno-1-92"></a>            <span class="n">classification</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">classification</span><span class="p">,</span>
+</span><span id="__span-1-93"><a id="__codelineno-1-93" name="__codelineno-1-93" href="#__codelineno-1-93"></a>            <span class="n">required_region</span><span class="o">=</span><span class="n">context</span><span class="o">.</span><span class="n">required_region</span><span class="p">,</span>
+</span><span id="__span-1-94"><a id="__codelineno-1-94" name="__codelineno-1-94" href="#__codelineno-1-94"></a>        <span class="p">)</span>
+</span><span id="__span-1-95"><a id="__codelineno-1-95" name="__codelineno-1-95" href="#__codelineno-1-95"></a>    <span class="p">)</span>
+</span><span id="__span-1-96"><a id="__codelineno-1-96" name="__codelineno-1-96" href="#__codelineno-1-96"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;route:&quot;</span><span class="p">,</span> <span class="n">route</span><span class="o">.</span><span class="n">selected_provider</span><span class="p">,</span> <span class="n">route</span><span class="o">.</span><span class="n">selected_model</span><span class="p">)</span>
+</span><span id="__span-1-97"><a id="__codelineno-1-97" name="__codelineno-1-97" href="#__codelineno-1-97"></a>
+</span><span id="__span-1-98"><a id="__codelineno-1-98" name="__codelineno-1-98" href="#__codelineno-1-98"></a>    <span class="c1"># 3. Map a runtime event to telemetry without exporting prompt content.</span>
+</span><span id="__span-1-99"><a id="__codelineno-1-99" name="__codelineno-1-99" href="#__codelineno-1-99"></a>    <span class="n">telemetry</span> <span class="o">=</span> <span class="n">GenAITelemetryMapper</span><span class="p">(</span><span class="n">GenAITelemetryConfig</span><span class="p">(</span><span class="n">profile</span><span class="o">=</span><span class="s2">&quot;metadata&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">map</span><span class="p">(</span>
+</span><span id="__span-1-100"><a id="__codelineno-1-100" name="__codelineno-1-100" href="#__codelineno-1-100"></a>        <span class="s2">&quot;model.completed&quot;</span><span class="p">,</span>
+</span><span id="__span-1-101"><a id="__codelineno-1-101" name="__codelineno-1-101" href="#__codelineno-1-101"></a>        <span class="p">{</span>
+</span><span id="__span-1-102"><a id="__codelineno-1-102" name="__codelineno-1-102" href="#__codelineno-1-102"></a>            <span class="s2">&quot;provider&quot;</span><span class="p">:</span> <span class="n">route</span><span class="o">.</span><span class="n">selected_provider</span><span class="p">,</span>
+</span><span id="__span-1-103"><a id="__codelineno-1-103" name="__codelineno-1-103" href="#__codelineno-1-103"></a>            <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">route</span><span class="o">.</span><span class="n">selected_model</span><span class="p">,</span>
+</span><span id="__span-1-104"><a id="__codelineno-1-104" name="__codelineno-1-104" href="#__codelineno-1-104"></a>            <span class="s2">&quot;prompt&quot;</span><span class="p">:</span> <span class="s2">&quot;not exported&quot;</span><span class="p">,</span>
+</span><span id="__span-1-105"><a id="__codelineno-1-105" name="__codelineno-1-105" href="#__codelineno-1-105"></a>            <span class="s2">&quot;input_tokens&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-1-106"><a id="__codelineno-1-106" name="__codelineno-1-106" href="#__codelineno-1-106"></a>        <span class="p">},</span>
+</span><span id="__span-1-107"><a id="__codelineno-1-107" name="__codelineno-1-107" href="#__codelineno-1-107"></a>        <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+</span><span id="__span-1-108"><a id="__codelineno-1-108" name="__codelineno-1-108" href="#__codelineno-1-108"></a>    <span class="p">)</span>
+</span><span id="__span-1-109"><a id="__codelineno-1-109" name="__codelineno-1-109" href="#__codelineno-1-109"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;telemetry mapped:&quot;</span><span class="p">,</span> <span class="n">telemetry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+</span><span id="__span-1-110"><a id="__codelineno-1-110" name="__codelineno-1-110" href="#__codelineno-1-110"></a>
+</span><span id="__span-1-111"><a id="__codelineno-1-111" name="__codelineno-1-111" href="#__codelineno-1-111"></a>    <span class="c1"># 4. The same immutable identity envelope crosses the sandbox boundary.</span>
+</span><span id="__span-1-112"><a id="__codelineno-1-112" name="__codelineno-1-112" href="#__codelineno-1-112"></a>    <span class="n">sandbox_request</span> <span class="o">=</span> <span class="n">SandboxSpec</span><span class="p">(</span>
+</span><span id="__span-1-113"><a id="__codelineno-1-113" name="__codelineno-1-113" href="#__codelineno-1-113"></a>        <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;run-42&quot;</span><span class="p">,</span>
+</span><span id="__span-1-114"><a id="__codelineno-1-114" name="__codelineno-1-114" href="#__codelineno-1-114"></a>        <span class="n">task_id</span><span class="o">=</span><span class="s2">&quot;task-review&quot;</span><span class="p">,</span>
+</span><span id="__span-1-115"><a id="__codelineno-1-115" name="__codelineno-1-115" href="#__codelineno-1-115"></a>        <span class="n">correlation_id</span><span class="o">=</span><span class="s2">&quot;correlation-42&quot;</span><span class="p">,</span>
+</span><span id="__span-1-116"><a id="__codelineno-1-116" name="__codelineno-1-116" href="#__codelineno-1-116"></a>        <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">,</span>
+</span><span id="__span-1-117"><a id="__codelineno-1-117" name="__codelineno-1-117" href="#__codelineno-1-117"></a>        <span class="n">image</span><span class="o">=</span><span class="s2">&quot;python:3.12-slim&quot;</span><span class="p">,</span>
+</span><span id="__span-1-118"><a id="__codelineno-1-118" name="__codelineno-1-118" href="#__codelineno-1-118"></a>        <span class="n">network</span><span class="o">=</span><span class="s2">&quot;allowlist&quot;</span><span class="p">,</span>
+</span><span id="__span-1-119"><a id="__codelineno-1-119" name="__codelineno-1-119" href="#__codelineno-1-119"></a>        <span class="n">allowed_domains</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;pypi.org&quot;</span><span class="p">,),</span>
+</span><span id="__span-1-120"><a id="__codelineno-1-120" name="__codelineno-1-120" href="#__codelineno-1-120"></a>    <span class="p">)</span>
+</span><span id="__span-1-121"><a id="__codelineno-1-121" name="__codelineno-1-121" href="#__codelineno-1-121"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;sandbox tenant:&quot;</span><span class="p">,</span> <span class="n">sandbox_request</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">tenant_scope</span><span class="p">)</span>
+</span><span id="__span-1-122"><a id="__codelineno-1-122" name="__codelineno-1-122" href="#__codelineno-1-122"></a>
+</span><span id="__span-1-123"><a id="__codelineno-1-123" name="__codelineno-1-123" href="#__codelineno-1-123"></a>    <span class="c1"># 5. Host admission, graceful drain, and A2A discovery.</span>
+</span><span id="__span-1-124"><a id="__codelineno-1-124" name="__codelineno-1-124" href="#__codelineno-1-124"></a>    <span class="n">lifecycle</span> <span class="o">=</span> <span class="n">HostLifecycle</span><span class="p">(</span><span class="n">max_inflight</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+</span><span id="__span-1-125"><a id="__codelineno-1-125" name="__codelineno-1-125" href="#__codelineno-1-125"></a>    <span class="k">await</span> <span class="n">lifecycle</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-1-126"><a id="__codelineno-1-126" name="__codelineno-1-126" href="#__codelineno-1-126"></a>    <span class="n">admission</span> <span class="o">=</span> <span class="k">await</span> <span class="n">lifecycle</span><span class="o">.</span><span class="n">admit</span><span class="p">(</span><span class="s2">&quot;work-42&quot;</span><span class="p">)</span>
+</span><span id="__span-1-127"><a id="__codelineno-1-127" name="__codelineno-1-127" href="#__codelineno-1-127"></a>    <span class="k">if</span> <span class="n">admission</span><span class="o">.</span><span class="n">accepted</span> <span class="ow">and</span> <span class="k">await</span> <span class="n">lifecycle</span><span class="o">.</span><span class="n">begin</span><span class="p">(</span><span class="s2">&quot;work-42&quot;</span><span class="p">):</span>
+</span><span id="__span-1-128"><a id="__codelineno-1-128" name="__codelineno-1-128" href="#__codelineno-1-128"></a>        <span class="k">await</span> <span class="n">lifecycle</span><span class="o">.</span><span class="n">complete</span><span class="p">(</span><span class="s2">&quot;work-42&quot;</span><span class="p">)</span>
+</span><span id="__span-1-129"><a id="__codelineno-1-129" name="__codelineno-1-129" href="#__codelineno-1-129"></a>    <span class="n">drain</span> <span class="o">=</span> <span class="k">await</span> <span class="n">lifecycle</span><span class="o">.</span><span class="n">drain</span><span class="p">(</span><span class="n">timeout_seconds</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-1-130"><a id="__codelineno-1-130" name="__codelineno-1-130" href="#__codelineno-1-130"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;host drained cleanly:&quot;</span><span class="p">,</span> <span class="n">drain</span><span class="o">.</span><span class="n">drained</span><span class="p">)</span>
+</span><span id="__span-1-131"><a id="__codelineno-1-131" name="__codelineno-1-131" href="#__codelineno-1-131"></a>
+</span><span id="__span-1-132"><a id="__codelineno-1-132" name="__codelineno-1-132" href="#__codelineno-1-132"></a>    <span class="n">card</span> <span class="o">=</span> <span class="n">build_deployment_agent_card</span><span class="p">(</span>
+</span><span id="__span-1-133"><a id="__codelineno-1-133" name="__codelineno-1-133" href="#__codelineno-1-133"></a>        <span class="n">CapabilityDescriptor</span><span class="p">(</span>
+</span><span id="__span-1-134"><a id="__codelineno-1-134" name="__codelineno-1-134" href="#__codelineno-1-134"></a>            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;release-review-service&quot;</span><span class="p">,</span>
+</span><span id="__span-1-135"><a id="__codelineno-1-135" name="__codelineno-1-135" href="#__codelineno-1-135"></a>            <span class="n">implementation_version</span><span class="o">=</span><span class="s2">&quot;0.8.0&quot;</span><span class="p">,</span>
+</span><span id="__span-1-136"><a id="__codelineno-1-136" name="__codelineno-1-136" href="#__codelineno-1-136"></a>            <span class="n">operations</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;review.submit&quot;</span><span class="p">,</span> <span class="s2">&quot;review.status&quot;</span><span class="p">),</span>
+</span><span id="__span-1-137"><a id="__codelineno-1-137" name="__codelineno-1-137" href="#__codelineno-1-137"></a>        <span class="p">),</span>
+</span><span id="__span-1-138"><a id="__codelineno-1-138" name="__codelineno-1-138" href="#__codelineno-1-138"></a>        <span class="n">endpoint</span><span class="o">=</span><span class="s2">&quot;https://agents.example.com/release-review&quot;</span><span class="p">,</span>
+</span><span id="__span-1-139"><a id="__codelineno-1-139" name="__codelineno-1-139" href="#__codelineno-1-139"></a>        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Reviews release changes against repository policy.&quot;</span><span class="p">,</span>
+</span><span id="__span-1-140"><a id="__codelineno-1-140" name="__codelineno-1-140" href="#__codelineno-1-140"></a>        <span class="n">organization</span><span class="o">=</span><span class="s2">&quot;Example Engineering&quot;</span><span class="p">,</span>
+</span><span id="__span-1-141"><a id="__codelineno-1-141" name="__codelineno-1-141" href="#__codelineno-1-141"></a>    <span class="p">)</span>
+</span><span id="__span-1-142"><a id="__codelineno-1-142" name="__codelineno-1-142" href="#__codelineno-1-142"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;agent card:&quot;</span><span class="p">,</span> <span class="n">A2A_AGENT_CARD_PATH</span><span class="p">,</span> <span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span> <span class="n">card</span><span class="o">.</span><span class="n">supported_interfaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+</span><span id="__span-1-143"><a id="__codelineno-1-143" name="__codelineno-1-143" href="#__codelineno-1-143"></a>
+</span><span id="__span-1-144"><a id="__codelineno-1-144" name="__codelineno-1-144" href="#__codelineno-1-144"></a>
+</span><span id="__span-1-145"><a id="__codelineno-1-145" name="__codelineno-1-145" href="#__codelineno-1-145"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+</span><span id="__span-1-146"><a id="__codelineno-1-146" name="__codelineno-1-146" href="#__codelineno-1-146"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span></code></pre></div>
+<p>Run it from the project root:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>portable_infrastructure.py
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tested copy</p>
+<p>See <a href="https://github.com/Quantlix/anycode/blob/main/examples/40_operational_portability.py"><code>examples/40_operational_portability.py</code></a>, the CI-tested program this walkthrough is based on. It runs the identity, policy, routing, and telemetry core without credentials.</p>
+</div>
 <p>For concrete configuration, continue with <a href="../durability-backends/">durability backends</a>, <a href="../policy-routing/">policy routing</a>, <a href="../hosting-services/">service hosting</a>, and <a href="../genai-telemetry/">GenAI telemetry</a>.</p>
 
 

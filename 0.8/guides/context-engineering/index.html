@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Control AnyCode's context with a ContextPolicy: trim, mask, offload, compact, and hand off history by pressure while preserving task state and verification failures.">
+        <meta name="description" content="Control AnyCode context with policies that trim, mask, offload, compact, or hand off history under pressure while preserving task and verification state.">
       
       
         <meta name="author" content="Quantlix">
@@ -93,16 +93,6 @@
   
   <meta name="keywords" content="anycode context engineering, ContextPolicy, context window, context pressure, offload_text, model context profile, token budget, compaction, context manager">
   
-  <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="AnyCode">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="Engineer the AnyCode Context Window as History Grows">
-  <meta property="og:description" content="Control AnyCode's context with a ContextPolicy: trim, mask, offload, compact, and hand off history by pressure while preserving task state and verification failures.">
-  <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/context-engineering/">
-  <meta name="twitter:title" content="Engineer the AnyCode Context Window as History Grows">
-  <meta name="twitter:description" content="Control AnyCode's context with a ContextPolicy: trim, mask, offload, compact, and hand off history by pressure while preserving task state and verification failures.">
-
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -142,7 +132,7 @@
       {
         "@type": "TechArticle",
         "headline": "Engineer the AnyCode Context Window as History Grows",
-        "description": "Control AnyCode\u0027s context with a ContextPolicy: trim, mask, offload, compact, and hand off history by pressure while preserving task state and verification failures.",
+        "description": "Control AnyCode context with policies that trim, mask, offload, compact, or hand off history under pressure while preserving task and verification state.",
         "url": "https://quantlix.github.io/anycode/0.8/guides/context-engineering/",
         "inLanguage": "en",
         "isPartOf": { "@id": "https://quantlix.github.io/anycode/0.8#website" },
@@ -156,7 +146,7 @@
   
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Engineer the AnyCode Context Window as History Grows - AnyCode" />
-<meta property="og:description" content="Control AnyCode's context with a ContextPolicy: trim, mask, offload, compact, and hand off history by pressure while preserving task state and verification failures." />
+<meta property="og:description" content="Control AnyCode context with policies that trim, mask, offload, compact, or hand off history under pressure while preserving task and verification state." />
 <meta property="og:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/context-engineering.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
@@ -164,7 +154,7 @@
 <meta property="og:url" content="https://quantlix.github.io/anycode/0.8/guides/context-engineering/" />
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:title" content="Engineer the AnyCode Context Window as History Grows - AnyCode" />
-<meta property="twitter:description" content="Control AnyCode's context with a ContextPolicy: trim, mask, offload, compact, and hand off history by pressure while preserving task state and verification failures." />
+<meta property="twitter:description" content="Control AnyCode context with policies that trim, mask, offload, compact, or hand off history under pressure while preserving task and verification state." />
 <meta property="twitter:image" content="https://quantlix.github.io/anycode/0.8/assets/images/social/guides/context-engineering.png" />
 </head>
   
@@ -1547,6 +1537,17 @@
     <span class="md-ellipsis">
       
         Inspect and offload manually
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
       
     </span>
   </a>
@@ -3325,6 +3326,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-complete-runnable-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The complete, runnable program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3578,6 +3590,66 @@
 <div class="admonition tip">
 <p class="admonition-title">tiktoken sharpens token counts</p>
 <p>By default AnyCode counts tokens heuristically. Install <code>anycode-py[tokens]</code> and the OpenAI-family profiles use <code>tiktoken</code> for exact counts, which makes the pressure ladder trigger at the right moments.</p>
+</div>
+<h2 id="the-complete-runnable-program">The complete, runnable program<a class="headerlink" href="#the-complete-runnable-program" title="Permanent link">&para;</a></h2>
+<p>The fragments above are pieces of one file. Here is a complete <code>context_engineering.py</code> that registers a custom huge-context model profile, runs a policy in <code>"auto"</code> mode, assembles a long history through <code>ContextManager</code>, and prints the resulting pressure, the preserved task state and open failures, and a per-section usage table. It makes no LLM calls, so it runs offline with no API key.</p>
+<div class="language-python highlight"><span class="filename">context_engineering.py</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextManager</span><span class="p">,</span> <span class="n">LLMMessage</span><span class="p">,</span> <span class="n">TextBlock</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.context.reporting</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_usage_report_table</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">anycode.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextPolicy</span><span class="p">,</span> <span class="n">ModelContextProfile</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">make_history</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">LLMMessage</span><span class="p">]:</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a long conversation so the context grows under pressure.&quot;&quot;&quot;</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">return</span> <span class="p">[</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="n">LLMMessage</span><span class="p">(</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>            <span class="n">role</span><span class="o">=</span><span class="s2">&quot;user&quot;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;assistant&quot;</span><span class="p">,</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>            <span class="n">content</span><span class="o">=</span><span class="p">[</span><span class="n">TextBlock</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;turn </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: &quot;</span> <span class="o">+</span> <span class="p">(</span><span class="s2">&quot;lorem ipsum &quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">))],</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="p">)</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="p">]</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="c1"># Auto mode sizes the window from a model profile instead of a fixed cap.</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="c1"># Register a custom profile for any model AnyCode does not already know.</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="n">giga</span> <span class="o">=</span> <span class="n">ModelContextProfile</span><span class="p">(</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">provider</span><span class="o">=</span><span class="s2">&quot;myvendor&quot;</span><span class="p">,</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>        <span class="n">model</span><span class="o">=</span><span class="s2">&quot;giga-1m&quot;</span><span class="p">,</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>        <span class="n">max_context_tokens</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>        <span class="n">max_output_tokens</span><span class="o">=</span><span class="mi">64_000</span><span class="p">,</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="p">)</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>    <span class="n">policy</span> <span class="o">=</span> <span class="n">ContextPolicy</span><span class="p">(</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>        <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+</span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>        <span class="n">keep_recent_messages</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+</span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>        <span class="n">max_tool_output_tokens</span><span class="o">=</span><span class="mi">4_000</span><span class="p">,</span>
+</span><span id="__span-3-31"><a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>        <span class="n">custom_profiles</span><span class="o">=</span><span class="p">(</span><span class="n">giga</span><span class="p">,),</span>
+</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>        <span class="n">preserved_task_state</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;objective&quot;</span><span class="p">:</span> <span class="s2">&quot;Migrate the billing module&quot;</span><span class="p">},</span>
+</span><span id="__span-3-33"><a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>        <span class="n">preserved_verification_failures</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;pytest: 2 failing in tests/test_billing.py&quot;</span><span class="p">,),</span>
+</span><span id="__span-3-34"><a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>    <span class="p">)</span>
+</span><span id="__span-3-35"><a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>
+</span><span id="__span-3-36"><a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>    <span class="c1"># ContextManager.assemble is synchronous — it reports what the policy would do.</span>
+</span><span id="__span-3-37"><a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>    <span class="n">manager</span> <span class="o">=</span> <span class="n">ContextManager</span><span class="p">(</span><span class="n">policy</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="s2">&quot;myvendor&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;giga-1m&quot;</span><span class="p">)</span>
+</span><span id="__span-3-38"><a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>    <span class="n">prepared</span><span class="p">,</span> <span class="n">manifest</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">make_history</span><span class="p">(</span><span class="mi">40</span><span class="p">))</span>
+</span><span id="__span-3-39"><a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>
+</span><span id="__span-3-40"><a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;pressure:          </span><span class="si">{</span><span class="n">manifest</span><span class="o">.</span><span class="n">pressure</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-3-41"><a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;prepared messages: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">prepared</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-3-42"><a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;preserved state:   </span><span class="si">{</span><span class="n">manifest</span><span class="o">.</span><span class="n">preserved_task_state</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-3-43"><a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;open failures:     </span><span class="si">{</span><span class="n">manifest</span><span class="o">.</span><span class="n">preserved_verification_failures</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-3-44"><a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a>    <span class="k">if</span> <span class="n">manifest</span><span class="o">.</span><span class="n">usage_report</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-3-45"><a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>        <span class="nb">print</span><span class="p">()</span>
+</span><span id="__span-3-46"><a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">render_usage_report_table</span><span class="p">(</span><span class="n">manifest</span><span class="o">.</span><span class="n">usage_report</span><span class="p">))</span>
+</span><span id="__span-3-47"><a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a>
+</span><span id="__span-3-48"><a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>
+</span><span id="__span-3-49"><a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+</span><span id="__span-3-50"><a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a>    <span class="n">main</span><span class="p">()</span>
+</span></code></pre></div>
+<p>Run it from the project root:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>context_engineering.py
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tested copy</p>
+<p>See <a href="https://github.com/Quantlix/anycode/blob/main/examples/26_context_engineering.py"><code>examples/26_context_engineering.py</code></a> for section-aware budgets on a huge-context model, plus <a href="https://github.com/Quantlix/anycode/blob/main/examples/19_adaptive_context.py"><code>examples/19_adaptive_context.py</code></a> and <a href="https://github.com/Quantlix/anycode/blob/main/examples/23_context_pressure.py"><code>examples/23_context_pressure.py</code></a> for the offload, compaction, and handoff steps of the pressure ladder in action.</p>
 </div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
