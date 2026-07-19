@@ -1,6 +1,6 @@
 ---
 title: "AnyCode Concepts"
-description: "Understanding-oriented explanations of how AnyCode works: the runtime architecture, and how agents, teams, and task graphs fit together."
+description: "Understand how AnyCode orchestrates agents, teams, tools, shared memory, dependency-aware task graphs, scheduling, and provider-neutral model calls in Python."
 keywords: AnyCode concepts, architecture, agents and teams, explanation, how anycode works
 ---
 

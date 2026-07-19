@@ -1,6 +1,6 @@
 ---
 title: "AnyCode TypeScript Service Client"
-description: Operate AnyCode service workloads from Node.js or a browser with typed lifecycle, artifact, and resumable streaming APIs.
+description: Use the AnyCode TypeScript service client from Node.js or browsers with lifecycle, artifact, cancellation, and resumable event-stream APIs for hosted runs.
 keywords: anycode typescript, AnyCodeClient, Node agent client, browser agent client, resumable SSE
 ---
 

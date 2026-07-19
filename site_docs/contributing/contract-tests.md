@@ -1,6 +1,6 @@
 ---
 title: "Contract Test Conventions"
-description: "Conventions for AnyCode lifecycle, persistence, protocol, backend, and provider contract suites with golden fixtures and fault injection."
+description: "Write AnyCode lifecycle, persistence, protocol, backend, and provider contract tests with golden fixtures, state-machine properties, and fault injection."
 keywords: AnyCode contract tests, conformance suite, golden fixtures, fault injection
 ---
 

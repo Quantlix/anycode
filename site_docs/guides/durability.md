@@ -1,6 +1,6 @@
 ---
 title: "Checkpoint, Resume, and Schedule Durable AnyCode Runs"
-description: "Persist AnyCode work with workflow checkpoints and durable runs, resume after a crash, chain calendar-scale goals with SessionChain, and wake paused runs on a schedule."
+description: "Persist AnyCode work with checkpoints and durable runs, resume safely after crashes, chain long-running goals, and wake paused executions on a schedule."
 keywords: anycode durability, checkpointing, durable runs, resume run, FilesystemRunStore, DurabilityConfig, CheckpointManager, SessionChain, scheduled wakeups, anycode runs cli
 ---
 
@@ -224,6 +224,131 @@ The initial Dapr adapter uses one versioned aggregate state record. That makes c
 Use `export_filesystem_run()` to translate a legacy `FilesystemRunStore` record into a backend snapshot and `import_backend_snapshot()` for idempotent import. Retain the source until event counts, terminal state, checkpoints, and artifact references have been verified. `examples/38_pluggable_durability.py` demonstrates admission through restart; `examples/39_backend_failure_soak.py` is a duration-configurable injected-failure workload.
 
 See [Configure durability backends](durability-backends.md) for backend selection, SQLite and Dapr setup, migration code, operation guarantees, and deployment checks.
+
+## The complete, runnable program
+
+The snippets above are fragments. Here is one whole file that proves the core promise of a durable run: it works two turns, "crashes" mid-task, then a second process reloads the last checkpoint and finishes — with the transcript, turn count, and cost accounting intact. It uses a `FakeAdapter`, so it is deterministic and needs no API key or network.
+
+```python title="durable_runs.py"
+import asyncio
+import tempfile
+from pathlib import Path
+
+from pydantic import BaseModel
+
+from anycode import (
+    AgentRunner,
+    DurabilityConfig,
+    FakeAdapter,
+    FakeResponse,
+    FilesystemRunStore,
+    RunnerOptions,
+    ToolDefinition,
+    ToolExecutor,
+    ToolRegistry,
+    ToolResult,
+)
+from anycode.types import LLMMessage, TextBlock
+
+
+def build_registry() -> ToolRegistry:
+    class _Empty(BaseModel):
+        pass
+
+    async def _run(**_kwargs: object) -> ToolResult:
+        return ToolResult(data="analysis chunk processed")
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolDefinition(
+            name="process_chunk",
+            description="Process one data chunk",
+            input_model=_Empty,
+            execute=_run,
+        )
+    )
+    return registry
+
+
+def build_runner(adapter, store, resume=None) -> AgentRunner:
+    registry = build_registry()
+    return AgentRunner(
+        adapter,
+        registry,
+        ToolExecutor(registry),
+        RunnerOptions(model="fake-model", agent_name="durable-worker", max_turns=10),
+        durability=DurabilityConfig(enabled=True, run_root=str(store.root), checkpoint_every_turns=1),
+        run_store=store,
+        resume_from=resume,
+    )
+
+
+class CrashingAdapter(FakeAdapter):
+    """Raise mid-run to simulate a process crash after two completed turns."""
+
+    async def chat(self, messages, options):
+        if self._cursor >= 2:
+            raise RuntimeError("simulated power loss")
+        return await super().chat(messages, options)
+
+
+async def main() -> None:
+    root = Path(tempfile.mkdtemp(prefix="anycode-durable-"))
+    store = FilesystemRunStore(root)
+
+    # First process: complete two turns, then "crash". The runner records the
+    # failure and ends the loop without re-raising; the last checkpoint stays
+    # on disk for a fresh process to resume from.
+    crashing = CrashingAdapter(
+        responses=[
+            FakeResponse(text="processing chunk 1", tool_calls=(("process_chunk", {"n": 1}),)),
+            FakeResponse(text="processing chunk 2", tool_calls=(("process_chunk", {"n": 2}),)),
+            FakeResponse(text="never reached"),
+        ]
+    )
+    runner = build_runner(crashing, store)
+    async for _event in runner.stream(
+        [LLMMessage(role="user", content=[TextBlock(text="Process all chunks.")])]
+    ):
+        pass
+
+    record = store.list_runs()[0]
+    checkpoint = store.load_latest_checkpoint(record.run_id)
+    assert checkpoint is not None
+    print(
+        f"crashed run:  status={record.status}, durable turns={checkpoint.turn - 1}, "
+        f"cost so far=${checkpoint.budget.cost_used:.4f}"
+    )
+
+    # Second process: a fresh store loads the checkpoint and resumes from it.
+    fresh_store = FilesystemRunStore(root)
+    restored = fresh_store.load_latest_checkpoint(record.run_id)
+    resumed = build_runner(
+        FakeAdapter(responses=[FakeResponse(text="all chunks done")]),
+        fresh_store,
+        resume=restored,
+    )
+    result = await resumed.run([])  # an empty seed is fine when resuming
+
+    final = fresh_store.read_record(record.run_id)
+    assert final is not None and final.status == "completed"
+    print(f"resumed run:  status={final.status}, output={result.output!r}, total turns={result.turns}")
+    print(f"transcript:   {[e.kind for e in fresh_store.read_events(record.run_id)][-6:]} (tail)")
+    print(f"inspect with: anycode runs show {record.run_id} --root {root}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python durable_runs.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/28_durable_runs.py`](https://github.com/Quantlix/anycode/blob/main/examples/28_durable_runs.py) for the CI-tested version of this crash-and-resume run. For the two neighboring durability systems, see [`examples/07_checkpointing.py`](https://github.com/Quantlix/anycode/blob/main/examples/07_checkpointing.py) (workflow checkpoints) and [`examples/29_session_chain.py`](https://github.com/Quantlix/anycode/blob/main/examples/29_session_chain.py) (session chains over a goal contract).
 
 ## Next steps
 

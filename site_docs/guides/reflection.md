@@ -1,6 +1,6 @@
 ---
 title: "Improve AnyCode Output with Self-Reflection and a Critic"
-description: "Add a reflection loop to AnyCode so an agent critiques and revises its own output against a quality threshold, using self, peer, or custom critics."
+description: "Add self-reflection to AnyCode so an agent critiques and revises output against a typed quality threshold using self, peer, or custom critic strategies."
 keywords: anycode reflection, self-critique, ReflectionLoop, ReflectionConfig, LLMCritic, quality threshold, agent self improvement, critic model
 ---
 
@@ -82,6 +82,84 @@ loop = ReflectionLoop(config.reflection)
 info = AgentInfo(name="explainer", role="technical writer", model="claude-haiku-4-5")
 result = await loop.run(agent, "Explain the CAP theorem precisely.", agent_info=info, agent_provider="anthropic")
 ```
+
+## The complete, runnable program
+
+The fragments above are pieces of one file. Here is a complete `reflection.py` that turns on self-reflection, builds the agent, drives the loop directly so the counts are visible, and prints how many revision rounds happened and the accepted quality score. It resolves a provider from whichever API key you have set, so it runs on Anthropic or OpenAI without edits.
+
+```python title="reflection.py"
+import asyncio
+import os
+import sys
+
+from dotenv import load_dotenv
+
+from anycode import AgentConfig, AnyCode, OrchestratorConfig, ReflectionConfig, ReflectionLoop
+from anycode.types import AgentInfo
+
+load_dotenv()
+
+
+def resolve_provider() -> tuple[str, str]:
+    """Pick a provider and model from whichever API key is set."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    sys.exit("Set ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment or .env file.")
+
+
+PROVIDER, MODEL = resolve_provider()
+
+
+async def main() -> None:
+    config = OrchestratorConfig(
+        reflection=ReflectionConfig(
+            enabled=True,
+            mode="self",
+            quality_threshold=0.8,
+            max_reflections=2,
+        ),
+    )
+    engine = AnyCode(config)
+
+    agent = engine.build_agent(
+        AgentConfig(
+            name="explainer",
+            provider=PROVIDER,
+            model=MODEL,
+            system_prompt="You are a precise technical writer. Write clear, accurate explanations.",
+            tools=[],
+        ),
+    )
+
+    # Drive the reflection loop directly so the round count and score are visible.
+    loop = ReflectionLoop(config.reflection)
+    info = AgentInfo(name="explainer", role="technical writer", model=MODEL)
+    result = await loop.run(
+        agent,
+        "Explain the CAP theorem to a junior engineer in exactly 3 sentences.",
+        agent_info=info,
+        agent_provider=PROVIDER,
+    )
+
+    print(f"reflections_count = {result.reflections_count}")
+    print(f"quality_score     = {result.quality_score}")
+    print(f"\nFinal output:\n{result.output}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python reflection.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/14_self_reflection.py`](https://github.com/Quantlix/anycode/blob/main/examples/14_self_reflection.py) for the CI-tested version of this loop.
 
 ## Next steps
 

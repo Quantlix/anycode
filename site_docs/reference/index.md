@@ -1,6 +1,6 @@
 ---
 title: "AnyCode Reference"
-description: "Information-oriented reference for AnyCode: the public API surface, built-in tools, every configuration option, and the CLI."
+description: "Find exact AnyCode API, CLI, configuration, runtime contract, compatibility, security, semantic contract, and built-in tool behavior in one reference hub."
 keywords: AnyCode reference, public API, built-in tools reference, configuration reference, CLI reference
 ---
 

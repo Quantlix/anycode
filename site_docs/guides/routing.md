@@ -113,6 +113,92 @@ Fallback is not a relaxation path. Setting `fallback_compatibility_class` adds a
 
 For descriptor design, cost estimation, every rejection reason, and compatible fallback handling, see [Route models with hard policy constraints](policy-routing.md).
 
+## The complete, runnable program
+
+The snippets above are fragments of one file. Here is the whole thing, ready to copy into `routing.py` and run. Routing is a zero-cost heuristic, so this program needs no API key. It classifies a wave of tasks, matches a rule directly, then drives every task through a `DefaultRouter` with a default fallback.
+
+```python title="routing.py"
+import asyncio
+from datetime import UTC, datetime
+
+from anycode import AgentConfig, DefaultRouter, Task, classify_task, evaluate_rules
+from anycode.types import RoutingConfig, RoutingRule
+
+
+def make_task(title: str, description: str, depends_on: list[str] | None = None) -> Task:
+    now = datetime.now(UTC)
+    return Task(
+        id=f"task-{title.lower().replace(' ', '-')}",
+        title=title,
+        description=description,
+        depends_on=depends_on,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+async def main() -> None:
+    tasks = [
+        make_task("Lint check", "Run linter"),
+        make_task("Unit tests", "Run the test suite for the auth module", ["t1"]),
+        make_task("API design", "x" * 400, ["t1", "t2", "t3"]),
+        make_task("System redesign", "x" * 1200),
+    ]
+
+    # 1. Heuristic classification — deterministic, no LLM call.
+    print("Classification:")
+    for task in tasks:
+        print(f"  {task.title:16s} -> {classify_task(task)}")
+
+    # 2. Match rules directly against a known complexity level.
+    print("\nRule matching:")
+    rules = [
+        RoutingRule(condition="complexity == 'trivial'", target_model="claude-haiku-4-5", priority=1),
+        RoutingRule(condition="complexity == 'expert'", target_model="claude-sonnet-5", priority=2),
+        RoutingRule(condition="'test' in task.title.lower()", target_model="gpt-4o-mini", priority=10),
+    ]
+    matched = evaluate_rules(make_task("Unit tests", "Run tests"), "simple", rules)
+    print(f"  matched: {matched.condition if matched else None} -> {matched.target_model if matched else None}")
+
+    # 3. End-to-end routing through DefaultRouter, with a default fallback.
+    config = RoutingConfig(
+        enabled=True,
+        rules=[
+            RoutingRule(condition="complexity == 'trivial'", target_model="claude-haiku-4-5",
+                        target_provider="anthropic", priority=1),
+            RoutingRule(condition="complexity == 'expert'", target_model="claude-sonnet-5",
+                        target_provider="anthropic", priority=2),
+            RoutingRule(condition="'test' in task.title.lower()", target_model="gpt-4o-mini",
+                        target_provider="openai", priority=10),
+        ],
+        default_model="claude-haiku-4-5",
+        default_provider="anthropic",
+    )
+    router = DefaultRouter(config)
+    agents = [AgentConfig(name="worker", model="claude-haiku-4-5")]
+
+    print("\nDefaultRouter decisions:")
+    for task in tasks:
+        decision = await router.route(task, agents)
+        if decision:
+            print(f"  {task.title:16s} -> {decision.routed_model:16s} ({decision.reason})")
+        else:
+            print(f"  {task.title:16s} -> no routing decision")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python routing.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/12_intelligent_routing.py`](https://github.com/Quantlix/anycode/blob/main/examples/12_intelligent_routing.py) for the CI-tested version, which adds a disabled-routing pass-through and prints a full audit trail.
+
 ## Next steps
 
 - [Route models with hard policy constraints](policy-routing.md) - enforce region, classification, capability, budget, and latency requirements.

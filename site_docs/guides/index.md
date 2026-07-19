@@ -1,6 +1,6 @@
 ---
 title: "AnyCode How-to Guides"
-description: "Task-oriented recipes for AnyCode: teams, tools, streaming, reasoning, memory and RAG, durability, routing, handoff, cost, verification, eval, telemetry, and more."
+description: "Follow task-focused AnyCode guides for teams, tools, streaming, reasoning, memory, durability, routing, handoff, cost, verification, evaluation, and telemetry."
 keywords: AnyCode how to, guides, streaming, reasoning models, memory rag, durable runs, routing, handoff, cost tracking, verification gates, evaluation, observability, plugins
 ---
 

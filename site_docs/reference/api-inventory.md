@@ -1,6 +1,6 @@
 ---
 title: "Complete AnyCode Python API Inventory"
-description: "Browse every supported name exported by the AnyCode Python package, generated from anycode.__all__ and source docstrings at documentation build time."
+description: "Browse every supported name exported by the AnyCode Python package, generated from anycode.__all__ and all source docstrings during each documentation build."
 keywords: AnyCode API inventory, anycode exports, Python agent framework API, anycode __all__, mkdocstrings
 ---
 

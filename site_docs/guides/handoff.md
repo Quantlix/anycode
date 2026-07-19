@@ -87,6 +87,128 @@ agent_result, handoff_record = await executor.execute(
 !!! note "The tool emits a signal, not a transfer"
     Executing `HANDOFF_TOOL_DEF` on its own just returns an encoded sentinel string. The actual delegation happens when the runner detects that sentinel and the orchestrator (or your `HandoffExecutor`) runs the target agent. The depth limit is inclusive — calling `execute` at `depth=max_depth` fails immediately.
 
+## The complete, runnable program
+
+The snippets above are pieces of one program. Here is a complete `handoff.py` that drives a researcher-to-writer handoff through a real LLM, prints the handoff record and result, then shows the depth limit refusing a chain that has already gone as deep as it is allowed. It resolves a provider from whichever API key you have set, so it runs on Anthropic or OpenAI without edits.
+
+```python title="handoff.py"
+import asyncio
+import os
+import sys
+
+from dotenv import load_dotenv
+
+from anycode import (
+    AgentRunResult,
+    HandoffExecutor,
+    LLMChatOptions,
+    LLMMessage,
+    TextBlock,
+    create_adapter,
+)
+from anycode.types import HandoffRequest
+
+load_dotenv()
+
+
+def resolve_provider() -> tuple[str, str]:
+    """Pick a provider and model from whichever API key is set."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    sys.exit("Set ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment or .env file.")
+
+
+PROVIDER, MODEL = resolve_provider()
+
+
+class RealAgentResolver:
+    """Resolve a handoff target by calling the LLM directly.
+
+    The executor invokes ``resolve_and_run(name, prompt, system_prompt_extra)``
+    on this object to run the receiving agent.
+    """
+
+    def __init__(self, adapter: object) -> None:
+        self._adapter = adapter
+
+    async def resolve_and_run(self, name: str, prompt: str, system_prompt_extra: str) -> AgentRunResult:
+        system = f"You are '{name}', an expert agent. {system_prompt_extra}"
+        messages = [LLMMessage(role="user", content=[TextBlock(text=prompt)])]
+        options = LLMChatOptions(model=MODEL, system_prompt=system, max_tokens=300)
+        response = await self._adapter.chat(messages, options)
+
+        output_text = "".join(block.text for block in response.content if hasattr(block, "text"))
+        return AgentRunResult(
+            success=True,
+            output=output_text,
+            messages=messages,
+            token_usage=response.usage,
+            tool_calls=[],
+        )
+
+
+async def main() -> None:
+    adapter = await create_adapter(PROVIDER)
+    resolver = RealAgentResolver(adapter)
+    executor = HandoffExecutor(max_depth=3)
+
+    # The researcher has done its part; hand the findings to the writer.
+    conversation = [
+        LLMMessage(role="user", content=[TextBlock(text="Research AI agent collaboration patterns")]),
+        LLMMessage(
+            role="assistant",
+            content=[TextBlock(text="Found papers on orchestration, tool use, and memory sharing")],
+        ),
+    ]
+    request = HandoffRequest(
+        to_agent="writer",
+        summary="Research identified three key papers on multi-agent collaboration.",
+        reason="Needs writing expertise to draft the summary.",
+    )
+
+    agent_result, handoff_record = await executor.execute(
+        request=request,
+        from_agent="researcher",
+        conversation=conversation,
+        agent_resolver=resolver,
+    )
+
+    print(f"Handoff: {handoff_record.from_agent} -> {handoff_record.to_agent}")
+    print(f"Success: {agent_result.success}")
+    print(
+        f"Tokens — input: {agent_result.token_usage.input_tokens}, "
+        f"output: {agent_result.token_usage.output_tokens}"
+    )
+    print(f"\nWriter output:\n{agent_result.output}\n")
+
+    # The depth limit is inclusive: calling at depth == max_depth fails cleanly
+    # instead of recursing further.
+    limited_result, _ = await executor.execute(
+        request=request,
+        from_agent="writer",
+        conversation=[],
+        agent_resolver=resolver,
+        depth=3,
+    )
+    print(f"At depth=3 (limit=3): success={limited_result.success}")
+    print(f"Reason: {limited_result.output[:80]}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python handoff.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/11_agent_handoff.py`](https://github.com/Quantlix/anycode/blob/main/examples/11_agent_handoff.py) for a CI-tested version that also walks through context trimming and prompt building.
+
 ## Next steps
 
 - [Route tasks by complexity](routing.md) — the up-front alternative to runtime handoff.

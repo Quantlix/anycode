@@ -1,6 +1,6 @@
 ---
 title: "Configure AnyCode Durability Backends"
-description: Choose and configure AnyCode in-memory, SQLite, or Dapr durability backends for runs, events, leases, checkpoints, wakes, and signals.
+description: Choose AnyCode in-memory, SQLite, or Dapr durability backends and configure guarantees for runs, events, leases, checkpoints, wakes, migrations, and signals.
 keywords: AnyCode durability backend, SQLite agent state, Dapr agent persistence, AI agent leases, durable agent runs
 ---
 
@@ -134,6 +134,97 @@ The credential-free examples provide a smaller starting point:
 - `examples/38_pluggable_durability.py` exercises admission, claims, checkpoints, migration, and backend reports.
 - `examples/39_backend_failure_soak.py` exercises partitions and ambiguous post-commit failures.
 - `tests/test_backend_conformance.py` is the reusable behavioral contract.
+
+## The complete, runnable program
+
+This one file runs the full backend workload end to end: admit a run, enqueue and claim its work under a lease, commit a state transition against the expected event sequence, save a checkpoint, register a timed wake, deliver an external signal, then export the portable snapshot. It uses `InMemoryDurabilityBackend`, so it needs no external services or extra dependencies. Swap the one backend line for `SQLiteDurabilityBackend(".anycode/backend.db")` (needs the `[persistence]` extra) or a configured `DaprDurabilityBackend` — the workload below does not change, which is the point of the contract.
+
+```python title="durability_backend.py"
+import asyncio
+from datetime import UTC, datetime, timedelta
+
+from anycode import (
+    Admission,
+    Checkpoint,
+    Event,
+    InMemoryDurabilityBackend,
+    Run,
+    WorkItem,
+    transition_run,
+    uuid7,
+)
+from anycode.backends import ExternalSignal, WakeRegistration
+
+LEASE_SECONDS = 30.0
+
+
+async def main() -> None:
+    backend = InMemoryDurabilityBackend()
+
+    caps = backend.capabilities()
+    print(f"backend={caps.backend} persistent={caps.persistent} external={caps.external}")
+    health = await backend.health()
+    print(f"health: {health.status}")
+
+    run_id = str(uuid7())
+    now = datetime.now(UTC)
+
+    # 1. Admit the run with its first event. The admission key is idempotent.
+    run = Run(id=run_id, correlation_id=run_id, created_at=now, updated_at=now)
+    initial = Event(id=str(uuid7()), run_id=run_id, sequence=1, type="run.accepted", correlation_id=run_id, emitted_at=now)
+    admitted = await backend.admit(Admission(admission_key=f"example:{run_id}", run=run, initial_event=initial))
+    if not admitted.admitted or admitted.run is None:
+        raise RuntimeError(admitted.error.message if admitted.error else "admission failed")
+
+    # 2. Enqueue ready work and claim it under a lease.
+    await backend.enqueue(WorkItem(id=str(uuid7()), run_id=run_id, task_id="export-task", available_at=now))
+    claimed = await backend.claim("worker-1", lease_seconds=LEASE_SECONDS)
+    if claimed.claim is None:
+        raise RuntimeError("ready work could not be claimed")
+
+    # 3. Commit a state transition against the expected event sequence.
+    queued = transition_run(admitted.run, "queued", now=now)
+    if queued.run is None or queued.event is None:
+        raise RuntimeError(queued.error.message if queued.error else "run transition failed")
+    committed = await backend.commit(claimed.claim, queued.event, expected_sequence=1, run=queued.run)
+    if not committed.accepted:
+        raise RuntimeError(committed.error.message if committed.error else "commit failed")
+
+    # 4. Save a checkpoint, register a timed wake, and deliver an external signal.
+    checkpoint = Checkpoint(
+        id=str(uuid7()),
+        run_id=run_id,
+        event_cursor=2,
+        generation=queued.run.generation,
+        attempt=queued.run.attempt,
+        correlation_id=run_id,
+        run=queued.run,
+    )
+    await backend.save_checkpoint(checkpoint)
+    await backend.register_wake(
+        WakeRegistration(id=str(uuid7()), run_id=run_id, wake_at=now + timedelta(minutes=5), reason="scheduled follow-up")
+    )
+    await backend.deliver_signal(ExternalSignal(id=str(uuid7()), run_id=run_id, name="operator-note", payload="continue"))
+
+    # 5. Export the portable snapshot — the same shape every backend produces.
+    snapshot = await backend.export_run(run_id)
+    assert snapshot is not None
+    print(f"exported run={snapshot.run.id} state={snapshot.run.state}")
+    print(f"events={len(snapshot.events)} wakes={len(snapshot.wakes)} signals={len(snapshot.signals)} checkpoint={snapshot.checkpoint is not None}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python durability_backend.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/38_pluggable_durability.py`](https://github.com/Quantlix/anycode/blob/main/examples/38_pluggable_durability.py) for the CI-tested version, which runs the same workload against SQLite or a Dapr state store, and [`examples/39_backend_failure_soak.py`](https://github.com/Quantlix/anycode/blob/main/examples/39_backend_failure_soak.py) for the injected-failure soak that proves an ambiguous commit never duplicates an event.
 
 ## Next steps
 

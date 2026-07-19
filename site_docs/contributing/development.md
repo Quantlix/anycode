@@ -1,6 +1,6 @@
 ---
 title: "AnyCode Development Workflow for Contributors"
-description: "Set up AnyCode, create focused branches, implement code and docs together, run the local quality gates, and submit a review-ready pull request."
+description: "Set up AnyCode, create focused branches, implement code and docs together, run every local quality gate, and submit a pull request for maintainer review."
 keywords: AnyCode contributing, Python development workflow, AnyCode pull request, uv pytest ruff pyright, topic branch
 ---
 

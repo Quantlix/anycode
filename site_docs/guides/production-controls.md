@@ -221,6 +221,83 @@ Every run returns a record you can log, assert on, or serialize. `AgentRunResult
 
 Because results are structured, you can turn any run into a test assertion or a telemetry event rather than eyeballing logs.
 
+## The complete, runnable program
+
+The controls above are shown in isolation. Here is one file that wires the first layer together — a cost budget, per-agent turn and token caps, and output validators — then runs a single agent and inspects the structured result. It resolves a provider from whichever API key you have set, so it works on Anthropic or OpenAI without edits.
+
+```python title="controls.py"
+import asyncio
+import os
+import sys
+
+from dotenv import load_dotenv
+
+from anycode import AnyCode, CostConfig
+from anycode.guardrails.validators import BlocklistValidator, MaxLengthValidator
+
+load_dotenv()
+
+
+def resolve_provider() -> tuple[str, str]:
+    """Pick a provider and model from whichever API key is set."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    sys.exit("Set ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment or .env file.")
+
+
+PROVIDER, MODEL = resolve_provider()
+
+
+async def main() -> None:
+    # A hard spend ceiling before any live call. `warn` logs and continues;
+    # use a stricter policy for unattended runs.
+    engine = AnyCode(config={"cost": CostConfig(budget_usd=1.00, on_budget_exceeded="warn")})
+
+    # Programmatic checks applied to output before it is accepted.
+    engine.configure(
+        output_validators=[
+            MaxLengthValidator(10_000),
+            BlocklistValidator(["internal_secret"]),
+        ],
+    )
+
+    result = await engine.run_agent(
+        config={
+            "name": "assistant",
+            "provider": PROVIDER,
+            "model": MODEL,
+            "system_prompt": "You are a concise technical explainer. Keep answers under 100 words.",
+            "tools": [],
+            "max_turns": 4,
+            "max_tokens": 1200,
+        },
+        prompt="Explain what a Python decorator is and give a one-line example.",
+    )
+
+    # Every run returns a structured record you can log, assert on, or serialize.
+    print(f"Success: {result.success}")
+    print(f"Output:  {result.output[:300]}")
+    print(f"Tokens:  input={result.token_usage.input_tokens}, output={result.token_usage.output_tokens}")
+    print(f"Tools:   {len(result.tool_calls)} call(s)")
+
+    await engine.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python controls.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/05_production_features.py`](https://github.com/Quantlix/anycode/blob/main/examples/05_production_features.py) for the full walkthrough — tracing and metrics, budget exhaustion, output validators, lifecycle hooks, and structured output wired around a live agent run.
+
 ## Next steps
 
 - [Production readiness checklist](production-readiness.md) — make a workload-specific go or no-go decision.

@@ -1,6 +1,6 @@
 ---
 title: "Gate AnyCode Output with Verification Sensors"
-description: "Block bad AnyCode output with quality gates: run ruff, pyright, pytest, regex, and schema sensors at defined phases and decide pass, retry, or block by severity."
+description: "Gate AnyCode output with ruff, pyright, pytest, regex, and schema sensors at defined phases, then decide whether to pass, retry, or block by severity."
 keywords: anycode verification, quality gate, QualityGate, ruff_sensor pytest_sensor, schema_sensor, VerificationSensorConfig, decide_gate, block on failure, sensor phases
 ---
 
@@ -131,6 +131,80 @@ async def _judge(ctx) -> VerificationResult:
 
 judge = Sensor(config=VerificationSensorConfig(name="no_todo", kind="computational"), fn=_judge)
 ```
+
+## The complete, runnable program
+
+The snippets above are fragments. Here is one self-contained file that runs entirely offline — no provider key, no network — so you can watch a gate accept and block deterministically. It builds two gates: a declarative `regex` sensor materialized from a `VerificationSensorConfig` (exactly what a YAML `verification:` block turns into), and a code-only `schema_sensor` that validates output against a Pydantic model.
+
+```python title="gate.py"
+import asyncio
+
+from pydantic import BaseModel
+
+from anycode import QualityGate, SensorContext, schema_sensor
+from anycode.types import VerificationSensorConfig
+from anycode.verification import build_sensors
+
+
+class WeatherReport(BaseModel):
+    city: str
+    temperature_celsius: float
+    summary: str
+
+
+async def run_declarative_gate() -> None:
+    """A registry sensor built from config, as a YAML `verification:` block materializes."""
+    gate = QualityGate(
+        build_sensors(
+            (
+                VerificationSensorConfig(
+                    name="regex",
+                    kind="computational",
+                    phases=("after_task",),
+                    block_on_failure=True,
+                    options={"pattern": "DONE", "expect": "match"},
+                ),
+            )
+        )
+    )
+    print("=== Declarative regex gate ===")
+    for output in ("the task is DONE.", "still working on it..."):
+        decision = await gate.evaluate(
+            SensorContext(phase="after_task", agent_name="demo", run_id="run-regex", output=output)
+        )
+        print(f"  output={output!r} -> {decision.outcome}")
+
+
+async def run_schema_gate() -> None:
+    """A code-only gate: output must parse and validate against a Pydantic model."""
+    gate = QualityGate([schema_sensor(WeatherReport, phases=("after_task",))])
+    print("\n=== Schema gate ===")
+    good = '{"city": "Paris", "temperature_celsius": 18.5, "summary": "mild"}'
+    bad = '{"city": "Paris"}'  # missing required fields
+    for label, output in (("good", good), ("bad", bad)):
+        decision = await gate.evaluate(
+            SensorContext(phase="after_task", agent_name="reporter", run_id=f"run-{label}", output=output)
+        )
+        print(f"  {label} output -> {decision.outcome}: {decision.message}")
+
+
+async def main() -> None:
+    await run_declarative_gate()
+    await run_schema_gate()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python gate.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/24_verification_gates.py`](https://github.com/Quantlix/anycode/blob/main/examples/24_verification_gates.py) for the declarative registry path, and [`examples/20_quality_gates.py`](https://github.com/Quantlix/anycode/blob/main/examples/20_quality_gates.py) for computational, inferential (LLM-judge), and live-agent gates side by side.
 
 ## Next steps
 

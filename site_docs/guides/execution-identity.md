@@ -1,6 +1,6 @@
 ---
 title: "Propagate AnyCode Execution Identity and Policy"
-description: Carry immutable principal, tenant, delegation, region, classification, and credential references through AnyCode and enforce external policy.
+description: Propagate immutable principal, tenant, delegation, region, classification, and credential references through AnyCode, then enforce external policy safely.
 keywords: AnyCode execution context, AI agent identity, agent policy enforcement, tenant scoped agents, workload identity
 ---
 
@@ -133,6 +133,111 @@ This ordering matters: policy is evaluated, obligations are fulfilled, and only 
 | Audit sink raises | No change | The decision remains effective; audit export failure does not corrupt run state |
 
 The audit sink receives bounded identity attributes and obligation types. Keep the policy engine's own decision log as the authoritative policy audit record, and monitor export failures separately.
+
+## The complete, runnable program
+
+The snippets above are fragments of one file. Here is the whole thing, ready to copy into `execution_identity.py`. It runs offline with no provider key: it builds an immutable context, attaches it to an agent, and enforces a local tenant policy through the versioned decision contract. `enforce` is a coroutine, so the program drives it from an async entry point.
+
+```python title="execution_identity.py"
+import asyncio
+
+from anycode import (
+    AgentConfig,
+    DelegationGrant,
+    ExecutionContext,
+    PolicyDecision,
+    PolicyEnforcer,
+    PolicyRequest,
+    uuid7,
+)
+
+
+class TenantPolicy:
+    """External policy adapter returning the versioned decision contract."""
+
+    async def decide(self, request: PolicyRequest) -> PolicyDecision:
+        allowed = request.context.tenant_scope == "tenant:example"
+        return PolicyDecision(
+            id=str(uuid7()),
+            run_id=request.run_id,
+            task_id=request.task_id,
+            outcome="allow" if allowed else "deny",
+            policy_version="tenant-policy/1",
+            reason_codes=("tenant_allowed" if allowed else "tenant_denied",),
+            correlation_id=request.correlation_id,
+            causation_id=request.causation_id,
+            generation=request.generation,
+            attempt=request.attempt,
+        )
+
+
+def build_context() -> ExecutionContext:
+    return ExecutionContext(
+        principal="user:reviewer-42",
+        subject="document:release-notes",
+        workload_identity="kubernetes:serviceaccount:anycode-service",
+        tenant_scope="tenant:example",
+        delegation=(
+            DelegationGrant(
+                delegator="user:reviewer-42",
+                delegatee="agent:release-reviewer",
+                scopes=("document:read", "review:write"),
+            ),
+        ),
+        classification="confidential",
+        allowed_regions=("eu-west",),
+        required_region="eu-west",
+        credential_references=("vault:providers/reviewer",),
+        trace_id="4f3c2a1b0e9d8c7b6a5f4e3d2c1b0a99",
+    )
+
+
+async def main() -> None:
+    context = build_context()
+
+    agent = AgentConfig(
+        name="release-reviewer",
+        provider="openai",
+        model="configured-model",
+        tools=[],
+        execution_context=context,
+    )
+    print("agent:", agent.name)
+    print("audit attributes:", context.audit_attributes())
+
+    enforcer = PolicyEnforcer(TenantPolicy(), fail_closed=True)
+    result = await enforcer.enforce(
+        PolicyRequest(
+            run_id="run-42",
+            task_id="task-review",
+            action="model.invoke",
+            resource="model:review-model",
+            boundary="model",
+            context=context,
+            correlation_id="correlation-42",
+        )
+    )
+
+    if not result.allowed:
+        raise PermissionError(result.error.message if result.error else "denied")
+
+    print("decision outcome:", result.decision.outcome)
+    print("reason codes:", result.decision.reason_codes)
+    print("applied obligations:", result.applied_obligations)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python execution_identity.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/40_operational_portability.py`](https://github.com/Quantlix/anycode/blob/main/examples/40_operational_portability.py), a CI-tested program that runs identity, policy, routing, and telemetry together without credentials.
 
 ## Next steps
 

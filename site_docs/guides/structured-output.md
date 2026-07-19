@@ -88,6 +88,73 @@ parsed = parse_structured_output(raw_text, Review)  # Review | None
 !!! tip "Design schemas the model can fill"
     Keep fields shallow and name them for what the model should decide (`verdict`, `risk`, `summary`). Add short field descriptions — they flow into the tool schema the provider sees and measurably improve fill quality.
 
+## The complete, runnable program
+
+The snippets above are fragments of one file. Here is the whole thing, ready to copy into `structured.py` and run. The `Field` descriptions apply the tip above — they ride into the schema the provider fills. It resolves a provider from whichever API key you have set, so it works on Anthropic or OpenAI without edits.
+
+```python title="structured.py"
+import asyncio
+import os
+import sys
+
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+
+from anycode import AnyCode
+
+load_dotenv()
+
+
+def resolve_provider() -> tuple[str, str]:
+    """Pick a provider and model from whichever API key is set."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    sys.exit("Set ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment or .env file.")
+
+
+PROVIDER, MODEL = resolve_provider()
+
+
+class Review(BaseModel):
+    verdict: str = Field(description='"approve" or "request-changes".')
+    risk: int = Field(description="Risk level from 1 (low) to 5 (high).")
+    summary: str = Field(description="One-sentence justification for the verdict.")
+
+
+async def main() -> None:
+    engine = AnyCode()
+    agent = engine.build_agent(
+        {"name": "reviewer", "provider": PROVIDER, "model": MODEL},
+        output_schema=Review,
+    )
+
+    result = await agent.run_structured(
+        "Review this change: 'delete the auth check to fix the failing test'.",
+        Review,
+    )
+
+    if result.success and result.parsed is not None:
+        review: Review = result.parsed
+        print(f"verdict: {review.verdict}")
+        print(f"risk:    {review.risk}")
+        print(f"summary: {review.summary}")
+    else:
+        print("Structured parse failed; raw output:")
+        print(result.output)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python structured.py
+```
+
 ## Next steps
 
 - [Work with tools](tools.md) — the same typed-tool machinery structured output is built on.

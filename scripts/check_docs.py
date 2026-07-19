@@ -31,6 +31,8 @@ EXAMPLES_DIR = REPO_ROOT / "examples"
 API_INVENTORY_HTML = SITE_DIR / "reference" / "api-inventory" / "index.html"
 RUNTIME_CONTRACT_PATH = DOCS_DIR / "reference" / "runtime-contracts.md"
 DOCS_SITE_PREFIX = "https://quantlix.github.io/anycode/latest/"
+DESCRIPTION_MIN_LENGTH = 150
+DESCRIPTION_MAX_LENGTH = 160
 
 
 def _markdown_section(markdown: str, heading: str) -> str | None:
@@ -139,6 +141,28 @@ def check_runtime_contract(errors: list[str]) -> None:
         errors.append(f"site_docs/reference/runtime-contracts.md has stale persisted-format rows: {missing_rows}")
 
 
+def _count_level_one_headings(markdown: str) -> int:
+    count = 0
+    fence_character: str | None = None
+    fence_length = 0
+    for line in markdown.splitlines():
+        fence = re.match(r"^\s*(`{3,}|~{3,})", line)
+        if fence:
+            marker = fence.group(1)
+            if fence_character is None:
+                fence_character = marker[0]
+                fence_length = len(marker)
+            elif marker[0] == fence_character and len(marker) >= fence_length:
+                fence_character = None
+                fence_length = 0
+            continue
+        if fence_character is None:
+            if re.match(r"^#\s+\S", line):
+                count += 1
+            count += len(re.findall(r"<h1(?:\s|>)", line, re.IGNORECASE))
+    return count
+
+
 def check_frontmatter(errors: list[str]) -> None:
     for path in sorted(DOCS_DIR.rglob("*.md")):
         text = path.read_text(encoding="utf-8")
@@ -163,6 +187,17 @@ def check_frontmatter(errors: list[str]) -> None:
             value = metadata.get(field)
             if not isinstance(value, str) or not value.strip():
                 errors.append(f"{path.relative_to(REPO_ROOT)} frontmatter is missing '{field}'")
+
+        description = metadata.get("description")
+        if isinstance(description, str) and description.strip() and not DESCRIPTION_MIN_LENGTH <= len(description) <= DESCRIPTION_MAX_LENGTH:
+            errors.append(
+                f"{path.relative_to(REPO_ROOT)} description is {len(description)} characters; "
+                f"expected {DESCRIPTION_MIN_LENGTH}-{DESCRIPTION_MAX_LENGTH}"
+            )
+
+        heading_count = _count_level_one_headings(text[closing + len("\n---\n") :])
+        if heading_count != 1:
+            errors.append(f"{path.relative_to(REPO_ROOT)} has {heading_count} level-one headings; expected exactly 1")
 
 
 def _docs_source_for_url(url: str) -> Path | None:

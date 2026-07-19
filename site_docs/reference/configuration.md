@@ -1,6 +1,6 @@
 ---
 title: "AnyCode Configuration Reference"
-description: "Every configuration surface in AnyCode — OrchestratorConfig and its nested feature configs, AgentConfig, TeamConfig, TaskSpec, RunnerOptions, resilience and streaming settings, and notable defaults."
+description: "Configure every AnyCode runtime surface, including orchestrators, agents, teams, tasks, providers, resilience, streaming, durability, and documented defaults."
 keywords: AnyCode configuration, OrchestratorConfig, AgentConfig, TeamConfig, TaskSpec, RunnerOptions, MemoryConfig, CheckpointConfig, RetryPolicy, defaults
 ---
 

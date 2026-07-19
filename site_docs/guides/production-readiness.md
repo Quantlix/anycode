@@ -167,6 +167,89 @@ Repeat the decision when any of these changes:
 
 The useful question is not whether the package is production-ready in the abstract. It is whether this pinned release, workload, data path, extension set, and operating environment meet a reviewed boundary with evidence.
 
+## Generate baseline release evidence
+
+The [required release evidence](#required-release-evidence) table asks for durable, reproducible records rather than verbal assurance. One piece you can produce today with no provider credentials is a local-runtime baseline: run a deterministic agent against a `FakeAdapter`, capture execution timing, stream and lifecycle event volume, and context growth, and emit the result as JSON to attach to the release. Because it never calls a live model, it is byte-for-byte reproducible and safe to run in CI.
+
+```python title="runtime_baseline.py"
+import asyncio
+import json
+import platform
+import time
+from collections import Counter
+
+from anycode import (
+    AgentRunner,
+    FakeAdapter,
+    FakeResponse,
+    LLMMessage,
+    RunnerOptions,
+    TextBlock,
+    ToolExecutor,
+    ToolRegistry,
+    estimate_messages_tokens,
+)
+
+
+async def run_deterministic_agent() -> tuple[float, list[str], int]:
+    """Run one agent turn against a FakeAdapter and measure it — no provider key."""
+    registry = ToolRegistry()
+    runner = AgentRunner(
+        FakeAdapter(responses=[FakeResponse(text="baseline complete")]),
+        registry,
+        ToolExecutor(registry),
+        RunnerOptions(model="fake-model", max_turns=1, agent_name="baseline"),
+    )
+    event_types: list[str] = []
+    lifecycle_events = 0
+    started_at = time.perf_counter()
+    async for event in runner.stream([LLMMessage(role="user", content=[TextBlock(text="run")])]):
+        event_types.append(event.type)
+        if event.type == "done":
+            lifecycle_events = len(event.data.lifecycle_events)  # type: ignore[union-attr]
+    return time.perf_counter() - started_at, event_types, lifecycle_events
+
+
+def measure_context_growth() -> list[dict[str, int]]:
+    """Estimate token cost as conversation history grows."""
+    payload = "x" * 256
+    rows: list[dict[str, int]] = []
+    for count in (1, 8, 32):
+        messages = [LLMMessage(role="user", content=[TextBlock(text=payload)]) for _ in range(count)]
+        rows.append({"messages": count, "estimated_tokens": estimate_messages_tokens(messages)})
+    return rows
+
+
+async def collect_baseline() -> dict[str, object]:
+    elapsed, event_types, lifecycle_events = await run_deterministic_agent()
+    return {
+        "environment": {"python": platform.python_version(), "platform": platform.system().lower()},
+        "execution": {
+            "elapsed_ms": round(elapsed * 1000, 3),
+            "stream_event_types": dict(sorted(Counter(event_types).items())),
+            "lifecycle_events": lifecycle_events,
+        },
+        "context_growth": measure_context_growth(),
+    }
+
+
+async def main() -> None:
+    print(json.dumps(await collect_baseline(), indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python runtime_baseline.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/36_runtime_baseline.py`](https://github.com/Quantlix/anycode/blob/main/examples/36_runtime_baseline.py) for the full fixture — task admission, deterministic execution across many runs, checkpoint size, event volume, and context growth, with an `--output` flag to write the JSON evidence to a file.
+
 ## Next steps
 
 - Read the [security and threat model](../reference/security.md) with the deployment diagram in hand.

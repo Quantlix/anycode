@@ -1,6 +1,6 @@
 ---
 title: "Run AnyCode Work in Sandbox Providers"
-description: Configure Daytona or companion sandbox providers with immutable identity, network policy, secret references, command streaming, files, cancellation, and evidence.
+description: Configure Daytona or companion sandboxes for AnyCode with identity, network policy, secret references, streamed commands, files, cancellation, and evidence.
 keywords: AnyCode sandbox, Daytona Python sandbox, AI agent code execution, policy sandbox provider, isolated agent tools
 ---
 
@@ -115,6 +115,184 @@ The current capability report declares remote isolation, allowlisted networking,
 - Stable point-in-time snapshots are not exposed by the adapter.
 
 Check `provider.capabilities()` during startup. Refuse workloads whose requirements exceed the reported guarantees.
+
+## The complete, runnable program
+
+The snippets above assume a live Daytona host. Here is a complete file you can run offline with no credentials and no optional dependencies. It implements a small in-memory sandbox behind `CompanionSandboxAdapter` — exactly the companion-service shape described above — wraps it with `PolicySandboxProvider` so every operation needs an allow decision, and exercises the full create, execute, stream, file, and destroy path. Swap `InMemorySandboxClient` for `DaytonaSandboxProvider()` (or your own companion client) to run against a real isolated host; the calling code does not change.
+
+```python title="sandbox_providers.py"
+import asyncio
+from collections.abc import AsyncIterator
+
+from anycode import (
+    CompanionSandboxAdapter,
+    ExecutionContext,
+    PolicyDecision,
+    PolicyEnforcer,
+    PolicyRequest,
+    PolicySandboxProvider,
+    SandboxCommand,
+    SandboxSpec,
+    uuid7,
+)
+from anycode.sandbox import (
+    SandboxActionResult,
+    SandboxCapabilities,
+    SandboxCommandResult,
+    SandboxCreateResult,
+    SandboxEvidence,
+    SandboxFileResult,
+    SandboxHandle,
+    SandboxHealth,
+    SandboxOutputChunk,
+)
+
+
+def build_capabilities(provider: str) -> SandboxCapabilities:
+    return SandboxCapabilities(
+        provider=provider,
+        isolation="remote",
+        networking="allowlist",
+        persistent_filesystem=True,
+        snapshots=False,
+        command_streaming=True,
+        cancellation=True,
+        file_transfer=True,
+        evidence=True,
+        limitations=("Stable point-in-time snapshots are not exposed.",),
+    )
+
+
+class InMemorySandboxClient:
+    """Offline stand-in for a separately deployed sandbox companion service."""
+
+    def __init__(self, provider: str) -> None:
+        self._provider = provider
+        self._capabilities = build_capabilities(provider)
+        self._files: dict[str, bytes] = {}
+
+    async def create(self, spec: SandboxSpec) -> SandboxCreateResult:
+        handle = SandboxHandle(
+            id="sandbox-1",
+            provider=self._provider,
+            run_id=spec.run_id,
+            task_id=spec.task_id,
+            correlation_id=spec.correlation_id,
+            context=spec.context,
+            capabilities=self._capabilities,
+        )
+        return SandboxCreateResult(ok=True, handle=handle)
+
+    async def execute(self, handle: SandboxHandle, command: SandboxCommand) -> SandboxCommandResult:
+        stdout = f"ran: {command.command}\n"
+        return SandboxCommandResult(
+            ok=True,
+            exit_code=0,
+            stdout=stdout,
+            evidence=SandboxEvidence.from_bytes("execute", stdout.encode()),
+        )
+
+    async def stream(self, handle: SandboxHandle, command: SandboxCommand) -> AsyncIterator[SandboxOutputChunk]:
+        yield SandboxOutputChunk(stream="stdout", data=f"starting: {command.command}", sequence=1)
+        yield SandboxOutputChunk(stream="stdout", data="done", sequence=2)
+
+    async def write_file(self, handle: SandboxHandle, path: str, data: bytes) -> SandboxFileResult:
+        self._files[path] = data
+        return SandboxFileResult(ok=True, evidence=SandboxEvidence.from_bytes("file.write", data))
+
+    async def read_file(self, handle: SandboxHandle, path: str) -> SandboxFileResult:
+        data = self._files[path]
+        return SandboxFileResult(ok=True, data=data, evidence=SandboxEvidence.from_bytes("file.read", data))
+
+    async def cancel(self, handle: SandboxHandle) -> SandboxActionResult:
+        return SandboxActionResult(ok=True)
+
+    async def snapshot(self, handle: SandboxHandle, name: str) -> SandboxActionResult:
+        return SandboxActionResult(ok=True)
+
+    async def destroy(self, handle: SandboxHandle) -> SandboxActionResult:
+        return SandboxActionResult(ok=True)
+
+    async def health(self) -> SandboxHealth:
+        return SandboxHealth(status="healthy")
+
+
+class AllowSandboxPolicy:
+    """Minimal external policy adapter; a real deployment calls its policy service."""
+
+    async def decide(self, request: PolicyRequest) -> PolicyDecision:
+        return PolicyDecision(
+            id=str(uuid7()),
+            run_id=request.run_id,
+            task_id=request.task_id,
+            outcome="allow",
+            policy_version="sandbox-policy/1",
+            reason_codes=("sandbox_allowed",),
+            correlation_id=request.correlation_id,
+            causation_id=request.causation_id,
+            generation=request.generation,
+            attempt=request.attempt,
+        )
+
+
+async def main() -> None:
+    provider_name = "companion-demo"
+    base = CompanionSandboxAdapter(InMemorySandboxClient(provider_name), build_capabilities(provider_name))
+    secured = PolicySandboxProvider(base, PolicyEnforcer(AllowSandboxPolicy(), fail_closed=True))
+
+    caps = secured.capabilities()
+    print(f"provider={caps.provider} isolation={caps.isolation} snapshots={caps.snapshots}")
+
+    spec = SandboxSpec(
+        run_id="run-42",
+        task_id="task-check",
+        correlation_id="correlation-42",
+        context=ExecutionContext(
+            principal="user:reviewer-42",
+            tenant_scope="tenant:example",
+            classification="internal",
+        ),
+        image="python:3.12-slim",
+        network="allowlist",
+        allowed_domains=("pypi.org", "files.pythonhosted.org"),
+        labels={"workload": "dependency-check"},
+    )
+
+    created = await secured.create(spec)
+    if not created.ok or created.handle is None:
+        raise RuntimeError(created.error.message if created.error else "create failed")
+    handle = created.handle
+
+    try:
+        result = await secured.execute(handle, SandboxCommand(command="python --version", timeout_seconds=30))
+        if not result.ok:
+            raise RuntimeError(result.error.message if result.error else result.stderr)
+        print("stdout:", result.stdout.strip())
+        print("evidence:", result.evidence.digest if result.evidence else "none")
+
+        async for chunk in secured.stream(handle, SandboxCommand(command="python -u check.py")):
+            print(f"stream[{chunk.sequence}] {chunk.stream}: {chunk.data}")
+
+        await secured.write_file(handle, "/workspace/input.txt", b"review this")
+        download = await secured.read_file(handle, "/workspace/input.txt")
+        if download.ok and download.data is not None:
+            print("read back:", download.data.decode())
+    finally:
+        await secured.destroy(handle)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python sandbox_providers.py
+```
+
+!!! tip "Tested copy"
+    The real `DaytonaSandboxProvider` and `PolicySandboxProvider` behavior — lifecycle, streaming, file transfer, evidence, and the policy-denied path — is exercised in [`tests/test_sandbox.py`](https://github.com/Quantlix/anycode/blob/main/tests/test_sandbox.py). See also [`examples/40_operational_portability.py`](https://github.com/Quantlix/anycode/blob/main/examples/40_operational_portability.py) for the shared identity and policy envelope.
 
 ## Next steps
 

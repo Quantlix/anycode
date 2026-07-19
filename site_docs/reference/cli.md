@@ -14,8 +14,9 @@ The `anycode` command-line interface scaffolds projects, runs team configs, insp
 | [`anycode init`](#anycode-init) | Scaffold a starter project with config, code, and tooling. |
 | [`anycode run`](#anycode-run) | Run a YAML or TOML team config. |
 | [`anycode inspect`](#anycode-inspect) | Inspect tools, providers, plugins, config, and team. |
-| [`anycode eval`](#anycode-eval) | Run evaluation scenarios from a suite file. |
+| [`anycode eval`](#anycode-eval) | Run (`run`) or compare (`compare`) evaluation suites. |
 | [`anycode runs`](#anycode-runs) | Inspect durable run stores (list, show, tail, audit, sweep). |
+| [`anycode harness`](#anycode-harness) | Emit a harness manifest (`manifest`) or run an experimental evolution sweep (`evolve`). |
 
 Install the CLI extra before using the `anycode` command:
 
@@ -79,11 +80,34 @@ uv run anycode inspect team team.yaml
 
 ## `anycode eval`
 
-Run evaluation scenarios from a suite file. Deterministic fake responses can be used for CI and harness tests without provider credentials.
+Run and compare evaluation suites. The command has two subcommands, `run` and `compare`. Deterministic fake responses can be used for CI and harness tests without provider credentials.
+
+### `anycode eval run`
+
+Execute every scenario in a suite file against the configured provider and write a JSON report.
 
 ```bash
-uv run anycode eval tests/fixtures/eval/runtime_reliability_deterministic.yaml
+uv run anycode eval run tests/fixtures/eval/runtime_reliability_deterministic.yaml
 ```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `--variant`, `-v` | `baseline` | Label for this harness variant, recorded in the report. |
+| `--output`, `-o` | `artifacts/eval/report.json` | Where to write the JSON report. |
+| `--name`, `-n` | `default` | Suite name recorded in the report. |
+| `--markdown`, `-m` | off | Also print a markdown summary table. |
+
+The command exits non-zero if any scenario fails, so it doubles as a CI gate.
+
+### `anycode eval compare`
+
+Diff two reports and surface regressions, improvements, and newly added scenarios.
+
+```bash
+uv run anycode eval compare artifacts/eval/baseline.json artifacts/eval/candidate.json
+```
+
+By default it exits non-zero when the candidate regresses against the baseline. Pass `--no-fail-on-regression` to report differences without failing.
 
 ## `anycode runs`
 
@@ -99,6 +123,42 @@ uv run anycode runs sweep --root .anycode/runs --retention-days 30 --max-runs 10
 ```
 
 Use these commands when workflows checkpoint turns, pause for wake conditions, or need an audit trail. Retention is disabled unless `--retention-days` or `--max-runs` is supplied; only terminal runs are eligible. See [Production controls](../guides/production-controls.md) for durable-run configuration.
+
+## `anycode harness`
+
+Inspect and — experimentally — evolve the harness itself. This is an advanced surface used by evaluation tooling; most projects never need it. See the [adaptive harness section of the Public API](public-api.md#adaptive-harness-advanced).
+
+### `anycode harness manifest`
+
+Emit a deterministic manifest of every editable harness component for a configured team.
+
+```bash
+uv run anycode harness manifest --config team.yaml
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `--config`, `-c` | *(required)* | AnyCode config file to build the manifest from. |
+| `--output`, `-o` | `artifacts/harness/manifest.json` | Where to write the manifest JSON. |
+| `--notes` | *(none)* | Optional note attached to the manifest. |
+| `--pretty` | off | Pretty-print the (secret-redacted) manifest to stdout. |
+
+### `anycode harness evolve`
+
+Run a controlled, **dry-run-by-default** evolution sweep over an eval suite. It never writes back to your repository; accepted changes are emitted as reviewable JSON patches.
+
+```bash
+uv run anycode harness evolve tests/fixtures/eval/runtime_reliability_deterministic.yaml
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `--max-iterations` | `3` | Maximum proposal cycles. |
+| `--dry-run` / `--apply` | `--dry-run` | `--apply` is reserved for experimental tooling and currently exits early. |
+| `--patch-dir` | `artifacts/harness/patches` | Where to emit reviewable patches. |
+
+!!! warning "Experimental"
+    Harness evolution is experimental and intended for evaluation environments, not production runs. Keep it in dry-run mode and review every emitted patch by hand.
 
 ## See also
 

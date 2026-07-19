@@ -1,6 +1,6 @@
 ---
 title: "Tutorial: Build a Research Assistant with RAG Memory in AnyCode"
-description: "Build an AnyCode research assistant that indexes what it learns and retrieves relevant context on later questions using RAGConfig and a vector-backed memory store."
+description: "Build an AnyCode research assistant that indexes findings and retrieves relevant context for later questions with RAGConfig and vector-backed memory in Python."
 keywords: anycode tutorial, rag research assistant, retrieval augmented generation, RAGConfig, vector memory, chromadb, agent memory tutorial, real world rag
 ---
 

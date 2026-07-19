@@ -1,6 +1,6 @@
 ---
 title: "AnyCode — Multi-Agent AI Orchestration Framework for Python"
-description: AnyCode is a Python framework for orchestrating multi-agent AI teams with typed tools, dependency-aware task graphs, durable execution, provider-neutral adapters, and verification gates.
+description: Build multi-agent AI workflows with AnyCode using typed tools, dependency-aware task graphs, provider-neutral models, durable runs, and verification gates.
 keywords: python multi-agent framework, AI agent orchestration, LLM agent framework, agent task scheduling, tool use pydantic, multi-provider agents, agent verification
 template: home.html
 hide:

@@ -124,6 +124,94 @@ Before a rolling upgrade:
 
 See `deploy/IMAGE_CONTRACT.md` and `deploy/README.md` for the complete host and rollback requirements.
 
+## The complete, runnable program
+
+The snippets above are pieces of one lifecycle. Here is a complete file you can run offline with no provider key. It starts the lifecycle, runs one item through the full admission, begin, and complete cycle, drains a second item with a durable-return callback, and generates the deployment Agent Card. `HostLifecycle` is web-framework-neutral, so wire these calls into your framework's health routes and `SIGTERM` handler.
+
+```python title="hosting_services.py"
+import asyncio
+
+from anycode import (
+    A2A_AGENT_CARD_PATH,
+    A2AAgentCard,
+    CapabilityDescriptor,
+    HostLifecycle,
+    WorkItem,
+    build_deployment_agent_card,
+)
+
+
+async def process_work(work_id: str) -> None:
+    # Replace with the service's real per-item handler.
+    await asyncio.sleep(0)
+
+
+def build_agent_card() -> A2AAgentCard:
+    capability = CapabilityDescriptor(
+        name="release-review-service",
+        implementation_version="0.8.0",
+        operations=("review.submit", "review.status", "review.cancel"),
+        supports_cancellation=True,
+        supports_resume=True,
+        supports_event_stream=True,
+    )
+    return build_deployment_agent_card(
+        capability,
+        endpoint="https://agents.example.com/release-review",
+        description="Reviews release changes against repository policy.",
+        organization="Example Engineering",
+        organization_url="https://example.com",
+        openid_connect_url="https://identity.example.com/.well-known/openid-configuration",
+    )
+
+
+async def main() -> None:
+    lifecycle = HostLifecycle(max_inflight=100)
+    await lifecycle.start()
+    print("live:", lifecycle.live(), "ready:", lifecycle.ready())
+
+    admission = await lifecycle.admit("work-42")
+    if not admission.accepted:
+        raise RuntimeError(admission.error.message if admission.error else "not admitted")
+    if await lifecycle.begin("work-42"):
+        try:
+            await process_work("work-42")
+        finally:
+            await lifecycle.complete("work-42")
+
+    accepted_work: dict[str, WorkItem] = {}
+    await lifecycle.admit("work-99")
+    await lifecycle.begin("work-99")
+    accepted_work["work-99"] = WorkItem(id="work-99", run_id="run-99", task_id="task-99")
+
+    async def return_to_backend(work_ids: tuple[str, ...]) -> None:
+        for work_id in work_ids:
+            # Idempotent: a process can lose its acknowledgement after durable state changed.
+            print("returning to backend:", accepted_work[work_id].id)
+
+    result = await lifecycle.drain(timeout_seconds=0, durable_return=return_to_backend)
+    print("drained:", result.drained, "durably_returned:", result.durably_returned)
+
+    card = build_agent_card()
+    print("agent card path:", A2A_AGENT_CARD_PATH)
+    print("skills:", [skill.id for skill in card.skills])
+    payload = card.model_dump(mode="json", by_alias=True, exclude_none=True)
+    print("interface:", payload["supportedInterfaces"][0]["url"])
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python hosting_services.py
+```
+
+!!! tip "Tested copy"
+    The CI-tested versions of admission, drain, durable return, and per-endpoint Agent Card generation live in [`tests/test_hosting.py`](https://github.com/Quantlix/anycode/blob/main/tests/test_hosting.py). See [`examples/40_operational_portability.py`](https://github.com/Quantlix/anycode/blob/main/examples/40_operational_portability.py) for the identity and policy envelope these services carry.
+
 ## Next steps
 
 - [Configure durability backends](durability-backends.md)

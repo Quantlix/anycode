@@ -1,6 +1,6 @@
 ---
 title: "Add Human-in-the-Loop Approval Gates to AnyCode"
-description: "Require a human to approve sensitive AnyCode tool calls or tasks with ApprovalManager and approval gates for stdin, callbacks, or webhooks, including timeout policy."
+description: "Require human approval for sensitive AnyCode tools or tasks with stdin, callback, or webhook gates, audit history, timeout policy, and explicit denial."
 keywords: anycode human in the loop, HITL approval, ApprovalManager, ApprovalConfig, approval gate, StdinApprovalGate, WebhookApprovalGate, approve tool call, require_approval_tools
 ---
 
@@ -86,6 +86,78 @@ engine = AnyCode(config={
 
 !!! danger "No handler, no gate"
     If `approval_handler` is `None`, no approval manager is created even when `enabled=True`. There is no default gate — you must supply one.
+
+## The complete, runnable program
+
+Here is one whole file that puts the pieces together: an `ApprovalConfig` that gates only `bash` and `file_write`, a `CallbackApprovalGate` whose handler rejects shell commands, and a loop that shows all three outcomes — approved, rejected, and skipped (`None`, not required) — then prints the audit trail. It uses callback gates only, so it runs with no TTY, no API key, and no network.
+
+```python title="approval.py"
+import asyncio
+from datetime import UTC, datetime
+
+from anycode import ApprovalManager, CallbackApprovalGate
+from anycode.types import ApprovalConfig, ApprovalRequest, ApprovalResponse
+
+
+async def review(request: ApprovalRequest) -> ApprovalResponse:
+    """Decide each request. In production, route this to a UI, queue, or chatbot."""
+    tool_name = (request.context or {}).get("tool_name", "")
+    if tool_name == "bash":
+        return ApprovalResponse(
+            approved=False,
+            reason="Shell commands require manual review",
+            request_id=request.id,
+            responded_at=datetime.now(UTC),
+        )
+    return ApprovalResponse(approved=True, request_id=request.id, responded_at=datetime.now(UTC))
+
+
+async def main() -> None:
+    config = ApprovalConfig(
+        enabled=True,
+        require_approval_tools=["bash", "file_write"],
+        timeout_seconds=5.0,
+        default_on_timeout="reject",
+    )
+    manager = ApprovalManager(config, CallbackApprovalGate(review))
+
+    attempts = [
+        ("bash", "Run: rm -rf ./build"),
+        ("file_write", "Write report to ./out/report.md"),
+        ("file_read", "Read ./src/app.py"),
+    ]
+    for tool_name, description in attempts:
+        decision = await manager.check_and_request(
+            request_type="tool_call",
+            agent="worker",
+            description=description,
+            context={"tool_name": tool_name},
+        )
+        if decision is None:
+            print(f"[skipped ] {tool_name}: approval not required")
+        elif decision.approved:
+            print(f"[approved] {tool_name}: {description}")
+        else:
+            print(f"[rejected] {tool_name}: {decision.reason}")
+
+    print("\n--- audit trail ---")
+    for request, response in manager.history:
+        verdict = "APPROVED" if response.approved else f"REJECTED ({response.reason})"
+        print(f"  {request.description:34s} -> {verdict}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python approval.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/08_hitl_approval.py`](https://github.com/Quantlix/anycode/blob/main/examples/08_hitl_approval.py) for the CI-tested version, which also covers timeout handling, modified-input flows, task-level gates, and console rendering of a request.
 
 ## Next steps
 

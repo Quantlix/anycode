@@ -63,6 +63,133 @@ Each row shows the agent name, a success/failure marker, a bar, and the total to
 !!! warning "Bars are token proxies, not durations"
     `AgentRunResult` carries no timestamps, so the bars scale to each agent's **token usage**, not wall-clock time. Read the timeline as "who did the most work," not "who took the longest."
 
+## The complete, runnable program
+
+Here is one file that puts both renderers together. It builds a small task queue with mixed statuses and prints the DAG in all four formats — that part is fully offline and always runs. If an API key is set, it then executes a short live team run and renders the timeline; otherwise it prints a skip note and exits cleanly.
+
+```python title="visualize.py"
+import asyncio
+import os
+
+from dotenv import load_dotenv
+
+from anycode import (
+    AgentConfig,
+    AnyCode,
+    TaskQueue,
+    TaskSpec,
+    TeamConfig,
+    render_dag,
+    render_timeline,
+)
+from anycode.tasks.task import create_task
+
+load_dotenv()
+
+
+def resolve_provider() -> tuple[str, str] | None:
+    """Pick a provider for the live timeline, or None to render the DAG only."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    return None
+
+
+def build_queue() -> TaskQueue:
+    """Build a small task graph with mixed statuses to visualize."""
+    queue = TaskQueue()
+
+    plan = create_task(title="Plan", description="Outline the change", assignee="planner")
+    queue.add(plan)
+    queue.update(plan.id, status="completed")
+
+    build = create_task(
+        title="Build", description="Implement it", assignee="builder", depends_on=[plan.id]
+    )
+    queue.add(build)
+    queue.update(build.id, status="in_progress")
+
+    review = create_task(
+        title="Review", description="Check the change", assignee="reviewer", depends_on=[build.id]
+    )
+    queue.add(review)
+    return queue
+
+
+async def run_timeline(provider: str, model: str) -> None:
+    engine = AnyCode()
+    team = engine.create_team(
+        "viz-demo",
+        TeamConfig(
+            name="viz-demo",
+            agents=[
+                AgentConfig(
+                    name="planner",
+                    provider=provider,
+                    model=model,
+                    system_prompt="Produce concise execution plans.",
+                    tools=[],
+                ),
+                AgentConfig(
+                    name="builder",
+                    provider=provider,
+                    model=model,
+                    system_prompt="Describe implementation steps briefly.",
+                    tools=[],
+                ),
+            ],
+        ),
+    )
+    tasks = [
+        TaskSpec(
+            title="Plan",
+            description="Outline a release plan for a demo CLI tool in one sentence.",
+            assignee="planner",
+        ),
+        TaskSpec(
+            title="Build",
+            description="Describe the implementation approach in two sentences.",
+            assignee="builder",
+            depends_on=["Plan"],
+        ),
+    ]
+    result = await engine.run_tasks(team, tasks)
+    print(render_timeline(result, width=40))
+
+
+async def main() -> None:
+    queue = build_queue()
+
+    print(render_dag(queue, format="ascii"))
+    print("\n=== Mermaid ===")
+    print(render_dag(queue, format="mermaid"))
+    print("\n=== Graphviz DOT ===")
+    print(render_dag(queue, format="dot"))
+    print("\n=== JSON ===")
+    print(render_dag(queue, format="json"))
+
+    resolved = resolve_provider()
+    if resolved is None:
+        print("\nSkipping live timeline: set ANTHROPIC_API_KEY or OPENAI_API_KEY to run it.")
+        return
+    print("\n=== Timeline (live team run) ===")
+    await run_timeline(*resolved)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python visualize.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/16_dag_visualization.py`](https://github.com/Quantlix/anycode/blob/main/examples/16_dag_visualization.py).
+
 ## Next steps
 
 - [Run a multi-agent team](multi-agent-team.md) — build the task graph you'll visualize.

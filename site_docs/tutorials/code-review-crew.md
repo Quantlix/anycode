@@ -1,6 +1,6 @@
 ---
 title: "Tutorial: Build an Automated Code-Review Crew with AnyCode"
-description: "Build a three-agent AnyCode crew that reviews a code change — a planner, a reviewer with file tools, and a verifier gated on ruff and pytest — with a cost ceiling."
+description: "Build a three-agent AnyCode code-review crew with a planner, file-aware reviewer, ruff and pytest verifier, typed tasks, and a firm LLM cost ceiling in Python."
 keywords: anycode tutorial, code review crew, multi-agent code review, verification gate, pytest ruff sensor, agent team tutorial, cost budget, real world agents
 ---
 
