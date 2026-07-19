@@ -38,7 +38,7 @@ AnyCode is built for experimentation, evaluation, local development, research pr
 | --- | --- |
 | Distribution | `anycode-py` |
 | Import package | `anycode` |
-| Current version | `0.8.0` |
+| Current version | `0.8.2` |
 | Python | `>=3.12` |
 | Project status | Alpha |
 | License | MIT |
