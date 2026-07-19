@@ -16,16 +16,6 @@
   {% if page and page.meta and page.meta.keywords %}
   <meta name="keywords" content="{{ page.meta.keywords }}">
   {% endif %}
-  <!-- Open Graph + Twitter (text). The social plugin adds og:image / twitter:image in CI. -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="{{ config.site_name }}">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:title" content="{{ page_title }}">
-  <meta property="og:description" content="{{ page_desc }}">
-  <meta property="og:url" content="{{ page.canonical_url }}">
-  <meta name="twitter:title" content="{{ page_title }}">
-  <meta name="twitter:description" content="{{ page_desc }}">
-
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",

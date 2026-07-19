@@ -1,6 +1,6 @@
 ---
 title: "AnyCode Maintainer Governance and Change Policy"
-description: "Understand AnyCode maintainer roles, branch protection, change approval, compatibility review, deprecation windows, backports, and support policy."
+description: "Understand AnyCode maintainer roles, branch protection, change approval, compatibility, deprecation windows, backports, release ownership, and support policy."
 keywords: AnyCode maintainers, open source governance, branch policy, semantic versioning, deprecation policy, backport policy
 ---
 

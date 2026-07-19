@@ -1,6 +1,6 @@
 ---
 title: "Architecture Decision Record Template"
-description: "Copyable AnyCode ADR template covering context, decision, state and failure semantics, compatibility, security, evidence, rollout, and rollback."
+description: "Use the AnyCode ADR template to record context, decisions, state and failure semantics, compatibility, security evidence, rollout, and rollback guidance."
 keywords: ADR template, AnyCode architecture template, design decision checklist
 ---
 

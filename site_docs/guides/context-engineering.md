@@ -1,6 +1,6 @@
 ---
 title: "Engineer the AnyCode Context Window as History Grows"
-description: "Control AnyCode's context with a ContextPolicy: trim, mask, offload, compact, and hand off history by pressure while preserving task state and verification failures."
+description: "Control AnyCode context with policies that trim, mask, offload, compact, or hand off history under pressure while preserving task and verification state."
 keywords: anycode context engineering, ContextPolicy, context window, context pressure, offload_text, model context profile, token budget, compaction, context manager
 ---
 
@@ -99,6 +99,72 @@ Set `ContextPolicy(redact_sensitive_data=False)` or pass `redact_sensitive_data=
 
 !!! tip "tiktoken sharpens token counts"
     By default AnyCode counts tokens heuristically. Install `anycode-py[tokens]` and the OpenAI-family profiles use `tiktoken` for exact counts, which makes the pressure ladder trigger at the right moments.
+
+## The complete, runnable program
+
+The fragments above are pieces of one file. Here is a complete `context_engineering.py` that registers a custom huge-context model profile, runs a policy in `"auto"` mode, assembles a long history through `ContextManager`, and prints the resulting pressure, the preserved task state and open failures, and a per-section usage table. It makes no LLM calls, so it runs offline with no API key.
+
+```python title="context_engineering.py"
+from anycode import ContextManager, LLMMessage, TextBlock
+from anycode.context.reporting import render_usage_report_table
+from anycode.types import ContextPolicy, ModelContextProfile
+
+
+def make_history(n: int) -> list[LLMMessage]:
+    """Build a long conversation so the context grows under pressure."""
+    return [
+        LLMMessage(
+            role="user" if i % 2 == 0 else "assistant",
+            content=[TextBlock(text=f"turn {i}: " + ("lorem ipsum " * 80))],
+        )
+        for i in range(n)
+    ]
+
+
+def main() -> None:
+    # Auto mode sizes the window from a model profile instead of a fixed cap.
+    # Register a custom profile for any model AnyCode does not already know.
+    giga = ModelContextProfile(
+        provider="myvendor",
+        model="giga-1m",
+        max_context_tokens=1_000_000,
+        max_output_tokens=64_000,
+    )
+    policy = ContextPolicy(
+        enabled=True,
+        mode="auto",
+        keep_recent_messages=6,
+        max_tool_output_tokens=4_000,
+        custom_profiles=(giga,),
+        preserved_task_state={"objective": "Migrate the billing module"},
+        preserved_verification_failures=("pytest: 2 failing in tests/test_billing.py",),
+    )
+
+    # ContextManager.assemble is synchronous — it reports what the policy would do.
+    manager = ContextManager(policy, provider="myvendor", model="giga-1m")
+    prepared, manifest = manager.assemble(make_history(40))
+
+    print(f"pressure:          {manifest.pressure}")
+    print(f"prepared messages: {len(prepared)}")
+    print(f"preserved state:   {manifest.preserved_task_state}")
+    print(f"open failures:     {manifest.preserved_verification_failures}")
+    if manifest.usage_report is not None:
+        print()
+        print(render_usage_report_table(manifest.usage_report))
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Run it from the project root:
+
+```bash
+uv run python context_engineering.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/26_context_engineering.py`](https://github.com/Quantlix/anycode/blob/main/examples/26_context_engineering.py) for section-aware budgets on a huge-context model, plus [`examples/19_adaptive_context.py`](https://github.com/Quantlix/anycode/blob/main/examples/19_adaptive_context.py) and [`examples/23_context_pressure.py`](https://github.com/Quantlix/anycode/blob/main/examples/23_context_pressure.py) for the offload, compaction, and handoff steps of the pressure ladder in action.
 
 ## Next steps
 

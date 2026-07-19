@@ -138,6 +138,121 @@ for agent_name, agent_result in result.agent_results.items():
 
 The returned `TeamRunResult` contains per-agent outputs, total token usage, handoffs, route decisions, cost reports, lifecycle events, verification results, and gate decisions when those features are enabled. Start with `result.success` for the overall verdict, then walk `result.agent_results` for each role's output and status.
 
+## The complete, runnable program
+
+The steps above are fragments of one file. Here is the whole thing, ready to copy into `team.py` and run. It resolves a provider from whichever API key you have set, so it works on Anthropic or OpenAI without edits.
+
+```python title="team.py"
+import asyncio
+import os
+import sys
+
+from dotenv import load_dotenv
+
+from anycode import AgentConfig, AnyCode, TaskSpec, TeamConfig
+
+load_dotenv()
+
+
+def resolve_provider() -> tuple[str, str]:
+    """Pick a provider and model from whichever API key is set."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    sys.exit("Set ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment or .env file.")
+
+
+PROVIDER, MODEL = resolve_provider()
+
+
+def build_agents() -> list[AgentConfig]:
+    planner = AgentConfig(
+        name="planner",
+        provider=PROVIDER,
+        model=MODEL,
+        system_prompt="Create short implementation plans with risks and checks.",
+        tools=[],
+    )
+    builder = AgentConfig(
+        name="builder",
+        provider=PROVIDER,
+        model=MODEL,
+        system_prompt="Implement the plan carefully and report changed files.",
+        tools=["file_read", "file_write", "file_edit", "grep"],
+    )
+    reviewer = AgentConfig(
+        name="reviewer",
+        provider=PROVIDER,
+        model=MODEL,
+        system_prompt="Review the implementation for bugs, risks, and missing tests.",
+        tools=["file_read", "grep"],
+    )
+    return [planner, builder, reviewer]
+
+
+def build_tasks() -> list[TaskSpec]:
+    return [
+        TaskSpec(
+            title="Plan change",
+            description="Plan a small feature and include a validation command.",
+            assignee="planner",
+        ),
+        TaskSpec(
+            title="Implement change",
+            description="Implement the planned feature and keep the edit focused.",
+            assignee="builder",
+            depends_on=["Plan change"],
+        ),
+        TaskSpec(
+            title="Review change",
+            description="Review the implementation and identify any fixes before merge.",
+            assignee="reviewer",
+            depends_on=["Implement change"],
+        ),
+    ]
+
+
+async def main() -> None:
+    engine = AnyCode(config={"max_concurrency": 3})
+
+    team = engine.create_team(
+        "implementation-crew",
+        TeamConfig(
+            name="implementation-crew",
+            shared_memory=True,
+            max_concurrency=3,
+            agents=build_agents(),
+        ),
+    )
+
+    result = await engine.run_tasks(team, build_tasks())
+
+    print(f"Team run succeeded: {result.success}")
+    print(
+        f"Tokens — input: {result.total_token_usage.input_tokens}, "
+        f"output: {result.total_token_usage.output_tokens}\n"
+    )
+    for agent_name, agent_result in result.agent_results.items():
+        status = "PASS" if agent_result.success else "FAIL"
+        print(f"[{status}] {agent_name}")
+        print(agent_result.output[:500])
+        print("-" * 60)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python team.py
+```
+
+!!! tip "Prefer a tested copy? Use the examples directory"
+    The repository ships runnable, CI-tested versions of this pattern. See [`examples/03_staged_pipeline.py`](https://github.com/Quantlix/anycode/blob/main/examples/03_staged_pipeline.py) for a four-stage `run_tasks` pipeline, and [`examples/02_crew_workflow.py`](https://github.com/Quantlix/anycode/blob/main/examples/02_crew_workflow.py) for the goal-decomposition `run_team` variant.
+
 ## Operational best practices
 
 These habits keep team runs predictable as they grow, especially once real providers and file edits are involved.

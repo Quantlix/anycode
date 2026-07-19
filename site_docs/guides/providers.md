@@ -170,6 +170,80 @@ engine = AnyCode(
 !!! tip "Register your own provider"
     Need a vendor AnyCode doesn't ship? Register an async provider factory under a new name and it becomes usable everywhere `provider="..."` is accepted. See [Extend AnyCode with plugins](plugins.md).
 
+## The complete, runnable program
+
+The snippets above are fragments. Here is a whole file, ready to copy into `providers.py` and run. It walks all six built-in providers, skips the ones whose credentials are not set, and sends a one-line prompt to each that is configured — so it runs with whatever key or keys you happen to have.
+
+```python title="providers.py"
+import asyncio
+import os
+
+from dotenv import load_dotenv
+
+from anycode import create_adapter
+from anycode.types import LLMChatOptions, LLMMessage, TextBlock
+
+load_dotenv()
+
+
+# Each entry: the provider name, an example model, and the env var that gates it.
+PROVIDERS: list[dict[str, str]] = [
+    {"name": "anthropic", "model": "claude-haiku-4-5", "env_key": "ANTHROPIC_API_KEY"},
+    {"name": "openai", "model": "gpt-4o-mini", "env_key": "OPENAI_API_KEY"},
+    {"name": "google", "model": "gemini-2.5-flash", "env_key": "GOOGLE_API_KEY"},
+    {"name": "ollama", "model": "llama3.1", "env_key": ""},
+    {"name": "bedrock", "model": "anthropic.claude-3-sonnet-20240229-v1:0", "env_key": "AWS_ACCESS_KEY_ID"},
+    {"name": "azure", "model": "gpt-4o", "env_key": "AZURE_OPENAI_API_KEY"},
+]
+
+
+async def demo_provider(name: str, model: str, env_key: str) -> None:
+    """Create an adapter for one provider and send a one-line prompt."""
+    if env_key and not os.getenv(env_key):
+        print(f"  [{name}] SKIPPED — {env_key} not set")
+        return
+    if name == "ollama":
+        print(f"  [{name}] SKIPPED — requires a local Ollama server")
+        return
+
+    try:
+        kwargs: dict[str, str] = {}
+        if name == "azure":
+            kwargs["endpoint"] = os.environ["AZURE_OPENAI_ENDPOINT"]
+        if name == "bedrock":
+            kwargs["region"] = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+
+        adapter = await create_adapter(name, **kwargs)
+        messages = [LLMMessage(role="user", content=[TextBlock(text="Say hello in one sentence.")])]
+        result = await adapter.chat(messages, LLMChatOptions(model=model, max_tokens=64))
+
+        text = result.content[0].text if result.content else "(empty)"
+        print(f"  [{name}] {text[:80]}")
+        print(f"           tokens: {result.usage.input_tokens}in / {result.usage.output_tokens}out")
+    except Exception as exc:  # noqa: BLE001 — demo: report the failure and keep going
+        print(f"  [{name}] ERROR — {exc}")
+
+
+async def main() -> None:
+    print("=== Multi-provider adapters ===\n")
+    for provider in PROVIDERS:
+        await demo_provider(provider["name"], provider["model"], provider["env_key"])
+    print("\nDone.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python providers.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/09_multi_provider.py`](https://github.com/Quantlix/anycode/blob/main/examples/09_multi_provider.py).
+
 ## Next steps
 
 - [Use reasoning models](reasoning-models.md) — reasoning effort and thinking budgets per provider.

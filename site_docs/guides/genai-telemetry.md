@@ -1,6 +1,6 @@
 ---
 title: "Map AnyCode GenAI Telemetry Safely"
-description: Map AnyCode runtime events to pinned OpenTelemetry GenAI attributes with capture profiles, redaction, bounded buffering, and failure-isolated export.
+description: Map AnyCode runtime events to pinned OpenTelemetry GenAI attributes with capture profiles, redaction, safe bounded buffering, and failure-isolated export.
 keywords: AnyCode OpenTelemetry, GenAI semantic conventions, AI telemetry redaction, LLM tracing, bounded telemetry buffer
 ---
 
@@ -118,6 +118,101 @@ Telemetry must not become a durability dependency. Bound retries and monitor dro
 The mapper produces provider-neutral records rather than owning an OTLP pipeline. Send buffered records through the exporter and collector selected by the host. Existing `Tracer`, `OTLPExporter`, metrics, and runtime events remain available for span-level and application-level observability.
 
 Use `ExecutionContext.trace_id` to correlate identity-aware runtime records with an incoming distributed trace. Keep policy-engine decision logs and durability events as their own authoritative records; telemetry is an operational projection, not the system of record.
+
+## The complete, runnable program
+
+The snippets above are fragments of one flow: choose a capture profile, map a runtime event to GenAI attributes, then buffer and export the record without letting an exporter failure reach run state. Here is the whole thing in one file. It runs offline with no API key, since mapping and buffering are pure, synchronous operations wrapped in a single async flush.
+
+```python title="genai_telemetry_demo.py"
+import asyncio
+
+from anycode import (
+    BoundedTelemetryBuffer,
+    ExecutionContext,
+    GenAITelemetryConfig,
+    GenAITelemetryMapper,
+    GenAITelemetryRecord,
+)
+
+
+def build_mapper() -> GenAITelemetryMapper:
+    """Redact content centrally, hash user_id, and bound payload size."""
+    config = GenAITelemetryConfig(
+        profile="redacted",
+        max_string_length=2_048,
+        max_attributes=96,
+        hash_fields=("user_id",),
+        buffer_capacity=500,
+    )
+    return GenAITelemetryMapper(config)
+
+
+def map_model_event(mapper: GenAITelemetryMapper) -> GenAITelemetryRecord | None:
+    context = ExecutionContext(
+        principal="service:release-review",
+        tenant_scope="tenant:example",
+        classification="internal",
+        trace_id="4f3c2a1b0e9d8c7b6a5f4e3d2c1b0a99",
+    )
+    return mapper.map(
+        "model.completed",
+        {
+            "provider": "configured-provider",
+            "request_model": "review-model",
+            "response_model": "review-model-2026-07",
+            "input_tokens": 1_250,
+            "output_tokens": 320,
+            "prompt": "Review the release notes",
+            "api_key": "must-never-be-exported",
+            "user_id": "user-42",
+        },
+        context=context,
+        span_id="8a7b6c5d4e3f2a10",
+    )
+
+
+async def main() -> None:
+    mapper = build_mapper()
+    record = map_model_event(mapper)
+    if record is None:
+        print("Capture profile is 'off'; nothing to export.")
+        return
+
+    # Credential-like keys are removed under every enabled profile.
+    assert "api_key" not in record.attributes
+    print(f"operation:   {record.attributes['gen_ai.operation.name']}")
+    print(f"record name: {record.name}")
+    print(f"provider:    {record.attributes.get('gen_ai.provider.name')}")
+    print(f"input toks:  {record.attributes.get('gen_ai.usage.input_tokens')}")
+    print(f"user_id:     {record.attributes.get('user_id')}  (hashed)")
+
+    buffer = BoundedTelemetryBuffer(capacity=mapper.config.buffer_capacity)
+    buffer.append(record)
+
+    async def export_batch(records: tuple[GenAITelemetryRecord, ...]) -> None:
+        # Replace this with your OTLP or collector client.
+        for item in records:
+            print(f"exported: {item.name}")
+
+    exported = await buffer.flush(export_batch, max_batch_size=100)
+    if not exported:
+        print(f"export failed; failures={buffer.export_failures}")
+    else:
+        print(f"flush ok; dropped={buffer.dropped}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python genai_telemetry_demo.py
+```
+
+!!! tip "Prefer a tested copy? Use the examples directory"
+    The repository ships a runnable, CI-tested version of this mapping. See [`examples/40_operational_portability.py`](https://github.com/Quantlix/anycode/blob/main/examples/40_operational_portability.py), which maps a `model.completed` event under the `metadata` capture profile alongside identity-aware policy and model routing.
 
 ## Next steps
 

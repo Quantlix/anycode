@@ -1,6 +1,6 @@
 ---
 title: "AnyCode Built-in Tools Reference"
-description: "Complete reference for AnyCode's six built-in agent tools — bash, file_read, file_write, file_edit, grep, and list_files — with every parameter, default, output format, and safety limit."
+description: "Reference all six AnyCode agent tools—bash, file_read, file_write, file_edit, grep, and list_files—with parameters, defaults, outputs, and safety limits."
 keywords: AnyCode built-in tools, bash tool, file_read, file_write, file_edit, grep tool, list_files, tool parameters, tool limits
 ---
 

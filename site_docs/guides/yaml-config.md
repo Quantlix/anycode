@@ -199,6 +199,75 @@ The scaffold includes `team.yaml`, `main.py`, `.env.example`, a `tools/` package
 !!! warning "Alpha framing"
     AnyCode is alpha-stage software. Config keys, defaults, and runtime behavior can change between releases, so pin your version and re-check this guide when you upgrade.
 
+## The complete, runnable program
+
+Two files make a self-contained example: the config and a short loader. Save both in the same directory. The config declares a two-agent plan-then-draft team; the loader builds an engine from it and runs the task graph.
+
+```yaml title="team.yaml"
+format_version: 1
+name: docs-crew
+shared_memory: true
+max_concurrency: 2
+
+agents:
+  - name: planner
+    provider: anthropic
+    model: claude-haiku-4-5
+    system_prompt: Create short, concrete implementation plans.
+    tools: []
+  - name: writer
+    provider: anthropic
+    model: claude-haiku-4-5
+    system_prompt: Write concise developer documentation from a plan.
+    tools: []
+
+tasks:
+  - title: Plan
+    description: Outline a one-page getting-started doc in three bullet points.
+    assignee: planner
+  - title: Draft
+    description: Write the getting-started page from the plan in one short section.
+    assignee: writer
+    depends_on:
+      - Plan
+```
+
+The config above hardcodes `provider: anthropic` and `model: claude-haiku-4-5`; swap both to match whichever API key you have set (for example `openai` / `gpt-4o-mini`). The loader reads the file, executes the team, and prints each agent's output:
+
+```python title="run_team.py"
+import asyncio
+
+from dotenv import load_dotenv
+
+from anycode import AnyCode
+
+load_dotenv()
+
+
+async def main() -> None:
+    async with AnyCode.from_config("team.yaml") as engine:
+        result = await engine.run_team_from_config()
+
+    print(f"success={result.success}")
+    for name, agent_result in result.agent_results.items():
+        print(f"  {name}: {agent_result.output[:200]}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the directory holding both files — with the CLI, or with the Python loader:
+
+```bash
+uv run anycode run team.yaml
+# or
+uv run python run_team.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/17_yaml_config.py`](https://github.com/Quantlix/anycode/blob/main/examples/17_yaml_config.py).
+
 ## Next steps
 
 - [Production Controls](production-controls.md) — add budgets, approval gates, verification, and durable runs to a config.

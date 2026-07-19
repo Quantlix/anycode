@@ -1,6 +1,6 @@
 ---
 title: "Release AnyCode to PyPI with Trusted Publishing"
-description: "Prepare, validate, publish, and verify an AnyCode release through TestPyPI, GitHub Releases, PyPI Trusted Publishing, and versioned docs."
+description: "Prepare, validate, publish, and verify AnyCode releases through TestPyPI, GitHub Releases, PyPI Trusted Publishing, immutable tags, and versioned docs."
 keywords: AnyCode release process, PyPI Trusted Publishing, TestPyPI, semantic versioning, GitHub Release, mike versioned docs
 ---
 

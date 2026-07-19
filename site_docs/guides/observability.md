@@ -1,6 +1,6 @@
 ---
 title: "Trace and Measure AnyCode Runs with Telemetry"
-description: "Enable correlated AnyCode traces, automatic runtime metrics and events, redacted JSONL logs, or OTLP export, with bounded in-memory retention."
+description: "Trace AnyCode runs with correlated spans, bounded metrics and events, redacted JSONL logs, or failure-isolated OTLP export for production observability."
 keywords: anycode telemetry, tracing, TraceConfig, structured JSONL logs, opentelemetry otlp, runtime metrics, correlation IDs, observability, alerts
 ---
 
@@ -204,6 +204,97 @@ Capture profiles are `off`, `metadata`, `redacted`, and `full`. Metadata exclude
 `BoundedTelemetryBuffer` isolates exporter outages from run state and exposes dropped-record counts. Identity fields carried by `ExecutionContext` flow into runtime spans as audit metadata, while credential references and raw credentials are excluded.
 
 See [Map GenAI telemetry safely](genai-telemetry.md) for capture profiles, attribute mapping, hashing, cardinality limits, buffering, and exporter-failure behavior.
+
+## The complete, runnable program
+
+The snippets above are fragments. Here is one self-contained file that enables a tracer, produces the spans an instrumented agent run would emit, and then reads back the correlated events, the derived metrics, and the retention counters. It runs fully offline with no API key: telemetry is synchronous, and the spans stand in for a live run so the output is deterministic.
+
+```python title="telemetry_demo.py"
+from anycode import Tracer
+from anycode.types import SpanAttributes, TraceConfig
+
+
+def simulate_instrumented_run(tracer: Tracer, run_id: str) -> None:
+    """Open the spans an agent run would emit, driving metrics and events.
+
+    With the JSONL exporter, each completed sampled span prints one redacted
+    JSON line as it closes.
+    """
+    with tracer.span("anycode.run_agent.deployer") as root:
+        root.set_attributes(
+            SpanAttributes(run_id=run_id, agent_name="deployer", model="claude-haiku-4-5")
+        )
+
+        with tracer.span("anycode.llm.chat", parent=root) as llm_span:
+            llm_span.set_attributes(
+                SpanAttributes(
+                    model="claude-haiku-4-5",
+                    provider="anthropic",
+                    token_input=350,
+                    token_output=120,
+                    cost_usd=0.0012,
+                )
+            )
+
+        with tracer.span("anycode.tool.file_read", parent=root) as tool_span:
+            tool_span.set_attributes(SpanAttributes(tool_name="file_read"))
+
+        with tracer.span("anycode.run_agent.deployer.terminal", parent=root) as terminal:
+            terminal.set_attributes(
+                SpanAttributes(phase="completed", stop_reason="success", retry_count=0)
+            )
+
+
+def main() -> None:
+    tracer = Tracer(TraceConfig(enabled=True, exporter="jsonl"))
+    run_id = "7ed62e65-86be-44ba-b825-96fdfab73231"
+
+    print("--- JSONL span logs ---")
+    simulate_instrumented_run(tracer, run_id)
+
+    # Correlate: every completion event that belongs to this run.
+    print(f"\n--- Completion events for run {run_id} ---")
+    for event in tracer.events.events:
+        attributes = event.to_dict()["attributes"]
+        if attributes.get("run_id") == run_id:
+            print(f"  {attributes['operation']}  status={attributes['status']}")
+
+    # Automatic metrics derived from the completed spans.
+    print("\n--- Metric counters ---")
+    for key, value in tracer.metrics.get_summary()["counters"].items():
+        print(f"  {key}: {value}")
+    runs = tracer.metrics.get_counter(
+        "anycode.runs", {"outcome": "completed", "stop_reason": "success"}
+    )
+    print(f"  completed-success runs: {runs}")
+
+    # Retention health — all in-memory telemetry is bounded.
+    print("\n--- Retention health ---")
+    health = {
+        "dropped_spans": tracer.dropped_spans,
+        "dropped_events": tracer.events.dropped_events,
+        "dropped_metric_series": tracer.metrics.dropped_series,
+        "dropped_histogram_samples": tracer.metrics.dropped_histogram_samples,
+    }
+    print(f"  {health}")
+
+    # Flush and close before a short-lived process exits (required for OTLP).
+    tracer.force_flush(timeout_millis=30_000)
+    tracer.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Run it from the project root:
+
+```bash
+uv run python telemetry_demo.py
+```
+
+!!! tip "Prefer a tested copy? Use the examples directory"
+    The repository ships a runnable, CI-tested version of this pattern. See [`examples/05_production_features.py`](https://github.com/Quantlix/anycode/blob/main/examples/05_production_features.py), whose observability section drives the console exporter, `MetricsCollector`, `Timer`, and `EventEmitter` end to end.
 
 ## Next steps
 

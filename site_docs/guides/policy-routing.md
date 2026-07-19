@@ -1,6 +1,6 @@
 ---
 title: "Route Models With AnyCode Policy Constraints"
-description: Filter AI models by data classification, region, modality, capabilities, budget, latency, and compatibility before deterministic selection.
+description: Route AnyCode tasks through deterministic policy filters for data classification, region, modality, capabilities, budget, latency, and fallback compatibility.
 keywords: AnyCode model routing, policy based LLM routing, AI model cost routing, regional LLM routing, model fallback policy
 ---
 
@@ -122,6 +122,101 @@ The returned decision sets `fallback=True` whenever a fallback compatibility cla
 ## Separate task routing from model policy
 
 `DefaultRouter` assigns work to agents by scheduling strategy. `PolicyRouter` selects an eligible provider and model for a specific model request. Use both when a team first chooses an agent by capability and that agent then needs deployment-policy-aware model selection.
+
+## The complete, runnable program
+
+The snippets above are fragments of one file. Here is the whole thing, ready to copy into `policy_routing.py` and run. `PolicyRouter.route` is synchronous and deterministic, so this program needs no API key and no event loop. It describes two providers, routes a confidential request under hard constraints, prints why each candidate passed or failed, then runs a compatible fallback that excludes the first choice.
+
+```python title="policy_routing.py"
+from anycode import ModelRoutingRequest, PolicyRouter, ProviderCapabilityDescriptor
+
+
+def build_router() -> PolicyRouter:
+    models = (
+        ProviderCapabilityDescriptor(
+            provider="regional-provider",
+            model="review-small",
+            modalities=("text",),
+            context_window=64_000,
+            structured_output=True,
+            tool_use=True,
+            regions=("eu-west",),
+            allowed_classifications=("public", "internal", "confidential"),
+            compatibility_class="review-v1",
+            input_cost_per_million=0.25,
+            output_cost_per_million=1.00,
+            typical_latency_ms=450,
+        ),
+        ProviderCapabilityDescriptor(
+            provider="general-provider",
+            model="review-large",
+            modalities=("text", "image"),
+            context_window=128_000,
+            structured_output=True,
+            tool_use=True,
+            regions=("us-east", "eu-west"),
+            allowed_classifications=("public", "internal"),
+            compatibility_class="review-v1",
+            input_cost_per_million=2.00,
+            output_cost_per_million=8.00,
+            typical_latency_ms=900,
+        ),
+    )
+    return PolicyRouter(models)
+
+
+def main() -> None:
+    router = build_router()
+
+    # 1. Route one request under hard policy constraints.
+    decision = router.route(
+        ModelRoutingRequest(
+            task_id="task-review",
+            modalities=("text",),
+            context_tokens=20_000,
+            expected_output_tokens=2_000,
+            structured_output=True,
+            tool_use=True,
+            classification="confidential",
+            required_region="eu-west",
+            max_cost_usd=0.01,
+            budget_remaining_usd=0.50,
+            max_latency_ms=1_000,
+        )
+    )
+
+    if decision.error:
+        reasons = {f"{a.provider}/{a.model}": a.rejection_reasons for a in decision.assessments}
+        raise RuntimeError(f"{decision.error.code}: {reasons}")
+
+    print(f"selected: {decision.selected_provider}/{decision.selected_model}")
+    print("assessments:")
+    for a in decision.assessments:
+        verdict = "eligible" if a.eligible else f"rejected ({', '.join(a.rejection_reasons)})"
+        print(f"  {a.provider}/{a.model}: {verdict}  est_cost=${a.estimated_cost_usd:.4f}")
+
+    # 2. Fallback stays inside the same input/tool/output contract.
+    fallback = router.route(
+        ModelRoutingRequest(
+            task_id="task-review-retry",
+            structured_output=True,
+            classification="internal",
+            fallback_compatibility_class="review-v1",
+            denied_providers=(decision.selected_provider,) if decision.selected_provider else (),
+        )
+    )
+    print(f"\nfallback: {fallback.selected_provider}/{fallback.selected_model} (fallback={fallback.fallback})")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Run it from the project root:
+
+```bash
+uv run python policy_routing.py
+```
 
 ## Next steps
 

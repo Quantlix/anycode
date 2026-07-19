@@ -1,6 +1,6 @@
 ---
 title: "Track and Cap LLM Spend in AnyCode"
-description: "Measure token cost per agent and model with CostTracker and CostReport, set a budget_usd ceiling, and stop or warn when an AnyCode run exceeds it."
+description: "Measure token cost per agent and model with CostTracker and CostReport, set a budget_usd ceiling, and safely stop or warn when an AnyCode run exceeds it."
 keywords: anycode cost tracking, CostConfig, CostTracker, CostReport, budget_usd, token cost, LLM spend, calculate_cost, DEFAULT_PRICING, cost budget
 ---
 
@@ -77,6 +77,67 @@ report = build_cost_report(tracker)
 
 !!! warning "Two pricing tables exist"
     The cost engine (`CostConfig` / `CostTracker`) and the guardrail `BudgetTracker` use *separate* price tables that can disagree, and `calculate_cost` silently returns `0.0` for a model it doesn't recognize. Treat cost numbers as close estimates, and add `custom_pricing` for any model you rely on.
+
+## The complete, runnable program
+
+The cost engine is pure arithmetic over token counts, so you can exercise the whole thing without spending a cent or setting an API key. This one file records a few calls against a budget, stops the moment the ceiling is crossed, renders a `CostReport`, and shows `calculate_cost` both estimating ahead of a run and returning `0.0` for an unknown model until you supply `custom_pricing`.
+
+```python title="cost_math.py"
+from anycode import CostConfig, CostTracker, build_cost_report, calculate_cost
+from anycode.types import ModelPricing, TokenUsage
+
+
+def main() -> None:
+    # A budget-aware tracker. record() returns each call's USD cost and
+    # accumulates spend per agent and per model.
+    tracker = CostTracker(config=CostConfig(budget_usd=0.10))
+
+    calls = [
+        ("planner", "claude-haiku-4-5", TokenUsage(input_tokens=1_200, output_tokens=300)),
+        ("builder", "claude-haiku-4-5", TokenUsage(input_tokens=8_000, output_tokens=2_500)),
+        ("reviewer", "claude-sonnet-4-5", TokenUsage(input_tokens=40_000, output_tokens=9_000)),
+    ]
+    for agent, model, usage in calls:
+        cost = tracker.record(agent, model, usage)
+        print(f"{agent:9s} {model:20s} ${cost:.6f}")
+        if tracker.is_budget_exhausted():
+            print(f"  budget of ${tracker.config.budget_usd:.2f} exhausted — stop the run here")
+            break
+
+    report = build_cost_report(tracker)
+    print("\n=== Cost report ===")
+    print(f"total: ${report.total_cost_usd:.6f}")
+    print(f"tokens in/out: {report.total_input_tokens}/{report.total_output_tokens}")
+    for row in report.by_agent:
+        print(f"  {row.agent} [{row.model}] ${row.total_cost_usd:.6f} over {row.calls} call(s)")
+
+    # calculate_cost is a pure function — handy for estimating before you run.
+    estimate = calculate_cost(TokenUsage(input_tokens=100_000, output_tokens=20_000), "claude-haiku-4-5")
+    print(f"\nestimate for 100k in / 20k out on claude-haiku-4-5: ${estimate:.4f}")
+
+    # An unknown model bills as $0.00 until you supply custom_pricing.
+    unknown = TokenUsage(input_tokens=1_000, output_tokens=1_000)
+    print(f"unknown model, default table: ${calculate_cost(unknown, 'my-model'):.4f}")
+    priced = calculate_cost(
+        unknown,
+        "my-model",
+        [ModelPricing(model="my-model", provider="myvendor", input_cost_per_1k=0.001, output_cost_per_1k=0.004)],
+    )
+    print(f"unknown model, custom pricing: ${priced:.4f}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Run it from the project root:
+
+```bash
+uv run python cost_math.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/13_cost_tracking.py`](https://github.com/Quantlix/anycode/blob/main/examples/13_cost_tracking.py) for the CI-tested version, which attaches the same `CostConfig` to a live two-agent team and reads the `CostReport` off the `TeamRunResult`.
 
 ## Next steps
 

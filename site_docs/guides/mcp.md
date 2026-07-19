@@ -1,6 +1,6 @@
 ---
 title: "Connect MCP Servers to AnyCode Agents (stdio and HTTP with Auth)"
-description: "Register Model Context Protocol servers with AnyCode over stdio, streamable HTTP, or SSE — including bearer-token auth via environment variables — and scope discovered tools per agent."
+description: "Connect AnyCode to MCP servers over stdio, streamable HTTP, or SSE with environment-based bearer auth, per-agent tool scope, and safe lifecycle cleanup."
 keywords: AnyCode MCP, Model Context Protocol, MCPServerConfig, streamable-http, MCP bearer token, auth_token_env, MCP stdio, MCP tools agents
 ---
 
@@ -127,6 +127,106 @@ Behavior worth knowing:
 - There is **no auto-reconnect**. A dropped connection surfaces as errors until you reconnect; `disconnect()` is best-effort and resets state.
 
 See [`examples/33_mcp_http_auth.py`](https://github.com/Quantlix/anycode/blob/main/examples/33_mcp_http_auth.py) for a runnable demo that validates a config, resolves auth headers (masked when printed), and connects live when `MCP_HTTP_URL` is set.
+
+## The complete, runnable program
+
+The snippets above are fragments. Here is one file that exercises both transports: it spawns a local `stdio` filesystem server and lists its tools, then configures a `streamable-http` server with a bearer token, resolves the auth header (masked so nothing leaks), and connects live when `MCP_HTTP_URL` is set. Every network step degrades gracefully, so the program runs and prints useful output even with no server available.
+
+```python title="mcp_demo.py"
+import asyncio
+import os
+
+from dotenv import load_dotenv
+
+from anycode import MCPClient, MCPServerConfig
+from anycode.mcp.client import resolve_auth_headers
+
+load_dotenv()
+
+
+def mask_auth(headers: dict[str, str] | None) -> dict[str, str]:
+    """Redact bearer values so a printout never leaks a token."""
+    if not headers:
+        return {}
+    return {
+        key: ("Bearer ****" if key.lower() == "authorization" else value)
+        for key, value in headers.items()
+    }
+
+
+async def demo_stdio() -> None:
+    """Spawn a local stdio MCP server (filesystem) and list its tools."""
+    config = MCPServerConfig(
+        name="files",
+        transport="stdio",
+        command="npx",
+        args=["-y", "@modelcontextprotocol/server-filesystem", "."],
+        timeout=20,
+    )
+    print(f"[stdio] server '{config.name}' via {config.command}")
+    try:
+        async with MCPClient(config) as client:
+            tools = await client.discover_tools()
+            print(f"  discovered {len(tools)} tools:")
+            for tool in tools[:5]:
+                print(f"    - {tool.name}: {tool.description[:60]}")
+    except Exception as exc:  # noqa: BLE001 - stays runnable without Node/npx
+        print(f"  connection failed: {type(exc).__name__}: {exc}")
+        print("  tip: install Node.js so npx can fetch the filesystem server")
+
+
+async def demo_http() -> None:
+    """Configure a streamable-http server with a bearer token and connect when set."""
+    config = MCPServerConfig(
+        name="secured-api",
+        transport="streamable-http",
+        url=os.environ.get("MCP_HTTP_URL", "https://mcp.example.com/mcp"),
+        headers={"X-Client": "anycode-demo"},
+        auth_token_env="MCP_API_TOKEN",  # env var NAME, never the secret itself
+    )
+    print(f"[http] server '{config.name}' -> {config.url}")
+
+    # Resolve the auth header with a throwaway token so the demo never prints a real one.
+    # (resolve_auth_headers raises if auth_token_env is set but the variable is empty.)
+    had_token = "MCP_API_TOKEN" in os.environ
+    if not had_token:
+        os.environ["MCP_API_TOKEN"] = "demo-token-value"
+    try:
+        print(f"  resolved headers: {mask_auth(resolve_auth_headers(config))}")
+    finally:
+        if not had_token:
+            del os.environ["MCP_API_TOKEN"]
+
+    if not os.environ.get("MCP_HTTP_URL"):
+        print("  skipped live connect: set MCP_HTTP_URL (and MCP_API_TOKEN) to try a real server")
+        return
+    try:
+        async with MCPClient(config) as client:
+            tools = await client.discover_tools()
+            print(f"  connected — discovered {len(tools)} tools")
+    except Exception as exc:  # noqa: BLE001 - stays runnable without a live server
+        print(f"  connection failed: {type(exc).__name__}: {exc}")
+        print('  tip: HTTP transports need the extra: pip install "anycode-py[mcp]"')
+
+
+async def main() -> None:
+    await demo_stdio()
+    print()
+    await demo_http()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python mcp_demo.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/10_mcp_tools.py`](https://github.com/Quantlix/anycode/blob/main/examples/10_mcp_tools.py) for the `stdio` path (config validation, tool discovery, and a guaranteed local echo server) and [`examples/33_mcp_http_auth.py`](https://github.com/Quantlix/anycode/blob/main/examples/33_mcp_http_auth.py) for the authenticated `streamable-http` path.
 
 ## See also
 

@@ -1,6 +1,6 @@
 ---
 title: "Give AnyCode Agents Memory and RAG Retrieval"
-description: "Add persistent memory to AnyCode with sqlite or redis backends, share memory across a team, and enable RAG so agents retrieve relevant past context automatically."
+description: "Give AnyCode agents persistent SQLite or Redis memory, team-shared context, and RAG retrieval so relevant prior knowledge is injected automatically at run time."
 keywords: anycode memory, rag retrieval, create_memory_store, MemoryConfig, RAGConfig, shared memory, vector store, chromadb, CompositeMemory, KnowledgeStore
 ---
 
@@ -121,6 +121,100 @@ knowledge_tools = build_knowledge_tools(store)   # [knowledge_save, memory_searc
 Register those tools like any other (see [Work with tools](tools.md)) and add `"knowledge_save"` / `"memory_search"` to an agent's `tools` allowlist.
 
 For an independently protected knowledge directory that must preserve exact text, construct `KnowledgeStore(root="team_knowledge", redact_sensitive_data=False)` explicitly.
+
+## The complete, runnable program
+
+The snippets above each show one layer. Here is a complete `rag_memory.py` that ties the RAG layer together end to end: it enables retrieval with auto-indexing, runs one wave that records a fact, then a second wave whose answer can only come from retrieving what the first wave stored. It uses the zero-dependency in-memory vector backend, so no extra install is needed, and resolves a provider from whichever API key you have set.
+
+```python title="rag_memory.py"
+import asyncio
+import os
+import sys
+
+from dotenv import load_dotenv
+
+from anycode import AgentConfig, AnyCode, OrchestratorConfig, RAGConfig, TaskSpec, TeamConfig
+
+load_dotenv()
+
+
+def resolve_provider() -> tuple[str, str]:
+    """Pick a provider and model from whichever API key is set."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", "claude-haiku-4-5"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", "gpt-4o-mini"
+    sys.exit("Set ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment or .env file.")
+
+
+PROVIDER, MODEL = resolve_provider()
+
+
+async def main() -> None:
+    # RAG on, auto-indexing every successful output. min_relevance=0.0 keeps this
+    # demo from filtering out its single indexed fact; raise it for real workloads.
+    config = OrchestratorConfig(
+        rag=RAGConfig(enabled=True, auto_index=True, top_k=3, min_relevance=0.0, namespace="demo"),
+    )
+    engine = AnyCode(config)
+
+    team = engine.create_team(
+        "research",
+        TeamConfig(
+            name="research",
+            agents=[
+                AgentConfig(
+                    name="scribe",
+                    provider=PROVIDER,
+                    model=MODEL,
+                    system_prompt="You take careful notes and recall earlier facts when relevant.",
+                    tools=[],
+                ),
+            ],
+        ),
+    )
+
+    print(f"=== RAG Memory ({PROVIDER}, {MODEL}) ===\n")
+
+    print("[Wave 1] Recording a memorable fact...")
+    r1 = await engine.run_tasks(
+        team,
+        [
+            TaskSpec(
+                title="record-fact",
+                description="State this exact fact in your own words: The capital of Atlantis is Coralis.",
+                assignee="scribe",
+            ),
+        ],
+    )
+    print(f"  -> {r1.agent_results['scribe'].output[:140]}\n")
+
+    print("[Wave 2] Asking a follow-up that must retrieve the fact...")
+    r2 = await engine.run_tasks(
+        team,
+        [
+            TaskSpec(
+                title="recall-fact",
+                description="Using only what you have learned in past sessions, what is the capital of Atlantis?",
+                assignee="scribe",
+            ),
+        ],
+    )
+    print(f"  -> {r2.agent_results['scribe'].output[:240]}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python rag_memory.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/15_rag_memory.py`](https://github.com/Quantlix/anycode/blob/main/examples/15_rag_memory.py) for the CI-tested version of this RAG walkthrough, and [`examples/06_pluggable_memory.py`](https://github.com/Quantlix/anycode/blob/main/examples/06_pluggable_memory.py) for every KV, vector, and composite memory backend exercised end to end.
 
 ## Next steps
 

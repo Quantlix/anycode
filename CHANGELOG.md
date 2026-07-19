@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Runnable, searchable documentation** - added complete copyable programs across core guides, expanded CLI and public API coverage, normalized page descriptions for search snippets, removed duplicate social metadata, and added regression checks for page structure and version-switcher deployment.
+
 ## [0.8.0] - 2026-07-16
 
 ### Added

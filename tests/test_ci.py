@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from mkdocs.config import load_config
 
 _ROOT = Path(__file__).parent.parent
 _CI_WORKFLOW = _ROOT / ".github" / "workflows" / "ci.yml"
@@ -17,6 +18,8 @@ _PUBLISH_WORKFLOWS = (
     _ROOT / ".github" / "workflows" / "publish-pypi.yml",
 )
 _COMPOSE_FILE = _ROOT / "docker-compose.yml"
+_MKDOCS_CONFIG = _ROOT / "mkdocs.yml"
+_DOCS_OVERRIDE = _ROOT / "overrides" / "main.html"
 
 
 def _load_ci_workflow() -> dict[str, Any]:
@@ -110,6 +113,17 @@ def test_documentation_deploys_only_from_release_tag_pushes() -> None:
     assert "check_versions.py --tag" in deploy_commands
     assert "steps.ver.outputs.prerelease" in deploy_commands
     assert "--update-aliases" in deploy_commands
+    assert "mike set-default --push latest" in deploy_commands
+
+
+def test_documentation_version_switcher_and_social_metadata_have_single_owners() -> None:
+    config = load_config(config_file=str(_MKDOCS_CONFIG))
+    version = config["extra"]["version"]
+    override = _DOCS_OVERRIDE.read_text(encoding="utf-8")
+
+    assert version == {"provider": "mike", "default": "latest", "alias": True}
+    assert '<meta property="og:' not in override
+    assert '<meta name="twitter:' not in override
 
 
 def test_publish_workflows_run_the_release_gate_with_trusted_publishing() -> None:

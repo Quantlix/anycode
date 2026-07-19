@@ -1,6 +1,6 @@
 ---
 title: "Semantic Contracts"
-description: "Versioned JSON models, state semantics, event projections, fenced operations, and artifacts in the AnyCode M1 preview contract."
+description: "Use AnyCode's versioned JSON contracts for runs, tasks, messages, artifacts, lifecycle state, event projections, fenced operations, and portability rules."
 keywords: AnyCode semantic contract, JSON Schema, event projection, cancellation semantics, fencing token, artifact store
 ---
 

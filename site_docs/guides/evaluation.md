@@ -78,6 +78,87 @@ anycode eval compare baseline.json artifacts/eval/report.json
 
 Because both commands set their exit code, a failed scenario or a regression fails the build without any extra glue.
 
+## The complete, runnable program
+
+The snippets above assume a `scenarios.yaml` on disk. Here is one self-contained file that builds `EvalScenario` objects in Python instead, runs the suite offline against a `FakeAdapter` (`deterministic=True` with `fake_responses`), writes a report, re-runs a candidate variant, and diffs the two for regressions. It needs no provider key and no network, so it runs byte-for-byte the same every time — ideal for CI.
+
+```python title="run_eval.py"
+import asyncio
+import tempfile
+from pathlib import Path
+
+from anycode import (
+    EvalScenario,
+    compare_reports,
+    read_report,
+    render_markdown,
+    run_suite,
+    write_report,
+)
+
+
+def build_scenarios() -> list[EvalScenario]:
+    return [
+        EvalScenario(
+            name="greeting_completes",
+            prompt="Provide a one-line greeting that includes the word completed.",
+            deterministic=True,
+            fake_responses=("Hello — task completed successfully.",),
+            success_criteria=("completed",),
+            forbidden_substrings=("error",),
+            expected_stop_reason="success",
+            max_turns=2,
+            model="fake-model",
+        ),
+        EvalScenario(
+            name="summary_present",
+            prompt="Summarize the context in one sentence using the word summary.",
+            deterministic=True,
+            fake_responses=("Summary: the text is placeholder content.",),
+            success_criteria=("summary",),
+            expected_stop_reason="success",
+            max_turns=2,
+            model="fake-model",
+        ),
+    ]
+
+
+async def main() -> None:
+    out_dir = Path(tempfile.mkdtemp(prefix="anycode-eval-"))
+    scenarios = build_scenarios()
+
+    # Baseline run.
+    baseline = await run_suite(scenarios, suite_name="reliability", harness_variant="baseline")
+    print(f"Baseline: {baseline.passed}/{baseline.total_scenarios} passed")
+    baseline_path = out_dir / "baseline.json"
+    write_report(baseline, baseline_path)
+    (out_dir / "baseline.md").write_text(render_markdown(baseline), encoding="utf-8")
+
+    # Candidate run — same scenarios here; swap in your changed prompt or config.
+    candidate = await run_suite(scenarios, suite_name="reliability", harness_variant="candidate")
+    candidate_path = out_dir / "candidate.json"
+    write_report(candidate, candidate_path)
+
+    # Compare to catch regressions.
+    diff = compare_reports(read_report(baseline_path), read_report(candidate_path))
+    print(f"Regressions:  {diff['regressions'] or 'none'}")
+    print(f"Improvements: {diff['improvements'] or 'none'}")
+    print(f"\nReports written to {out_dir}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it from the project root:
+
+```bash
+uv run python run_eval.py
+```
+
+!!! tip "Tested copy"
+    See [`examples/22_deterministic_eval.py`](https://github.com/Quantlix/anycode/blob/main/examples/22_deterministic_eval.py) for the offline `FakeAdapter` suite, and [`examples/21_eval_suite.py`](https://github.com/Quantlix/anycode/blob/main/examples/21_eval_suite.py) for the live-provider baseline-vs-candidate comparison.
+
 ## Next steps
 
 - [Verify output with quality gates](verification-gates.md) — the sensors that add semantic checks to a run.

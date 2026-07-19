@@ -1,6 +1,6 @@
 ---
 title: "Runtime Contracts and Baseline"
-description: "The executable AnyCode lifecycle, verification boundaries, persisted local formats, supported resume scenarios, and reproducible M0 runtime baseline."
+description: "Review the executable AnyCode lifecycle, verification boundaries, persisted formats, supported resume scenarios, and reproducible runtime baseline evidence."
 keywords: AnyCode lifecycle state machine, verification phases, checkpoint format, durable resume, runtime benchmark
 ---
 
