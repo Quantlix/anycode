@@ -32,7 +32,7 @@ options = RunnerOptions(
 | `openai` | `reasoning_effort` only | `reasoning_effort` + `max_completion_tokens` on reasoning models | Non-reasoning models drop the effort and use `max_tokens` + `temperature` |
 | `azure` | `reasoning_effort` only | Same as `openai` | Same as `openai` |
 | `bedrock` | — | Ignored (thinking blocks in responses are still parsed) | Silently ignored |
-| `ollama` | — | Ignored | Silently ignored |
+| `ollama` | both knobs | `reasoning_effort` → `think` level (`minimal`→`low`); a token budget enables `think: true` | Non-thinking models return no `thinking` field |
 | `google` | — | Ignored | Silently ignored |
 
 ### Anthropic: budget resolution
@@ -82,8 +82,12 @@ async for event in adapter.stream(messages, options):
         ...  # answer text delta
 ```
 
-!!! note "Streaming thinking is Anthropic-only today"
-    Bedrock parses thinking blocks in non-streaming responses but does not emit `thinking` stream events, and the OpenAI-family adapters emit none at all. Don't build UI that requires live thinking deltas on those providers.
+!!! note "Streaming thinking: Anthropic and Ollama"
+    Anthropic and Ollama emit live `thinking` stream events. Bedrock parses thinking blocks in non-streaming responses but does not emit `thinking` stream events, and the OpenAI-family adapters emit none at all. Don't build UI that requires live thinking deltas on those providers.
+
+### Ollama: think levels
+
+The Ollama adapter maps `reasoning_effort` to the native `think` parameter (`minimal` and `low` → `"low"`, `medium` → `"medium"`, `high` → `"high"`); a `thinking_budget_tokens` request enables `think: true` since Ollama has no budget concept. You can also set a default on the adapter itself with `OllamaAdapter(think=...)`, including the `"max"` level that has no portable tier. Thinking text returns as a `ThinkingBlock` (no signature) and as `thinking` stream events on models such as `qwen3`, `gpt-oss`, and `deepseek-r1`.
 
 See [`examples/32_reasoning_models.py`](https://github.com/Quantlix/anycode/blob/main/examples/32_reasoning_models.py) for a runnable walkthrough, including model classification and parameter shaping.
 

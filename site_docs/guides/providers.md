@@ -15,7 +15,7 @@ AnyCode is provider-agnostic: every agent names a `provider` and a `model`, and 
 | `anthropic` | `claude-haiku-4-5`, `claude-sonnet-5` | `ANTHROPIC_API_KEY` | `anycode-py[anthropic]` |
 | `openai` | `gpt-4o-mini`, `gpt-5` | `OPENAI_API_KEY` | `anycode-py[openai]` |
 | `google` | `gemini-2.5-flash` | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | `anycode-py[google]` |
-| `ollama` | any local model (e.g. `llama3.1`) | none (local server) | `anycode-py[ollama]` |
+| `ollama` | any local model (e.g. `llama3.1`), or cloud models on ollama.com | none locally; `OLLAMA_API_KEY` for ollama.com | `anycode-py[ollama]` |
 | `bedrock` | AWS-hosted model IDs | AWS creds + `AWS_DEFAULT_REGION` | `anycode-py[bedrock]` |
 | `azure` | your deployment name | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY` | `anycode-py[azure]` |
 
@@ -109,6 +109,27 @@ print(result.content[0].text, result.usage.input_tokens)
 | `base_url` | ollama | Point at a non-default Ollama server |
 | `endpoint`, `api_version` | azure | Azure resource endpoint and API version |
 | `region`, `profile` | bedrock | AWS region and named profile |
+
+### Ollama: local and cloud
+
+The Ollama adapter speaks the native `/api/chat` endpoint and covers streaming, tool calling, thinking, structured outputs, and multimodal image input. A few knobs are adapter-specific, so construct `OllamaAdapter` directly when you need them:
+
+```python title="ollama_tuned.py"
+from anycode.providers.ollama import OllamaAdapter
+
+adapter = OllamaAdapter(
+    model="qwen3",
+    keep_alive="10m",                     # keep the model loaded between calls
+    think="high",                         # default thinking level (bool or low/medium/high/max)
+    default_options={"num_ctx": 8192, "seed": 7},  # any native Ollama option
+)
+```
+
+- `LLMChatOptions.max_tokens` maps to Ollama's `num_predict`; `temperature` passes through. Per-call options always override `default_options`.
+- `reasoning_effort` maps to the `think` level and `message.thinking` comes back as `ThinkingBlock` content and `thinking` stream events — see [Use reasoning models](reasoning-models.md).
+- `chat(..., response_format=...)` translates to Ollama's `format` parameter (`"json"` or a JSON schema).
+- Image blocks are sent as native base64 `images` arrays for multimodal models such as `llava`.
+- For [Ollama cloud](https://docs.ollama.com/cloud), set `base_url="https://ollama.com"` and export `OLLAMA_API_KEY` (or pass `api_key=`); the adapter sends the `Authorization: Bearer` header. A `404` from any server raises an error that names the missing model and the exact `ollama pull` command, and mid-stream server failures surface as terminal `error` stream events instead of a silently truncated answer.
 
 ## Resilience is on by default
 
