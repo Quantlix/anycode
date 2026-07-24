@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import types
 from collections.abc import AsyncIterable
 from typing import Any
 
@@ -43,6 +45,12 @@ class VercelSandboxProvider:
     def _client_or_raise(self) -> Any:
         if self._client is not None:
             return self._client
+        if sys.platform == "win32":
+            # The Vercel SDK imports Unix-only pty modules (termios/tty) at
+            # module scope for its interactive-shell helper, which this adapter
+            # never calls; stub them so the sandbox API loads on Windows.
+            for name in ("termios", "tty"):
+                sys.modules.setdefault(name, types.ModuleType(name))
         try:
             from vercel.sandbox import AsyncSandbox  # type: ignore[import-not-found]
         except ImportError as error:

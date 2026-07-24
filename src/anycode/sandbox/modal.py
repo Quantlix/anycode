@@ -137,9 +137,15 @@ class ModalSandboxProvider:
     async def write_file(self, handle: SandboxHandle, path: str, data: bytes) -> SandboxFileResult:
         try:
             sandbox = await self._resolve(handle)
-            handle_file = await call_maybe_async(sandbox.open, path, "wb")
-            await call_maybe_async(handle_file.write, data)
-            await call_maybe_async(handle_file.close)
+            # Modal deprecated Sandbox.open() in favor of Sandbox.filesystem;
+            # keep the open() path for SDKs that predate the filesystem API.
+            filesystem = getattr(sandbox, "filesystem", None)
+            if filesystem is not None:
+                await call_maybe_async(filesystem.write_bytes, data, path)
+            else:
+                handle_file = await call_maybe_async(sandbox.open, path, "wb")
+                await call_maybe_async(handle_file.write, data)
+                await call_maybe_async(handle_file.close)
             return SandboxFileResult(ok=True, evidence=SandboxEvidence.from_bytes("file.write", data, metadata={"path": path}))
         except Exception as error:
             return SandboxFileResult(ok=False, error=ContractError(code="sandbox_file_write_failed", message=safe_exception_message(error)))
@@ -147,9 +153,13 @@ class ModalSandboxProvider:
     async def read_file(self, handle: SandboxHandle, path: str) -> SandboxFileResult:
         try:
             sandbox = await self._resolve(handle)
-            handle_file = await call_maybe_async(sandbox.open, path, "rb")
-            data = to_bytes(await call_maybe_async(handle_file.read))
-            await call_maybe_async(handle_file.close)
+            filesystem = getattr(sandbox, "filesystem", None)
+            if filesystem is not None:
+                data = to_bytes(await call_maybe_async(filesystem.read_bytes, path))
+            else:
+                handle_file = await call_maybe_async(sandbox.open, path, "rb")
+                data = to_bytes(await call_maybe_async(handle_file.read))
+                await call_maybe_async(handle_file.close)
             return SandboxFileResult(ok=True, data=data, evidence=SandboxEvidence.from_bytes("file.read", data, metadata={"path": path}))
         except Exception as error:
             return SandboxFileResult(ok=False, error=ContractError(code="sandbox_file_read_failed", message=safe_exception_message(error)))

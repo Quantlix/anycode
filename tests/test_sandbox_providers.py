@@ -188,10 +188,24 @@ class FakeModalProcess:
         return None
 
 
+class FakeModalFilesystem:
+    """Mirrors modal's Sandbox.filesystem API (write_bytes takes data first)."""
+
+    def __init__(self, store: dict[str, bytes]) -> None:
+        self._store = store
+
+    async def write_bytes(self, data: bytes, remote_path: str) -> None:
+        self._store[remote_path] = data
+
+    async def read_bytes(self, remote_path: str) -> bytes:
+        return self._store[remote_path]
+
+
 class FakeModalSandbox:
     def __init__(self) -> None:
         self.object_id = "modal-1"
         self.files: dict[str, bytes] = {}
+        self.filesystem = FakeModalFilesystem(self.files)
         self.terminated = False
         self.create_kwargs: dict[str, object] = {}
 
