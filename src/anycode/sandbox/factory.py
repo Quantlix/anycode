@@ -11,6 +11,7 @@ from anycode.sandbox.protocol import SandboxProvider
 SANDBOX_PROVIDER_EXTRAS: dict[str, str] = {
     "daytona": "sandbox",
     "e2b": "sandbox-e2b",
+    "modal": "sandbox-modal",
 }
 
 
@@ -29,5 +30,9 @@ def create_sandbox_provider(name: str, **kwargs: Any) -> SandboxProvider:
         from anycode.sandbox.e2b import E2BSandboxProvider
 
         return E2BSandboxProvider(**kwargs)
+    if name == "modal":
+        from anycode.sandbox.modal import ModalSandboxProvider
+
+        return ModalSandboxProvider(**kwargs)
 
     raise ValueError(f"Unknown sandbox provider: {name!r}. Available: {sorted(SANDBOX_PROVIDER_EXTRAS)}")

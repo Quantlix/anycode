@@ -12,6 +12,7 @@ from anycode.sandbox import (
     SANDBOX_PROVIDER_EXTRAS,
     DaytonaSandboxProvider,
     E2BSandboxProvider,
+    ModalSandboxProvider,
     SandboxCommand,
     SandboxProvider,
     SandboxSpec,
@@ -149,6 +150,138 @@ def test_e2b_capabilities_are_honest() -> None:
     caps = E2BSandboxProvider(FakeE2BSandboxClass()).capabilities()
     assert caps.provider == "e2b" and caps.isolation == "microvm"
     assert not caps.snapshots and not caps.command_streaming
+
+
+# ---------------------------------------------------------------------------
+# Modal fakes
+# ---------------------------------------------------------------------------
+
+
+class FakeModalFile:
+    def __init__(self, store: dict[str, bytes], path: str, mode: str) -> None:
+        self._store = store
+        self._path = path
+        self._mode = mode
+
+    async def write(self, data: bytes) -> None:
+        self._store[self._path] = data
+
+    async def read(self) -> bytes:
+        return self._store[self._path]
+
+    async def close(self) -> None:
+        return None
+
+
+class FakeModalProcess:
+    def __init__(self, command: str) -> None:
+        self.stdout = f"ran:{command}"
+        self.stderr = ""
+        self.returncode = 0
+
+    async def wait(self) -> None:
+        return None
+
+
+class FakeModalSandbox:
+    def __init__(self) -> None:
+        self.object_id = "modal-1"
+        self.files: dict[str, bytes] = {}
+        self.terminated = False
+        self.create_kwargs: dict[str, object] = {}
+
+    async def exec(self, *args: str, **kwargs: object) -> FakeModalProcess:
+        del kwargs
+        return FakeModalProcess(args[-1])
+
+    async def open(self, path: str, mode: str) -> FakeModalFile:
+        return FakeModalFile(self.files, path, mode)
+
+    async def terminate(self) -> None:
+        self.terminated = True
+
+    async def snapshot_filesystem(self) -> SimpleNamespace:
+        return SimpleNamespace(object_id="im-snapshot-1")
+
+
+class FakeModalModule:
+    """Stands in for the imported modal module surface."""
+
+    def __init__(self) -> None:
+        self.sandbox = FakeModalSandbox()
+        self.secret_names: list[str] = []
+        outer = self
+
+        class App:
+            @staticmethod
+            async def lookup(name: str, *, create_if_missing: bool = False) -> SimpleNamespace:
+                del create_if_missing
+                return SimpleNamespace(name=name)
+
+        class Image:
+            @staticmethod
+            def from_registry(image: str) -> SimpleNamespace:
+                return SimpleNamespace(image=image)
+
+        class Secret:
+            @staticmethod
+            def from_name(name: str) -> SimpleNamespace:
+                outer.secret_names.append(name)
+                return SimpleNamespace(name=name)
+
+        class Sandbox:
+            @staticmethod
+            async def create(**kwargs: object) -> FakeModalSandbox:
+                outer.sandbox.create_kwargs = dict(kwargs)
+                return outer.sandbox
+
+            @staticmethod
+            async def from_id(sandbox_id: str) -> FakeModalSandbox:
+                assert sandbox_id == outer.sandbox.object_id
+                return outer.sandbox
+
+        self.App = App
+        self.Image = Image
+        self.Secret = Secret
+        self.Sandbox = Sandbox
+
+
+async def test_modal_provider_passes_lifecycle_conformance() -> None:
+    provider = ModalSandboxProvider(FakeModalModule())
+    await _assert_lifecycle_conformance(provider, snapshots=True)
+
+
+async def test_modal_maps_network_and_secrets_to_sdk_arguments() -> None:
+    modal_mod = FakeModalModule()
+    provider = ModalSandboxProvider(modal_mod)
+
+    created = await provider.create(_spec(network="none", secret_references={"API_KEY": "modal:prod-key"}))
+
+    assert created.ok
+    assert modal_mod.sandbox.create_kwargs["block_network"] is True
+    assert modal_mod.secret_names == ["prod-key"]
+
+
+async def test_modal_fails_closed_on_domain_allowlists_and_foreign_secrets() -> None:
+    provider = ModalSandboxProvider(FakeModalModule())
+
+    domains = await provider.create(_spec(network="allowlist", allowed_domains=("example.com",)))
+    assert not domains.ok and domains.error is not None
+    assert domains.error.code == "sandbox_network_policy_unsupported"
+
+    foreign = await provider.create(_spec(secret_references={"API_KEY": "daytona:key"}))
+    assert not foreign.ok and foreign.error is not None
+    assert foreign.error.code == "sandbox_secret_reference_invalid"
+
+
+async def test_modal_reports_missing_sdk_guidance(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(sys.modules, "modal", None)
+    provider = ModalSandboxProvider()
+
+    created = await provider.create(_spec())
+
+    assert not created.ok and created.error is not None
+    assert "anycode-py[sandbox-modal]" in created.error.message
 
 
 def test_factory_builds_daytona_provider() -> None:

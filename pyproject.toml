@@ -102,6 +102,9 @@ sandbox = [
 sandbox-e2b = [
     "e2b>=1.0",
 ]
+sandbox-modal = [
+    "modal>=1.0",
+]
 all = [
     "anthropic>=0.40",
     "openai>=1.50",

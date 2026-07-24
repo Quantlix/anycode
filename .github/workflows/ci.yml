@@ -154,6 +154,9 @@ jobs:
           - extra: sandbox-e2b
             sync-args: --extra sandbox-e2b
             imports: e2b anycode.sandbox.e2b
+          - extra: sandbox-modal
+            sync-args: --extra sandbox-modal
+            imports: modal anycode.sandbox.modal
           - extra: all
             sync-args: --extra all
             imports: anycode
