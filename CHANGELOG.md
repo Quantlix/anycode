@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Expanded sandbox provider catalog** - E2B, Modal, Runloop, Vercel Sandbox, and LangSmith backends now implement the `SandboxProvider` protocol alongside Daytona, each behind its own install extra (`sandbox-e2b`, `sandbox-modal`, `sandbox-runloop`, `sandbox-vercel`, `sandbox-langsmith`) with lazy SDK imports, honest capability reports, evidence digests, and fail-closed handling of unsupported network modes, snapshot restores, and secret schemes. A new `create_sandbox_provider(name)` factory builds any backend by name.
+
+### Changed
+
+- **Provider-prefixed sandbox secrets** - `SandboxSpec.secret_references` now accepts any `<provider>:<name>` reference instead of only `daytona:`; each backend validates its own prefix at create time and returns `sandbox_secret_reference_invalid` for foreign prefixes. Existing `daytona:` references keep working unchanged.
+
 ## [0.8.2] - 2026-07-19
 
 ### Changed

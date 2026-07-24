@@ -1,12 +1,36 @@
 ---
 title: "Run AnyCode Work in Sandbox Providers"
-description: Configure Daytona or companion sandboxes for AnyCode with identity, network policy, secret references, streamed commands, files, cancellation, and evidence.
-keywords: AnyCode sandbox, Daytona Python sandbox, AI agent code execution, policy sandbox provider, isolated agent tools
+description: Run AnyCode work in Daytona, E2B, Modal, Runloop, Vercel, or LangSmith sandboxes behind one protocol with network policy, secret references, and evidence.
+keywords: AnyCode sandbox, Daytona E2B Modal Runloop Vercel LangSmith sandbox, AI agent code execution, policy sandbox provider, isolated agent tools
 ---
 
 # Run work through sandbox providers
 
-The `SandboxProvider` protocol gives AnyCode one explicit boundary for remote execution, files, streaming, cancellation, cleanup, health, and evidence. Use `DaytonaSandboxProvider` for the maintained Daytona SDK or `CompanionSandboxAdapter` for a separately deployed sandbox service. Wrap either provider with `PolicySandboxProvider` when every operation needs an external authorization decision.
+The `SandboxProvider` protocol gives AnyCode one explicit boundary for remote execution, files, streaming, cancellation, cleanup, health, and evidence. Six remote backends implement it — Daytona, E2B, Modal, Runloop, Vercel Sandbox, and LangSmith — plus `CompanionSandboxAdapter` for a separately deployed sandbox service. Wrap any provider with `PolicySandboxProvider` when every operation needs an external authorization decision.
+
+## Choose a provider
+
+Each backend ships behind its own install extra, and `create_sandbox_provider(name)` builds any of them without importing the SDK until first use:
+
+```python
+from anycode import create_sandbox_provider
+
+provider = create_sandbox_provider("e2b")  # or daytona, modal, runloop, vercel, langsmith
+print(provider.capabilities())
+```
+
+| Provider | Extra | Isolation | Snapshots | Live streaming | Network policy | Secret references |
+| --- | --- | --- | --- | --- | --- | --- |
+| `daytona` | `sandbox` | remote | no | yes | none / allowlist | `daytona:<name>` |
+| `e2b` | `sandbox-e2b` | microVM | no | buffered | unrestricted only | rejected |
+| `modal` | `sandbox-modal` | container (gVisor) | yes | buffered | none / CIDR allowlist | `modal:<name>` |
+| `runloop` | `sandbox-runloop` | VM | yes | buffered | unrestricted only | rejected |
+| `vercel` | `sandbox-vercel` | microVM | no | buffered | unrestricted only | rejected |
+| `langsmith` | `sandbox-langsmith` | microVM | no | buffered | unrestricted only | rejected |
+
+Every backend fails closed: when a spec requests a network mode, snapshot restore, or secret scheme the provider cannot enforce, `create()` returns a typed error (`sandbox_network_policy_unsupported`, `sandbox_snapshot_unsupported`, `sandbox_secrets_unsupported`, or `sandbox_secret_reference_invalid`) instead of silently granting more than requested. "Buffered" streaming satisfies the streaming contract but delivers output after the command completes. Check `provider.capabilities()` — including its `limitations` tuple — before trusting a workload to a backend.
+
+Credentials always stay in each SDK's own configuration (`E2B_API_KEY`, Modal tokens, `RUNLOOP_API_KEY`, `VERCEL_TOKEN`/`VERCEL_OIDC_TOKEN` with team and project ids, `LANGSMITH_API_KEY`). Do not place credentials in `SandboxSpec`, a command environment, labels, logs, or durable run data.
 
 ## Install the Daytona integration
 
@@ -14,7 +38,7 @@ The `SandboxProvider` protocol gives AnyCode one explicit boundary for remote ex
 uv add "anycode-py[sandbox]"
 ```
 
-Configure Daytona credentials through the SDK's supported host configuration. Do not place credentials in `SandboxSpec`, a command environment, labels, logs, or durable run data.
+Configure Daytona credentials through the SDK's supported host configuration.
 
 ## Create and use a Daytona sandbox
 
@@ -69,7 +93,7 @@ Choose either `image` or `snapshot`, never both. The Daytona adapter currently r
 | `network="none"` | No allowlist entries may be supplied |
 | `network="allowlist"` | At least one domain or CIDR is required |
 | `network="unrestricted"` | The provider may allow unrestricted egress; use only under reviewed host policy |
-| `secret_references` | Every value must start with `daytona:` |
+| `secret_references` | Every value is a provider-prefixed reference (e.g. `daytona:token-name`); each backend accepts only its own prefix |
 | `SandboxCommand.environment` | Credential-like variable names are rejected |
 
 The provider and host must enforce the requested network policy. The model validates the request, but that validation is not proof of kernel, container, VM, or network isolation.

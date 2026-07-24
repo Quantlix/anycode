@@ -765,13 +765,25 @@ Carry tenant, principal, and delegation context through a run, and enforce an ex
 
 ## Sandboxes
 
-Run commands and file operations inside an isolated provider, gated by a capability and network policy. `PolicySandboxProvider` wraps any provider with policy checks; the Daytona and companion providers are concrete backends. See [run work in sandboxes](../guides/sandbox-providers.md).
+Run commands and file operations inside an isolated provider, gated by a capability and network policy. `PolicySandboxProvider` wraps any provider with policy checks; Daytona, E2B, Modal, Runloop, Vercel, LangSmith, and companion providers are concrete backends, and `create_sandbox_provider` builds any of them by name. See [run work in sandboxes](../guides/sandbox-providers.md).
 
 ::: anycode.sandbox.protocol.SandboxProvider
+
+::: anycode.sandbox.factory.create_sandbox_provider
 
 ::: anycode.sandbox.policy.PolicySandboxProvider
 
 ::: anycode.sandbox.daytona.DaytonaSandboxProvider
+
+::: anycode.sandbox.e2b.E2BSandboxProvider
+
+::: anycode.sandbox.modal.ModalSandboxProvider
+
+::: anycode.sandbox.runloop.RunloopSandboxProvider
+
+::: anycode.sandbox.vercel.VercelSandboxProvider
+
+::: anycode.sandbox.langsmith.LangSmithSandboxProvider
 
 ::: anycode.sandbox.companion.CompanionSandboxAdapter
 

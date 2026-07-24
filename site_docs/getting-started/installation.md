@@ -78,6 +78,12 @@ Extras are additive — combine any of them in a single bracketed list, and inst
 | `azure` | Azure OpenAI provider support |
 | `tokens` | Token counting through `tiktoken` |
 | `providers` | All built-in provider SDKs |
+| `sandbox` | Daytona sandbox provider support |
+| `sandbox-e2b` | E2B sandbox provider support |
+| `sandbox-modal` | Modal sandbox provider support |
+| `sandbox-runloop` | Runloop sandbox provider support |
+| `sandbox-vercel` | Vercel Sandbox provider support (beta SDK) |
+| `sandbox-langsmith` | LangSmith sandbox provider support |
 | `all` | Every optional provider and framework integration |
 
 !!! note "Install only what the workload uses"
