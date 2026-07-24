@@ -8,7 +8,13 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
-from anycode.constants import OLLAMA_DEFAULT_BASE_URL, OLLAMA_REQUEST_TIMEOUT_S, STOP_REASON_END_TURN, STOP_REASON_TOOL_USE
+from anycode.constants import (
+    OLLAMA_DEFAULT_BASE_URL,
+    OLLAMA_REQUEST_TIMEOUT_S,
+    STOP_REASON_END_TURN,
+    STOP_REASON_MAX_TOKENS,
+    STOP_REASON_TOOL_USE,
+)
 from anycode.providers._openai_compat import map_messages, map_tool_def, parse_json_safe
 from anycode.security.redaction import safe_exception_message
 from anycode.types import (
@@ -33,6 +39,14 @@ OLLAMA_REQUEST_TIMEOUT = OLLAMA_REQUEST_TIMEOUT_S
 
 # Ollama's `think` levels; `minimal` has no native equivalent and maps to "low".
 _EFFORT_TO_THINK = {"minimal": "low", "low": "low", "medium": "medium", "high": "high"}
+
+_DONE_REASON_MAP = {"stop": STOP_REASON_END_TURN, "length": STOP_REASON_MAX_TOKENS}
+
+
+def _map_done_reason(done_reason: str | None, *, has_tool_calls: bool) -> str:
+    if has_tool_calls:
+        return STOP_REASON_TOOL_USE
+    return _DONE_REASON_MAP.get(done_reason or "stop", STOP_REASON_END_TURN)
 
 
 def _ensure_httpx() -> None:
@@ -95,6 +109,18 @@ class OllamaAdapter:
             return {"Authorization": f"Bearer {self._api_key}"}
         return {}
 
+    def _raise_for_status(self, resp: Any, model: str | None) -> None:
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                raise httpx.HTTPStatusError(
+                    f"Model '{model}' was not found on the Ollama server at {self._base_url}. Pull it first: ollama pull {model}",
+                    request=e.request,
+                    response=e.response,
+                ) from e
+            raise
+
     @property
     def name(self) -> str:
         return "ollama"
@@ -153,7 +179,7 @@ class OllamaAdapter:
 
         async with httpx.AsyncClient(timeout=OLLAMA_REQUEST_TIMEOUT, headers=self._headers()) as client:
             resp = await client.post(f"{self._base_url}/api/chat", json=payload)
-            resp.raise_for_status()
+            self._raise_for_status(resp, model)
             data = resp.json()
 
         content: list[ContentBlock] = []
@@ -172,7 +198,7 @@ class OllamaAdapter:
             tool_id = f"call_{uuid.uuid4().hex[:24]}"
             content.append(ToolUseBlock(id=tool_id, name=func.get("name", ""), input=args))
 
-        stop_reason = STOP_REASON_TOOL_USE if msg_data.get("tool_calls") else STOP_REASON_END_TURN
+        stop_reason = _map_done_reason(data.get("done_reason"), has_tool_calls=bool(msg_data.get("tool_calls")))
 
         input_tokens = data.get("prompt_eval_count", 0)
         output_tokens = data.get("eval_count", 0)
@@ -194,11 +220,12 @@ class OllamaAdapter:
         tool_blocks: list[ToolUseBlock] = []
         input_tokens = 0
         output_tokens = 0
+        done_reason: str | None = None
 
         try:
             async with httpx.AsyncClient(timeout=OLLAMA_REQUEST_TIMEOUT, headers=self._headers()) as client:
                 async with client.stream("POST", f"{self._base_url}/api/chat", json=payload) as resp:
-                    resp.raise_for_status()
+                    self._raise_for_status(resp, model)
                     async for line in resp.aiter_lines():
                         if not line.strip():
                             continue
@@ -207,6 +234,14 @@ class OllamaAdapter:
                         except json.JSONDecodeError:
                             continue
 
+                        # Ollama reports mid-stream failures as NDJSON error objects
+                        # on an already-established 200 response.
+                        if chunk.get("error"):
+                            yield StreamEvent(type="error", data=str(chunk["error"]))
+                            return
+
+                        if chunk.get("done_reason"):
+                            done_reason = chunk["done_reason"]
                         if chunk.get("prompt_eval_count"):
                             input_tokens = chunk["prompt_eval_count"]
                         if chunk.get("eval_count"):
@@ -239,7 +274,7 @@ class OllamaAdapter:
                 done_content.append(TextBlock(text=full_text))
             done_content.extend(tool_blocks)
 
-            stop = STOP_REASON_TOOL_USE if tool_blocks else STOP_REASON_END_TURN
+            stop = _map_done_reason(done_reason, has_tool_calls=bool(tool_blocks))
 
             yield StreamEvent(
                 type="done",
