@@ -35,6 +35,34 @@ def _ensure_httpx() -> None:
         raise ImportError('httpx is required for the Ollama provider. Install it with: pip install "anycode-py[ollama]"')
 
 
+def _to_native_messages(oai_msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Flatten OpenAI-style content-part lists into Ollama's native message shape.
+
+    The native ``/api/chat`` endpoint takes ``content`` as a plain string plus an
+    optional per-message ``images`` array of base64 payloads; it does not accept
+    ``image_url`` parts.
+    """
+    native: list[dict[str, Any]] = []
+    for msg in oai_msgs:
+        content = msg.get("content")
+        if not isinstance(content, list):
+            native.append(msg)
+            continue
+        texts: list[str] = []
+        images: list[str] = []
+        for part in content:
+            if part.get("type") == "text":
+                texts.append(part.get("text", ""))
+            elif part.get("type") == "image_url":
+                url = part.get("image_url", {}).get("url", "")
+                images.append(url.split(",", 1)[1] if "," in url else url)
+        flattened = {**msg, "content": "".join(texts)}
+        if images:
+            flattened["images"] = images
+        native.append(flattened)
+    return native
+
+
 class OllamaAdapter:
     """HTTP-based adapter for Ollama's native ``/api/chat`` endpoint."""
 
@@ -50,7 +78,7 @@ class OllamaAdapter:
     def _build_payload(self, messages: list[LLMMessage], options: LLMChatOptions, *, stream: bool) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": self._default_model or options.model,
-            "messages": map_messages(messages, options.system_prompt),
+            "messages": _to_native_messages(map_messages(messages, options.system_prompt)),
             "stream": stream,
         }
         if options.tools:

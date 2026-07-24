@@ -16,6 +16,8 @@ from anycode.providers.google import GeminiAdapter
 from anycode.providers.ollama import OllamaAdapter
 from anycode.providers.openai import OpenAIAdapter
 from anycode.types import (
+    ImageBlock,
+    ImageSource,
     LLMChatOptions,
     LLMMessage,
     LLMResponse,
@@ -254,7 +256,42 @@ class TestGeminiAdapter:
 # ---------------------------------------------------------------------------
 
 
+def _ollama_chat_client(response_data: dict) -> AsyncMock:
+    """Mock httpx.AsyncClient returning a single non-streaming chat response."""
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response_data
+    mock_resp.raise_for_status = MagicMock()
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.post = AsyncMock(return_value=mock_resp)
+    return mock_client
+
+
 class TestOllamaAdapter:
+    async def test_chat_sends_native_base64_images(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "A cat."}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llava")
+            messages = [
+                LLMMessage(
+                    role="user",
+                    content=[
+                        TextBlock(text="What is in this image?"),
+                        ImageBlock(source=ImageSource(media_type="image/png", data="aGVsbG8=")),
+                    ],
+                )
+            ]
+            await adapter.chat(messages, options)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        sent = payload["messages"][0]
+        assert sent["content"] == "What is in this image?"
+        assert sent["images"] == ["aGVsbG8="]
+        assert "image_url" not in json.dumps(payload)
+
     async def test_chat_returns_llmresponse(self) -> None:
         adapter = OllamaAdapter(base_url="http://localhost:11434")
         response_data = {
