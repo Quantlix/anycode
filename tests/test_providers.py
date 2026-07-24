@@ -413,6 +413,23 @@ class TestOllamaAdapter:
         payload = mock_client.post.call_args.kwargs["json"]
         assert payload["format"] == expected
 
+    async def test_chat_sends_bearer_header_for_cloud_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
+        adapter = OllamaAdapter(base_url="https://ollama.com", api_key="sk-cloud")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "ok"}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client) as client_cls:
+            options = LLMChatOptions(model="gpt-oss:120b")
+            await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options)
+
+        assert client_cls.call_args.kwargs["headers"] == {"Authorization": "Bearer sk-cloud"}
+
+    async def test_api_key_falls_back_to_env_and_defaults_to_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OLLAMA_API_KEY", "sk-env")
+        assert OllamaAdapter()._headers() == {"Authorization": "Bearer sk-env"}
+        monkeypatch.delenv("OLLAMA_API_KEY")
+        assert OllamaAdapter()._headers() == {}
+
     async def test_chat_returns_llmresponse(self) -> None:
         adapter = OllamaAdapter(base_url="http://localhost:11434")
         response_data = {

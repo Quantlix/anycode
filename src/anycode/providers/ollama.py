@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -75,6 +76,7 @@ class OllamaAdapter:
         base_url: str | None = None,
         model: str | None = None,
         *,
+        api_key: str | None = None,
         keep_alive: str | float | None = None,
         think: bool | str | None = None,
         default_options: dict[str, Any] | None = None,
@@ -82,9 +84,16 @@ class OllamaAdapter:
         _ensure_httpx()
         self._base_url = (base_url or OLLAMA_DEFAULT_BASE_URL).rstrip("/")
         self._default_model = model
+        self._api_key = api_key or os.environ.get("OLLAMA_API_KEY")
         self._keep_alive = keep_alive
         self._think = think
         self._default_options = dict(default_options) if default_options else {}
+
+    def _headers(self) -> dict[str, str]:
+        # ollama.com cloud requires a Bearer key; local servers ignore the header.
+        if self._api_key:
+            return {"Authorization": f"Bearer {self._api_key}"}
+        return {}
 
     @property
     def name(self) -> str:
@@ -142,7 +151,7 @@ class OllamaAdapter:
             payload["format"] = self._to_native_format(response_format)
         model = payload["model"]
 
-        async with httpx.AsyncClient(timeout=OLLAMA_REQUEST_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=OLLAMA_REQUEST_TIMEOUT, headers=self._headers()) as client:
             resp = await client.post(f"{self._base_url}/api/chat", json=payload)
             resp.raise_for_status()
             data = resp.json()
@@ -187,7 +196,7 @@ class OllamaAdapter:
         output_tokens = 0
 
         try:
-            async with httpx.AsyncClient(timeout=OLLAMA_REQUEST_TIMEOUT) as client:
+            async with httpx.AsyncClient(timeout=OLLAMA_REQUEST_TIMEOUT, headers=self._headers()) as client:
                 async with client.stream("POST", f"{self._base_url}/api/chat", json=payload) as resp:
                     resp.raise_for_status()
                     async for line in resp.aiter_lines():
