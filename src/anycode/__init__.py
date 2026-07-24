@@ -197,6 +197,7 @@ from anycode.sandbox import (
     SandboxCommand,
     SandboxProvider,
     SandboxSpec,
+    create_sandbox_provider,
 )
 from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
 from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
@@ -611,6 +612,7 @@ __all__ = [
     "SandboxCommand",
     "SandboxProvider",
     "SandboxSpec",
+    "create_sandbox_provider",
     # Managed hosting
     "A2A_AGENT_CARD_PATH",
     "A2AAgentCard",

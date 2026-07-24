@@ -2,6 +2,7 @@
 
 from anycode.sandbox.companion import CompanionSandboxAdapter, CompanionSandboxClient
 from anycode.sandbox.daytona import DaytonaSandboxProvider
+from anycode.sandbox.factory import SANDBOX_PROVIDER_EXTRAS, create_sandbox_provider
 from anycode.sandbox.models import (
     SANDBOX_CONTRACT_VERSION,
     SandboxActionResult,
@@ -21,6 +22,7 @@ from anycode.sandbox.protocol import SandboxProvider
 
 __all__ = [
     "SANDBOX_CONTRACT_VERSION",
+    "SANDBOX_PROVIDER_EXTRAS",
     "CompanionSandboxAdapter",
     "CompanionSandboxClient",
     "DaytonaSandboxProvider",
@@ -37,4 +39,5 @@ __all__ = [
     "SandboxOutputChunk",
     "SandboxProvider",
     "SandboxSpec",
+    "create_sandbox_provider",
 ]
