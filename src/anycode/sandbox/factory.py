@@ -13,6 +13,7 @@ SANDBOX_PROVIDER_EXTRAS: dict[str, str] = {
     "e2b": "sandbox-e2b",
     "modal": "sandbox-modal",
     "runloop": "sandbox-runloop",
+    "vercel": "sandbox-vercel",
 }
 
 
@@ -39,5 +40,9 @@ def create_sandbox_provider(name: str, **kwargs: Any) -> SandboxProvider:
         from anycode.sandbox.runloop import RunloopSandboxProvider
 
         return RunloopSandboxProvider(**kwargs)
+    if name == "vercel":
+        from anycode.sandbox.vercel import VercelSandboxProvider
+
+        return VercelSandboxProvider(**kwargs)
 
     raise ValueError(f"Unknown sandbox provider: {name!r}. Available: {sorted(SANDBOX_PROVIDER_EXTRAS)}")

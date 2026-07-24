@@ -108,6 +108,9 @@ sandbox-modal = [
 sandbox-runloop = [
     "runloop-api-client>=0.30",
 ]
+sandbox-vercel = [
+    "vercel>=0.1,<1",
+]
 all = [
     "anthropic>=0.40",
     "openai>=1.50",

@@ -160,6 +160,9 @@ jobs:
           - extra: sandbox-runloop
             sync-args: --extra sandbox-runloop
             imports: runloop_api_client anycode.sandbox.runloop
+          - extra: sandbox-vercel
+            sync-args: --extra sandbox-vercel
+            imports: vercel anycode.sandbox.vercel
           - extra: all
             sync-args: --extra all
             imports: anycode

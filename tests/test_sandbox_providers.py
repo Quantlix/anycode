@@ -17,6 +17,7 @@ from anycode.sandbox import (
     SandboxCommand,
     SandboxProvider,
     SandboxSpec,
+    VercelSandboxProvider,
     create_sandbox_provider,
 )
 
@@ -373,6 +374,92 @@ async def test_runloop_reports_missing_sdk_guidance(monkeypatch: pytest.MonkeyPa
 
     assert not created.ok and created.error is not None
     assert "anycode-py[sandbox-runloop]" in created.error.message
+
+
+# ---------------------------------------------------------------------------
+# Vercel fakes
+# ---------------------------------------------------------------------------
+
+
+class FakeVercelCommand:
+    def __init__(self, command: str) -> None:
+        self.exit_code = 0
+        self._stdout = f"ran:{command}"
+
+    async def stdout(self) -> str:
+        return self._stdout
+
+    async def stderr(self) -> str:
+        return ""
+
+
+class FakeVercelSandbox:
+    def __init__(self) -> None:
+        self.sandbox_id = "vercel-1"
+        self.files: dict[str, bytes] = {}
+        self.stopped = False
+        self.create_kwargs: dict[str, object] = {}
+
+    async def run_command(self, command: str, args: list[str]) -> FakeVercelCommand:
+        del command
+        return FakeVercelCommand(args[-1])
+
+    async def write_files(self, files: list[dict[str, object]]) -> None:
+        for entry in files:
+            self.files[str(entry["path"])] = bytes(entry["content"])  # type: ignore[arg-type]
+
+    async def read_file(self, path: str) -> bytes:
+        return self.files[path]
+
+    async def stop(self) -> None:
+        self.stopped = True
+
+
+class FakeVercelSandboxClass:
+    """Stands in for the vercel.sandbox.AsyncSandbox class surface."""
+
+    def __init__(self) -> None:
+        self.sandbox = FakeVercelSandbox()
+
+    async def create(self, **kwargs: object) -> FakeVercelSandbox:
+        self.sandbox.create_kwargs = dict(kwargs)
+        return self.sandbox
+
+    async def get(self, *, sandbox_id: str) -> FakeVercelSandbox:
+        assert sandbox_id == self.sandbox.sandbox_id
+        return self.sandbox
+
+
+async def test_vercel_provider_passes_lifecycle_conformance() -> None:
+    provider = VercelSandboxProvider(FakeVercelSandboxClass())
+    await _assert_lifecycle_conformance(provider, snapshots=False)
+
+
+async def test_vercel_maps_image_to_runtime_and_rejects_restrictions() -> None:
+    sandbox_cls = FakeVercelSandboxClass()
+    provider = VercelSandboxProvider(sandbox_cls)
+
+    created = await provider.create(_spec(image="python3.13"))
+    assert created.ok and sandbox_cls.sandbox.create_kwargs == {"runtime": "python3.13"}
+
+    denied_network = await provider.create(_spec(network="allowlist", allowed_cidrs=("10.0.0.0/8",)))
+    assert not denied_network.ok and denied_network.error is not None
+    assert denied_network.error.code == "sandbox_network_policy_unsupported"
+
+    denied_secrets = await provider.create(_spec(secret_references={"API_KEY": "vercel:key"}))
+    assert not denied_secrets.ok and denied_secrets.error is not None
+    assert denied_secrets.error.code == "sandbox_secrets_unsupported"
+
+
+async def test_vercel_reports_missing_sdk_guidance(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(sys.modules, "vercel", None)
+    monkeypatch.setitem(sys.modules, "vercel.sandbox", None)
+    provider = VercelSandboxProvider()
+
+    created = await provider.create(_spec())
+
+    assert not created.ok and created.error is not None
+    assert "anycode-py[sandbox-vercel]" in created.error.message
 
 
 def test_factory_builds_daytona_provider() -> None:

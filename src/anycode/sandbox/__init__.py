@@ -22,6 +22,7 @@ from anycode.sandbox.models import (
 from anycode.sandbox.policy import PolicySandboxProvider
 from anycode.sandbox.protocol import SandboxProvider
 from anycode.sandbox.runloop import RunloopSandboxProvider
+from anycode.sandbox.vercel import VercelSandboxProvider
 
 __all__ = [
     "SANDBOX_CONTRACT_VERSION",
@@ -45,5 +46,6 @@ __all__ = [
     "SandboxOutputChunk",
     "SandboxProvider",
     "SandboxSpec",
+    "VercelSandboxProvider",
     "create_sandbox_provider",
 ]
