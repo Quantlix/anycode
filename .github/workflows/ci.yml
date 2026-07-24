@@ -151,6 +151,21 @@ jobs:
           - extra: sandbox
             sync-args: --extra sandbox
             imports: daytona anycode.sandbox.daytona
+          - extra: sandbox-e2b
+            sync-args: --extra sandbox-e2b
+            imports: e2b anycode.sandbox.e2b
+          - extra: sandbox-modal
+            sync-args: --extra sandbox-modal
+            imports: modal anycode.sandbox.modal
+          - extra: sandbox-runloop
+            sync-args: --extra sandbox-runloop
+            imports: runloop_api_client anycode.sandbox.runloop
+          - extra: sandbox-vercel
+            sync-args: --extra sandbox-vercel
+            imports: vercel anycode.sandbox.vercel
+          - extra: sandbox-langsmith
+            sync-args: --extra sandbox-langsmith
+            imports: langsmith anycode.sandbox.langsmith
           - extra: all
             sync-args: --extra all
             imports: anycode

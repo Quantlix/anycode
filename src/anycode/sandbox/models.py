@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import datetime
 from typing import Literal
 
@@ -12,6 +13,10 @@ from anycode.contracts.models import ContractError, ContractModel, utc_now
 from anycode.identity.context import ExecutionContext
 
 SANDBOX_CONTRACT_VERSION = "1.0"
+
+# Secret values are provider-prefixed references like "daytona:token-name";
+# each provider accepts only its own prefix at create time.
+_SECRET_REFERENCE_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*:\S+$")
 
 
 class SandboxCapabilities(ContractModel):
@@ -51,8 +56,8 @@ class SandboxSpec(ContractModel):
             raise ValueError("Network allowlists require network='allowlist'")
         if self.network == "allowlist" and not (self.allowed_domains or self.allowed_cidrs):
             raise ValueError("network='allowlist' requires a domain or CIDR")
-        if any(not reference.startswith("daytona:") for reference in self.secret_references.values()):
-            raise ValueError("Sandbox secrets must be Daytona secret references, never plaintext values")
+        if any(not _SECRET_REFERENCE_PATTERN.fullmatch(reference) for reference in self.secret_references.values()):
+            raise ValueError("Sandbox secrets must be provider-prefixed secret references (e.g. 'daytona:token-name'), never plaintext values")
         return self
 
 

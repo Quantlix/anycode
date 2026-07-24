@@ -139,6 +139,21 @@ def test_sandbox_spec_rejects_network_and_plaintext_secret_misconfiguration() ->
         SandboxCommand(command="run", environment={"API_TOKEN": "plaintext"})
 
 
+def test_sandbox_spec_accepts_any_provider_prefixed_secret_reference() -> None:
+    spec = SandboxSpec(run_id="run", correlation_id="corr", context=_context(), secret_references={"API_KEY": "e2b:api-key"})
+    assert spec.secret_references == {"API_KEY": "e2b:api-key"}
+
+
+async def test_daytona_create_rejects_foreign_secret_prefix() -> None:
+    provider = DaytonaSandboxProvider(FakeDaytonaClient(), session_request_factory=lambda **kwargs: SimpleNamespace(**kwargs))
+    spec = SandboxSpec(run_id="run", correlation_id="corr", context=_context(), secret_references={"API_KEY": "modal:api-key"})
+
+    created = await provider.create(spec)
+
+    assert not created.ok and created.error is not None
+    assert created.error.code == "sandbox_secret_reference_invalid"
+
+
 class DenySandboxPolicy:
     async def decide(self, request: PolicyRequest) -> PolicyDecision:
         return PolicyDecision(
@@ -166,4 +181,3 @@ async def test_policy_wrapper_denies_before_sandbox_creation_and_audits_context(
     assert not client.sandbox.deleted and not client.sandbox.stopped
     assert len(audit.events) == 1 and audit.events[0].boundary == "sandbox"
     assert audit.events[0].context["tenant_scope"] == "tenant-a"
-

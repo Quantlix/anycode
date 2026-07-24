@@ -8,6 +8,7 @@ from typing import Any
 
 from anycode.contracts.models import ContractError
 from anycode.helpers.uuid7 import uuid7
+from anycode.sandbox._secrets import strip_secret_prefix, validate_secret_references
 from anycode.sandbox.models import (
     SandboxActionResult,
     SandboxCapabilities,
@@ -59,7 +60,7 @@ class DaytonaSandboxProvider:
             },
             "public": False,
             "ephemeral": not spec.persistent,
-            "secrets": {name: reference.removeprefix("daytona:") for name, reference in spec.secret_references.items()},
+            "secrets": {name: strip_secret_prefix("daytona", reference) for name, reference in spec.secret_references.items()},
             "network_block_all": spec.network == "none",
             "network_allow_list": ",".join(spec.allowed_cidrs) or None,
             "domain_allow_list": ",".join(spec.allowed_domains) or None,
@@ -78,6 +79,9 @@ class DaytonaSandboxProvider:
         return sandbox
 
     async def create(self, spec: SandboxSpec) -> SandboxCreateResult:
+        secret_error = validate_secret_references("daytona", spec)
+        if secret_error is not None:
+            return SandboxCreateResult(ok=False, error=secret_error)
         try:
             client = self._client_or_raise()
             params = self._creation_params(spec)

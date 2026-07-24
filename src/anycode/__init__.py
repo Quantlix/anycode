@@ -192,11 +192,17 @@ from anycode.runstore.store import FilesystemRunStore, ProtectedPayloadError, Un
 from anycode.sandbox import (
     CompanionSandboxAdapter,
     DaytonaSandboxProvider,
+    E2BSandboxProvider,
+    LangSmithSandboxProvider,
+    ModalSandboxProvider,
     PolicySandboxProvider,
+    RunloopSandboxProvider,
     SandboxCapabilities,
     SandboxCommand,
     SandboxProvider,
     SandboxSpec,
+    VercelSandboxProvider,
+    create_sandbox_provider,
 )
 from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
 from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
@@ -606,11 +612,17 @@ __all__ = [
     # Sandboxes
     "CompanionSandboxAdapter",
     "DaytonaSandboxProvider",
+    "E2BSandboxProvider",
+    "LangSmithSandboxProvider",
+    "ModalSandboxProvider",
     "PolicySandboxProvider",
+    "RunloopSandboxProvider",
     "SandboxCapabilities",
     "SandboxCommand",
     "SandboxProvider",
     "SandboxSpec",
+    "VercelSandboxProvider",
+    "create_sandbox_provider",
     # Managed hosting
     "A2A_AGENT_CARD_PATH",
     "A2AAgentCard",
