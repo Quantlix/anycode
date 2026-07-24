@@ -157,6 +157,9 @@ jobs:
           - extra: sandbox-modal
             sync-args: --extra sandbox-modal
             imports: modal anycode.sandbox.modal
+          - extra: sandbox-runloop
+            sync-args: --extra sandbox-runloop
+            imports: runloop_api_client anycode.sandbox.runloop
           - extra: all
             sync-args: --extra all
             imports: anycode

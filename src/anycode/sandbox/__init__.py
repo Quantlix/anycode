@@ -21,6 +21,7 @@ from anycode.sandbox.models import (
 )
 from anycode.sandbox.policy import PolicySandboxProvider
 from anycode.sandbox.protocol import SandboxProvider
+from anycode.sandbox.runloop import RunloopSandboxProvider
 
 __all__ = [
     "SANDBOX_CONTRACT_VERSION",
@@ -31,6 +32,7 @@ __all__ = [
     "E2BSandboxProvider",
     "ModalSandboxProvider",
     "PolicySandboxProvider",
+    "RunloopSandboxProvider",
     "SandboxActionResult",
     "SandboxCapabilities",
     "SandboxCommand",

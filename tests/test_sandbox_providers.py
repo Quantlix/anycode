@@ -13,6 +13,7 @@ from anycode.sandbox import (
     DaytonaSandboxProvider,
     E2BSandboxProvider,
     ModalSandboxProvider,
+    RunloopSandboxProvider,
     SandboxCommand,
     SandboxProvider,
     SandboxSpec,
@@ -282,6 +283,96 @@ async def test_modal_reports_missing_sdk_guidance(monkeypatch: pytest.MonkeyPatc
 
     assert not created.ok and created.error is not None
     assert "anycode-py[sandbox-modal]" in created.error.message
+
+
+# ---------------------------------------------------------------------------
+# Runloop fakes
+# ---------------------------------------------------------------------------
+
+
+class FakeRunloopDevboxes:
+    def __init__(self) -> None:
+        self.files: dict[str, bytes] = {}
+        self.suspended = False
+        self.shutdown_called = False
+
+    async def create(self, **kwargs: object) -> SimpleNamespace:
+        del kwargs
+        return SimpleNamespace(id="devbox-1")
+
+    async def execute_sync(self, devbox_id: str, *, command: str) -> SimpleNamespace:
+        assert devbox_id == "devbox-1"
+        return SimpleNamespace(stdout=f"ran:{command}", stderr="", exit_status=0)
+
+    async def write_file_contents(self, devbox_id: str, *, file_path: str, contents: str) -> None:
+        assert devbox_id == "devbox-1"
+        self.files[file_path] = contents.encode("utf-8")
+
+    async def read_file_contents(self, devbox_id: str, *, file_path: str) -> str:
+        assert devbox_id == "devbox-1"
+        return self.files[file_path].decode("utf-8")
+
+    async def suspend(self, devbox_id: str) -> None:
+        assert devbox_id == "devbox-1"
+        self.suspended = True
+
+    async def snapshot_disk(self, devbox_id: str) -> SimpleNamespace:
+        assert devbox_id == "devbox-1"
+        return SimpleNamespace(id="snapshot-1")
+
+    async def shutdown(self, devbox_id: str) -> None:
+        assert devbox_id == "devbox-1"
+        self.shutdown_called = True
+
+
+class FakeRunloopClient:
+    def __init__(self) -> None:
+        self.devboxes = FakeRunloopDevboxes()
+
+
+async def test_runloop_provider_passes_lifecycle_conformance() -> None:
+    provider = RunloopSandboxProvider(FakeRunloopClient())
+    await _assert_lifecycle_conformance(provider, snapshots=True)
+
+
+async def test_runloop_maps_image_and_snapshot_to_blueprint_arguments() -> None:
+    client = FakeRunloopClient()
+    captured: dict[str, object] = {}
+
+    async def create(**kwargs: object) -> SimpleNamespace:
+        captured.update(kwargs)
+        return SimpleNamespace(id="devbox-1")
+
+    client.devboxes.create = create  # type: ignore[method-assign]
+    provider = RunloopSandboxProvider(client)
+
+    assert (await provider.create(_spec(image="py-blueprint"))).ok
+    assert captured["blueprint_name"] == "py-blueprint"
+
+    assert (await provider.create(_spec(snapshot="snap-9"))).ok
+    assert captured["snapshot_id"] == "snap-9"
+
+
+async def test_runloop_rejects_restricted_network_and_secrets() -> None:
+    provider = RunloopSandboxProvider(FakeRunloopClient())
+
+    denied_network = await provider.create(_spec(network="none"))
+    assert not denied_network.ok and denied_network.error is not None
+    assert denied_network.error.code == "sandbox_network_policy_unsupported"
+
+    denied_secrets = await provider.create(_spec(secret_references={"API_KEY": "runloop:key"}))
+    assert not denied_secrets.ok and denied_secrets.error is not None
+    assert denied_secrets.error.code == "sandbox_secrets_unsupported"
+
+
+async def test_runloop_reports_missing_sdk_guidance(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(sys.modules, "runloop_api_client", None)
+    provider = RunloopSandboxProvider()
+
+    created = await provider.create(_spec())
+
+    assert not created.ok and created.error is not None
+    assert "anycode-py[sandbox-runloop]" in created.error.message
 
 
 def test_factory_builds_daytona_provider() -> None:
