@@ -16,11 +16,15 @@ from anycode.providers.google import GeminiAdapter
 from anycode.providers.ollama import OllamaAdapter
 from anycode.providers.openai import OpenAIAdapter
 from anycode.types import (
+    ImageBlock,
+    ImageSource,
     LLMChatOptions,
     LLMMessage,
     LLMResponse,
+    LLMStreamOptions,
     LLMToolDef,
     TextBlock,
+    ThinkingBlock,
     ToolResultBlock,
     ToolUseBlock,
 )
@@ -254,7 +258,243 @@ class TestGeminiAdapter:
 # ---------------------------------------------------------------------------
 
 
+def _ollama_chat_client(response_data: dict) -> AsyncMock:
+    """Mock httpx.AsyncClient returning a single non-streaming chat response."""
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response_data
+    mock_resp.raise_for_status = MagicMock()
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.post = AsyncMock(return_value=mock_resp)
+    return mock_client
+
+
+def _ollama_stream_client(lines: list[str]) -> AsyncMock:
+    """Mock httpx.AsyncClient streaming NDJSON lines from /api/chat."""
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+
+    async def aiter_lines():
+        for line in lines:
+            yield line
+
+    mock_resp.aiter_lines = aiter_lines
+    stream_cm = MagicMock()
+    stream_cm.__aenter__ = AsyncMock(return_value=mock_resp)
+    stream_cm.__aexit__ = AsyncMock(return_value=False)
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.stream = MagicMock(return_value=stream_cm)
+    return mock_client
+
+
 class TestOllamaAdapter:
+    async def test_chat_sends_native_base64_images(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "A cat."}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llava")
+            messages = [
+                LLMMessage(
+                    role="user",
+                    content=[
+                        TextBlock(text="What is in this image?"),
+                        ImageBlock(source=ImageSource(media_type="image/png", data="aGVsbG8=")),
+                    ],
+                )
+            ]
+            await adapter.chat(messages, options)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        sent = payload["messages"][0]
+        assert sent["content"] == "What is in this image?"
+        assert sent["images"] == ["aGVsbG8="]
+        assert "image_url" not in json.dumps(payload)
+
+    async def test_chat_forwards_sampling_options_and_keep_alive(self) -> None:
+        adapter = OllamaAdapter(
+            base_url="http://localhost:11434",
+            keep_alive="5m",
+            default_options={"seed": 7, "top_p": 0.9, "num_predict": 1},
+        )
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "ok"}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llama3.3:70b", max_tokens=256, temperature=0.2)
+            await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["keep_alive"] == "5m"
+        # Per-call options override constructor defaults; untouched defaults pass through.
+        assert payload["options"] == {"seed": 7, "top_p": 0.9, "num_predict": 256, "temperature": 0.2}
+
+    async def test_chat_omits_options_and_keep_alive_by_default(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "ok"}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llama3.3:70b")
+            await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert "options" not in payload
+        assert "keep_alive" not in payload
+
+    async def test_chat_maps_reasoning_effort_to_think_and_parses_thinking(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "4", "thinking": "2+2 is 4."}, "eval_count": 3})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="qwen3", reasoning_effort="high")
+            result = await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="2+2?")])], options)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["think"] == "high"
+        assert isinstance(result.content[0], ThinkingBlock)
+        assert result.content[0].thinking == "2+2 is 4."
+        assert isinstance(result.content[1], TextBlock)
+        assert result.content[1].text == "4"
+
+    async def test_think_resolution_order(self) -> None:
+        adapter = OllamaAdapter(think="max")
+        assert adapter._resolve_think(LLMChatOptions(model="m")) == "max"
+        assert adapter._resolve_think(LLMChatOptions(model="m", thinking_budget_tokens=1024)) is True
+        assert adapter._resolve_think(LLMChatOptions(model="m", reasoning_effort="minimal")) == "low"
+        assert OllamaAdapter()._resolve_think(LLMChatOptions(model="m")) is None
+
+    async def test_stream_yields_thinking_events(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        lines = [
+            json.dumps({"message": {"role": "assistant", "thinking": "Consider"}}),
+            json.dumps({"message": {"role": "assistant", "thinking": " carefully."}}),
+            json.dumps({"message": {"role": "assistant", "content": "Answer"}}),
+            json.dumps({"message": {"role": "assistant", "content": ""}, "done": True, "prompt_eval_count": 5, "eval_count": 9}),
+        ]
+        mock_client = _ollama_stream_client(lines)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMStreamOptions(model="qwen3")
+            events = [e async for e in adapter.stream([LLMMessage(role="user", content=[TextBlock(text="Q")])], options)]
+
+        thinking_events = [e for e in events if e.type == "thinking"]
+        assert [e.data for e in thinking_events] == ["Consider", " carefully."]
+        done = events[-1]
+        assert done.type == "done"
+        blocks = done.data.content
+        assert isinstance(blocks[0], ThinkingBlock)
+        assert blocks[0].thinking == "Consider carefully."
+        assert isinstance(blocks[1], TextBlock)
+        assert blocks[1].text == "Answer"
+        assert done.data.usage.input_tokens == 5
+        assert done.data.usage.output_tokens == 9
+
+    @pytest.mark.parametrize(
+        ("response_format", "expected"),
+        [
+            ({"type": "json_object"}, "json"),
+            (
+                {"type": "json_schema", "json_schema": {"name": "out", "schema": {"type": "object", "properties": {"x": {"type": "integer"}}}}},
+                {"type": "object", "properties": {"x": {"type": "integer"}}},
+            ),
+            ({"type": "object", "properties": {"y": {"type": "string"}}}, {"type": "object", "properties": {"y": {"type": "string"}}}),
+        ],
+    )
+    async def test_chat_translates_response_format(self, response_format: dict, expected: object) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "{}"}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llama3.3:70b")
+            await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options, response_format=response_format)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["format"] == expected
+
+    async def test_chat_sends_bearer_header_for_cloud_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
+        adapter = OllamaAdapter(base_url="https://ollama.com", api_key="sk-cloud")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "ok"}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client) as client_cls:
+            options = LLMChatOptions(model="gpt-oss:120b")
+            await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options)
+
+        assert client_cls.call_args.kwargs["headers"] == {"Authorization": "Bearer sk-cloud"}
+
+    async def test_api_key_falls_back_to_env_and_defaults_to_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OLLAMA_API_KEY", "sk-env")
+        assert OllamaAdapter()._headers() == {"Authorization": "Bearer sk-env"}
+        monkeypatch.delenv("OLLAMA_API_KEY")
+        assert OllamaAdapter()._headers() == {}
+
+    async def test_chat_maps_done_reason_length_to_max_tokens(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "truncat"}, "done_reason": "length"})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llama3.3:70b", max_tokens=8)
+            result = await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options)
+
+        assert result.stop_reason == "max_tokens"
+
+    async def test_chat_404_includes_pull_guidance(self) -> None:
+        import httpx
+
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        request = httpx.Request("POST", "http://localhost:11434/api/chat")
+        response = httpx.Response(status_code=404, request=request)
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.side_effect = httpx.HTTPStatusError("404", request=request, response=response)
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.post = AsyncMock(return_value=mock_resp)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="missing-model")
+            with pytest.raises(httpx.HTTPStatusError, match="ollama pull missing-model"):
+                await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options)
+
+    async def test_stream_surfaces_mid_stream_error(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        lines = [
+            json.dumps({"message": {"role": "assistant", "content": "partial"}}),
+            json.dumps({"error": "an error was encountered while running the model"}),
+            json.dumps({"message": {"role": "assistant", "content": "never seen"}}),
+        ]
+        mock_client = _ollama_stream_client(lines)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMStreamOptions(model="llama3.3:70b")
+            events = [e async for e in adapter.stream([LLMMessage(role="user", content=[TextBlock(text="Q")])], options)]
+
+        assert [e.type for e in events] == ["text", "error"]
+        assert "error was encountered" in events[-1].data
+
+    async def test_stream_accumulates_tool_calls(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        tool_chunk = {
+            "message": {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "get_weather", "arguments": {"city": "NYC"}}}]}
+        }
+        final_chunk = {"message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "prompt_eval_count": 4, "eval_count": 2}
+        lines = [json.dumps(tool_chunk), json.dumps(final_chunk)]
+        mock_client = _ollama_stream_client(lines)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMStreamOptions(model="llama3.3:70b")
+            events = [e async for e in adapter.stream([LLMMessage(role="user", content=[TextBlock(text="Weather?")])], options)]
+
+        tool_events = [e for e in events if e.type == "tool_use"]
+        assert len(tool_events) == 1
+        assert tool_events[0].data.name == "get_weather"
+        done = events[-1]
+        assert done.type == "done"
+        assert done.data.stop_reason == "tool_use"
+        assert done.data.usage.input_tokens == 4
+
     async def test_chat_returns_llmresponse(self) -> None:
         adapter = OllamaAdapter(base_url="http://localhost:11434")
         response_data = {

@@ -90,7 +90,7 @@ async def _create_raw_adapter(
     elif provider == PROVIDER_OLLAMA:
         from anycode.providers.ollama import OllamaAdapter
 
-        return OllamaAdapter(base_url=base_url, model=model)
+        return OllamaAdapter(base_url=base_url, model=model, api_key=api_key)
 
     elif provider == PROVIDER_BEDROCK:
         from anycode.providers.bedrock import BedrockAdapter

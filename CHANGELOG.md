@@ -10,10 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Expanded sandbox provider catalog** - E2B, Modal, Runloop, Vercel Sandbox, and LangSmith backends now implement the `SandboxProvider` protocol alongside Daytona, each behind its own install extra (`sandbox-e2b`, `sandbox-modal`, `sandbox-runloop`, `sandbox-vercel`, `sandbox-langsmith`) with lazy SDK imports, honest capability reports, evidence digests, and fail-closed handling of unsupported network modes, snapshot restores, and secret schemes. A new `create_sandbox_provider(name)` factory builds any backend by name.
+- **Robust Ollama integration** - the Ollama adapter now supports thinking (`reasoning_effort`/`thinking_budget_tokens` map to the native `think` parameter, with `ThinkingBlock` content and `thinking` stream events), structured outputs via `chat(..., response_format=...)` translated to Ollama's `format`, sampling options (`max_tokens` → `num_predict`, plus a `default_options` passthrough for `seed`, `top_p`, `num_ctx`, and friends), `keep_alive`, and ollama.com cloud authentication through `OLLAMA_API_KEY` or `api_key=`.
 
 ### Changed
 
 - **Provider-prefixed sandbox secrets** - `SandboxSpec.secret_references` now accepts any `<provider>:<name>` reference instead of only `daytona:`; each backend validates its own prefix at create time and returns `sandbox_secret_reference_invalid` for foreign prefixes. Existing `daytona:` references keep working unchanged.
+
+### Fixed
+
+- **Ollama image input and error reporting** - image blocks are now sent as the native base64 `images` array (previously an unsupported `image_url` shape the server ignored), mid-stream NDJSON error objects surface as terminal `error` stream events instead of a silently truncated answer, `done_reason: "length"` maps to `stop_reason="max_tokens"`, and a `404` names the missing model with the exact `ollama pull` command.
 
 ## [0.8.2] - 2026-07-19
 
