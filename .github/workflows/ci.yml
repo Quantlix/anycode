@@ -163,6 +163,9 @@ jobs:
           - extra: sandbox-vercel
             sync-args: --extra sandbox-vercel
             imports: vercel anycode.sandbox.vercel
+          - extra: sandbox-langsmith
+            sync-args: --extra sandbox-langsmith
+            imports: langsmith anycode.sandbox.langsmith
           - extra: all
             sync-args: --extra all
             imports: anycode

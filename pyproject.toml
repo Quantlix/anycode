@@ -111,6 +111,9 @@ sandbox-runloop = [
 sandbox-vercel = [
     "vercel>=0.1,<1",
 ]
+sandbox-langsmith = [
+    "langsmith[sandbox]>=0.4",
+]
 all = [
     "anthropic>=0.40",
     "openai>=1.50",

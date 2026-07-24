@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import re
 import sys
 from types import SimpleNamespace
 
@@ -12,6 +14,7 @@ from anycode.sandbox import (
     SANDBOX_PROVIDER_EXTRAS,
     DaytonaSandboxProvider,
     E2BSandboxProvider,
+    LangSmithSandboxProvider,
     ModalSandboxProvider,
     RunloopSandboxProvider,
     SandboxCommand,
@@ -460,6 +463,85 @@ async def test_vercel_reports_missing_sdk_guidance(monkeypatch: pytest.MonkeyPat
 
     assert not created.ok and created.error is not None
     assert "anycode-py[sandbox-vercel]" in created.error.message
+
+
+# ---------------------------------------------------------------------------
+# LangSmith fakes
+# ---------------------------------------------------------------------------
+
+
+class FakeLangSmithSandbox:
+    """run()-only sandbox with a tiny in-memory filesystem for the base64 shell transfers."""
+
+    def __init__(self) -> None:
+        self.id = "ls-1"
+        self.files: dict[str, bytes] = {}
+        self.deleted = False
+
+    async def run(self, command: str) -> SimpleNamespace:
+        write_match = re.search(r"printf %s (\S+) \| base64 -d > (.+)$", command)
+        if write_match:
+            encoded = write_match.group(1).strip("'\"")
+            path = write_match.group(2).strip("'\"")
+            self.files[path] = base64.b64decode(encoded)
+            return SimpleNamespace(stdout="", stderr="", exit_code=0)
+        read_match = re.match(r"^base64 (.+)$", command)
+        if read_match:
+            path = read_match.group(1).strip("'\"")
+            if path not in self.files:
+                return SimpleNamespace(stdout="", stderr=f"base64: {path}: No such file", exit_code=1)
+            return SimpleNamespace(stdout=base64.b64encode(self.files[path]).decode("ascii"), stderr="", exit_code=0)
+        return SimpleNamespace(stdout=f"ran:{command}", stderr="", exit_code=0)
+
+    async def delete(self) -> None:
+        self.deleted = True
+
+
+class FakeLangSmithClient:
+    def __init__(self) -> None:
+        self.sandbox = FakeLangSmithSandbox()
+
+    async def create_sandbox(self, **kwargs: object) -> FakeLangSmithSandbox:
+        del kwargs
+        return self.sandbox
+
+
+async def test_langsmith_provider_passes_lifecycle_conformance() -> None:
+    provider = LangSmithSandboxProvider(FakeLangSmithClient())
+    await _assert_lifecycle_conformance(provider, snapshots=False)
+
+
+async def test_langsmith_read_missing_file_fails_with_shell_error() -> None:
+    provider = LangSmithSandboxProvider(FakeLangSmithClient())
+    created = await provider.create(_spec())
+    assert created.handle is not None
+
+    read = await provider.read_file(created.handle, "/workspace/missing.txt")
+
+    assert not read.ok and read.error is not None and read.error.code == "sandbox_file_read_failed"
+
+
+async def test_langsmith_rejects_restricted_network_and_secrets() -> None:
+    provider = LangSmithSandboxProvider(FakeLangSmithClient())
+
+    denied_network = await provider.create(_spec(network="none"))
+    assert not denied_network.ok and denied_network.error is not None
+    assert denied_network.error.code == "sandbox_network_policy_unsupported"
+
+    denied_secrets = await provider.create(_spec(secret_references={"API_KEY": "langsmith:key"}))
+    assert not denied_secrets.ok and denied_secrets.error is not None
+    assert denied_secrets.error.code == "sandbox_secrets_unsupported"
+
+
+async def test_langsmith_reports_missing_sdk_guidance(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(sys.modules, "langsmith", None)
+    monkeypatch.setitem(sys.modules, "langsmith.sandbox", None)
+    provider = LangSmithSandboxProvider()
+
+    created = await provider.create(_spec())
+
+    assert not created.ok and created.error is not None
+    assert "anycode-py[sandbox-langsmith]" in created.error.message
 
 
 def test_factory_builds_daytona_provider() -> None:

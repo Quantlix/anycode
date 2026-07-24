@@ -11,6 +11,7 @@ from anycode.sandbox.protocol import SandboxProvider
 SANDBOX_PROVIDER_EXTRAS: dict[str, str] = {
     "daytona": "sandbox",
     "e2b": "sandbox-e2b",
+    "langsmith": "sandbox-langsmith",
     "modal": "sandbox-modal",
     "runloop": "sandbox-runloop",
     "vercel": "sandbox-vercel",
@@ -44,5 +45,9 @@ def create_sandbox_provider(name: str, **kwargs: Any) -> SandboxProvider:
         from anycode.sandbox.vercel import VercelSandboxProvider
 
         return VercelSandboxProvider(**kwargs)
+    if name == "langsmith":
+        from anycode.sandbox.langsmith import LangSmithSandboxProvider
+
+        return LangSmithSandboxProvider(**kwargs)
 
     raise ValueError(f"Unknown sandbox provider: {name!r}. Available: {sorted(SANDBOX_PROVIDER_EXTRAS)}")
