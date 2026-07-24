@@ -120,12 +120,26 @@ class OllamaAdapter:
             return True
         return self._think
 
+    @staticmethod
+    def _to_native_format(response_format: dict[str, Any]) -> str | dict[str, Any]:
+        """Translate an OpenAI-style response_format into Ollama's ``format`` value."""
+        kind = response_format.get("type")
+        if kind == "json_object":
+            return "json"
+        if kind == "json_schema":
+            return response_format.get("json_schema", {}).get("schema", {})
+        return response_format
+
     async def chat(
         self,
         messages: list[LLMMessage],
         options: LLMChatOptions,
+        *,
+        response_format: dict[str, Any] | None = None,
     ) -> LLMResponse:
         payload = self._build_payload(messages, options, stream=False)
+        if response_format:
+            payload["format"] = self._to_native_format(response_format)
         model = payload["model"]
 
         async with httpx.AsyncClient(timeout=OLLAMA_REQUEST_TIMEOUT) as client:

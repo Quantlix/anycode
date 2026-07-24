@@ -391,6 +391,28 @@ class TestOllamaAdapter:
         assert done.data.usage.input_tokens == 5
         assert done.data.usage.output_tokens == 9
 
+    @pytest.mark.parametrize(
+        ("response_format", "expected"),
+        [
+            ({"type": "json_object"}, "json"),
+            (
+                {"type": "json_schema", "json_schema": {"name": "out", "schema": {"type": "object", "properties": {"x": {"type": "integer"}}}}},
+                {"type": "object", "properties": {"x": {"type": "integer"}}},
+            ),
+            ({"type": "object", "properties": {"y": {"type": "string"}}}, {"type": "object", "properties": {"y": {"type": "string"}}}),
+        ],
+    )
+    async def test_chat_translates_response_format(self, response_format: dict, expected: object) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "{}"}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llama3.3:70b")
+            await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options, response_format=response_format)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["format"] == expected
+
     async def test_chat_returns_llmresponse(self) -> None:
         adapter = OllamaAdapter(base_url="http://localhost:11434")
         response_data = {
