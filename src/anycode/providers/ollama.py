@@ -36,7 +36,7 @@ def _ensure_httpx() -> None:
 
 
 class OllamaAdapter:
-    """HTTP-based adapter for Ollama — uses the OpenAI-compatible chat endpoint."""
+    """HTTP-based adapter for Ollama's native ``/api/chat`` endpoint."""
 
     def __init__(self, base_url: str | None = None, model: str | None = None) -> None:
         _ensure_httpx()
@@ -47,24 +47,25 @@ class OllamaAdapter:
     def name(self) -> str:
         return "ollama"
 
+    def _build_payload(self, messages: list[LLMMessage], options: LLMChatOptions, *, stream: bool) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self._default_model or options.model,
+            "messages": map_messages(messages, options.system_prompt),
+            "stream": stream,
+        }
+        if options.tools:
+            payload["tools"] = [map_tool_def(t) for t in options.tools]
+        if options.temperature is not None:
+            payload.setdefault("options", {})["temperature"] = options.temperature
+        return payload
+
     async def chat(
         self,
         messages: list[LLMMessage],
         options: LLMChatOptions,
     ) -> LLMResponse:
-        model = self._default_model or options.model
-        oai_msgs = map_messages(messages, options.system_prompt)
-
-        payload: dict[str, Any] = {
-            "model": model,
-            "messages": oai_msgs,
-            "stream": False,
-        }
-
-        if options.tools:
-            payload["tools"] = [map_tool_def(t) for t in options.tools]
-        if options.temperature is not None:
-            payload.setdefault("options", {})["temperature"] = options.temperature
+        payload = self._build_payload(messages, options, stream=False)
+        model = payload["model"]
 
         async with httpx.AsyncClient(timeout=OLLAMA_REQUEST_TIMEOUT) as client:
             resp = await client.post(f"{self._base_url}/api/chat", json=payload)
@@ -99,19 +100,8 @@ class OllamaAdapter:
         )
 
     async def stream(self, messages: list[LLMMessage], options: LLMStreamOptions) -> AsyncIterator[StreamEvent]:
-        model = self._default_model or options.model
-        oai_msgs = map_messages(messages, options.system_prompt)
-
-        payload: dict[str, Any] = {
-            "model": model,
-            "messages": oai_msgs,
-            "stream": True,
-        }
-
-        if options.tools:
-            payload["tools"] = [map_tool_def(t) for t in options.tools]
-        if options.temperature is not None:
-            payload.setdefault("options", {})["temperature"] = options.temperature
+        payload = self._build_payload(messages, options, stream=True)
+        model = payload["model"]
 
         full_text = ""
         tool_blocks: list[ToolUseBlock] = []
