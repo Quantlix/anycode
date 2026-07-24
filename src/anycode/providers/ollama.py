@@ -66,10 +66,19 @@ def _to_native_messages(oai_msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 class OllamaAdapter:
     """HTTP-based adapter for Ollama's native ``/api/chat`` endpoint."""
 
-    def __init__(self, base_url: str | None = None, model: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str | None = None,
+        model: str | None = None,
+        *,
+        keep_alive: str | float | None = None,
+        default_options: dict[str, Any] | None = None,
+    ) -> None:
         _ensure_httpx()
         self._base_url = (base_url or OLLAMA_DEFAULT_BASE_URL).rstrip("/")
         self._default_model = model
+        self._keep_alive = keep_alive
+        self._default_options = dict(default_options) if default_options else {}
 
     @property
     def name(self) -> str:
@@ -83,8 +92,15 @@ class OllamaAdapter:
         }
         if options.tools:
             payload["tools"] = [map_tool_def(t) for t in options.tools]
+        model_options: dict[str, Any] = dict(self._default_options)
+        if options.max_tokens is not None:
+            model_options["num_predict"] = options.max_tokens
         if options.temperature is not None:
-            payload.setdefault("options", {})["temperature"] = options.temperature
+            model_options["temperature"] = options.temperature
+        if model_options:
+            payload["options"] = model_options
+        if self._keep_alive is not None:
+            payload["keep_alive"] = self._keep_alive
         return payload
 
     async def chat(

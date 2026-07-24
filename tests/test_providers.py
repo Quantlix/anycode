@@ -292,6 +292,35 @@ class TestOllamaAdapter:
         assert sent["images"] == ["aGVsbG8="]
         assert "image_url" not in json.dumps(payload)
 
+    async def test_chat_forwards_sampling_options_and_keep_alive(self) -> None:
+        adapter = OllamaAdapter(
+            base_url="http://localhost:11434",
+            keep_alive="5m",
+            default_options={"seed": 7, "top_p": 0.9, "num_predict": 1},
+        )
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "ok"}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llama3.3:70b", max_tokens=256, temperature=0.2)
+            await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["keep_alive"] == "5m"
+        # Per-call options override constructor defaults; untouched defaults pass through.
+        assert payload["options"] == {"seed": 7, "top_p": 0.9, "num_predict": 256, "temperature": 0.2}
+
+    async def test_chat_omits_options_and_keep_alive_by_default(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "ok"}})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="llama3.3:70b")
+            await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="Hi")])], options)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert "options" not in payload
+        assert "keep_alive" not in payload
+
     async def test_chat_returns_llmresponse(self) -> None:
         adapter = OllamaAdapter(base_url="http://localhost:11434")
         response_data = {
