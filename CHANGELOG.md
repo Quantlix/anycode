@@ -7,10 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-24
+
 ### Added
 
 - **Expanded sandbox provider catalog** - E2B, Modal, Runloop, Vercel Sandbox, and LangSmith backends now implement the `SandboxProvider` protocol alongside Daytona, each behind its own install extra (`sandbox-e2b`, `sandbox-modal`, `sandbox-runloop`, `sandbox-vercel`, `sandbox-langsmith`) with lazy SDK imports, honest capability reports, evidence digests, and fail-closed handling of unsupported network modes, snapshot restores, and secret schemes. A new `create_sandbox_provider(name)` factory builds any backend by name.
 - **Robust Ollama integration** - the Ollama adapter now supports thinking (`reasoning_effort`/`thinking_budget_tokens` map to the native `think` parameter, with `ThinkingBlock` content and `thinking` stream events), structured outputs via `chat(..., response_format=...)` translated to Ollama's `format`, sampling options (`max_tokens` → `num_predict`, plus a `default_options` passthrough for `seed`, `top_p`, `num_ctx`, and friends), `keep_alive`, and ollama.com cloud authentication through `OLLAMA_API_KEY` or `api_key=`.
+- **Sandbox and Ollama examples** - `examples/41_sandbox_catalog.py` (offline provider catalog, capability reports, fail-closed guards), `examples/42_vercel_sandbox.py` and `examples/43_modal_sandbox.py` (full lifecycle verified against live Vercel and Modal sandboxes), and `examples/44_ollama_robustness.py` (thinking, structured outputs, streaming, tool calls, and error handling verified against a live Ollama server).
 
 ### Changed
 
@@ -19,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Ollama image input and error reporting** - image blocks are now sent as the native base64 `images` array (previously an unsupported `image_url` shape the server ignored), mid-stream NDJSON error objects surface as terminal `error` stream events instead of a silently truncated answer, `done_reason: "length"` maps to `stop_reason="max_tokens"`, and a `404` names the missing model with the exact `ollama pull` command.
+- **Vercel sandbox on Windows** - the Vercel SDK imports Unix-only pty modules (`termios`/`tty`) at import time for an interactive-shell helper the adapter never calls; the adapter now stubs them on Windows so the sandbox API loads instead of failing with `ModuleNotFoundError`.
+- **Modal filesystem API** - sandbox file transfer now prefers `Sandbox.filesystem.write_bytes`/`read_bytes` over the deprecated `Sandbox.open()`, falling back to `open()` on older Modal SDKs.
 
 ## [0.8.2] - 2026-07-19
 
@@ -250,7 +255,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Four examples: solo worker, crew workflow, staged pipeline, hybrid tooling.
 - Pydantic-based immutable type system (`frozen=True` on all models).
 
-[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/Quantlix/anycode/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/Quantlix/anycode/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/Quantlix/anycode/compare/v0.8.0...v0.8.2
 [0.8.0]: https://github.com/Quantlix/anycode/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Quantlix/anycode/compare/v0.6.0...v0.7.0

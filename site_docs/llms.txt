@@ -40,7 +40,7 @@ Documentation is versioned; the links below point to the `latest` release alias.
 - [Durable and resumable runs](https://quantlix.github.io/anycode/latest/guides/durability/): Checkpoints, durable runs, session chains, and scheduled wakeups.
 - [Configure durability backends](https://quantlix.github.io/anycode/latest/guides/durability-backends/): Choose and configure in-memory, SQLite, or Dapr state with explicit guarantees.
 - [Propagate execution identity and policy](https://quantlix.github.io/anycode/latest/guides/execution-identity/): Carry tenant, delegation, classification, placement, and credential references through protected operations.
-- [Run work through sandbox providers](https://quantlix.github.io/anycode/latest/guides/sandbox-providers/): Configure Daytona or companion execution with network, secret, policy, file, and cancellation boundaries.
+- [Run work through sandbox providers](https://quantlix.github.io/anycode/latest/guides/sandbox-providers/): Configure Daytona, E2B, Modal, Runloop, Vercel, LangSmith, or companion execution behind one protocol with network, secret, policy, file, cancellation, and capability boundaries.
 - [Host AnyCode services](https://quantlix.github.io/anycode/latest/guides/hosting-services/): Add admission limits, health, graceful drain, durable return, and deployment-specific A2A discovery.
 - [Human-in-the-loop approval](https://quantlix.github.io/anycode/latest/guides/human-in-the-loop/): Gate sensitive tool calls and tasks on a human.
 - [Track and cap cost](https://quantlix.github.io/anycode/latest/guides/cost-tracking/): Measure spend per agent and enforce a budget.
@@ -72,7 +72,7 @@ Documentation is versioned; the links below point to the `latest` release alias.
 
 - [Repository](https://github.com/Quantlix/anycode): Source code.
 - [Documentation source](https://github.com/Quantlix/anycode/tree/main/site_docs): Markdown source for this site.
-- [Examples](https://github.com/Quantlix/anycode/tree/main/examples): 40 runnable example scripts, beginner to advanced.
+- [Examples](https://github.com/Quantlix/anycode/tree/main/examples): 44 runnable example scripts, beginner to advanced.
 - [README](https://github.com/Quantlix/anycode/blob/main/README.md): Project overview and package summary.
 
 ## Optional

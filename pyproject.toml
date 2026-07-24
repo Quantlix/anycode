@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anycode-py"
-version = "0.8.2"
+version = "0.9.0"
 description = "Orchestrate autonomous AI agent teams with dependency-aware task scheduling, inter-agent messaging, and provider-agnostic LLM integration."
 readme = "README.md"
 license = "MIT"

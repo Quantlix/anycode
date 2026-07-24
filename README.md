@@ -38,7 +38,7 @@ AnyCode is built for experimentation, evaluation, local development, research pr
 | --- | --- |
 | Distribution | `anycode-py` |
 | Import package | `anycode` |
-| Current version | `0.8.2` |
+| Current version | `0.9.0` |
 | Python | `>=3.12` |
 | Project status | Alpha |
 | License | MIT |
@@ -391,7 +391,7 @@ Custom tools use Pydantic input models and are registered through `define_tool()
 
 ## Examples Cookbook
 
-The `examples/` directory contains 40 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
+The `examples/` directory contains 44 runnable scripts. They are arranged from beginner workflows to runtime reliability demos.
 
 | Examples | Theme |
 | --- | --- |
@@ -410,6 +410,8 @@ The `examples/` directory contains 40 runnable scripts. They are arranged from b
 | `37_semantic_contract.py` | Versioned semantic events, fenced operations, artifact integrity, and independent projections |
 | `38_pluggable_durability.py` to `39_backend_failure_soak.py` | Backend portability, migrations, leases, fencing, and failure-soak behavior |
 | `40_operational_portability.py` | Execution identity, policy enforcement, model routing, and GenAI telemetry mapping |
+| `41_sandbox_catalog.py` to `43_modal_sandbox.py` | Sandbox provider catalog, capability reports, fail-closed guards, and live Vercel and Modal sandbox lifecycles |
+| `44_ollama_robustness.py` | Ollama thinking, structured outputs, streaming, tool calls, and error handling against a live server |
 
 Run an example from the repository root:
 
