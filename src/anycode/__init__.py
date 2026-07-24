@@ -192,6 +192,7 @@ from anycode.runstore.store import FilesystemRunStore, ProtectedPayloadError, Un
 from anycode.sandbox import (
     CompanionSandboxAdapter,
     DaytonaSandboxProvider,
+    E2BSandboxProvider,
     PolicySandboxProvider,
     SandboxCapabilities,
     SandboxCommand,
@@ -607,6 +608,7 @@ __all__ = [
     # Sandboxes
     "CompanionSandboxAdapter",
     "DaytonaSandboxProvider",
+    "E2BSandboxProvider",
     "PolicySandboxProvider",
     "SandboxCapabilities",
     "SandboxCommand",

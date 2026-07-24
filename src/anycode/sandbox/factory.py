@@ -10,6 +10,7 @@ from anycode.sandbox.protocol import SandboxProvider
 # use, so construction never imports them.
 SANDBOX_PROVIDER_EXTRAS: dict[str, str] = {
     "daytona": "sandbox",
+    "e2b": "sandbox-e2b",
 }
 
 
@@ -24,5 +25,9 @@ def create_sandbox_provider(name: str, **kwargs: Any) -> SandboxProvider:
         from anycode.sandbox.daytona import DaytonaSandboxProvider
 
         return DaytonaSandboxProvider(**kwargs)
+    if name == "e2b":
+        from anycode.sandbox.e2b import E2BSandboxProvider
+
+        return E2BSandboxProvider(**kwargs)
 
     raise ValueError(f"Unknown sandbox provider: {name!r}. Available: {sorted(SANDBOX_PROVIDER_EXTRAS)}")

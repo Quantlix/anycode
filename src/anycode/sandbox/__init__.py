@@ -2,6 +2,7 @@
 
 from anycode.sandbox.companion import CompanionSandboxAdapter, CompanionSandboxClient
 from anycode.sandbox.daytona import DaytonaSandboxProvider
+from anycode.sandbox.e2b import E2BSandboxProvider
 from anycode.sandbox.factory import SANDBOX_PROVIDER_EXTRAS, create_sandbox_provider
 from anycode.sandbox.models import (
     SANDBOX_CONTRACT_VERSION,
@@ -26,6 +27,7 @@ __all__ = [
     "CompanionSandboxAdapter",
     "CompanionSandboxClient",
     "DaytonaSandboxProvider",
+    "E2BSandboxProvider",
     "PolicySandboxProvider",
     "SandboxActionResult",
     "SandboxCapabilities",
