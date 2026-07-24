@@ -30,3 +30,6 @@ settings.local.json
 .anycode/
 build_out/
 /docs/
+
+.vercel
+.env*
