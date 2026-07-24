@@ -21,8 +21,10 @@ from anycode.types import (
     LLMChatOptions,
     LLMMessage,
     LLMResponse,
+    LLMStreamOptions,
     LLMToolDef,
     TextBlock,
+    ThinkingBlock,
     ToolResultBlock,
     ToolUseBlock,
 )
@@ -268,6 +270,26 @@ def _ollama_chat_client(response_data: dict) -> AsyncMock:
     return mock_client
 
 
+def _ollama_stream_client(lines: list[str]) -> AsyncMock:
+    """Mock httpx.AsyncClient streaming NDJSON lines from /api/chat."""
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+
+    async def aiter_lines():
+        for line in lines:
+            yield line
+
+    mock_resp.aiter_lines = aiter_lines
+    stream_cm = MagicMock()
+    stream_cm.__aenter__ = AsyncMock(return_value=mock_resp)
+    stream_cm.__aexit__ = AsyncMock(return_value=False)
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.stream = MagicMock(return_value=stream_cm)
+    return mock_client
+
+
 class TestOllamaAdapter:
     async def test_chat_sends_native_base64_images(self) -> None:
         adapter = OllamaAdapter(base_url="http://localhost:11434")
@@ -320,6 +342,54 @@ class TestOllamaAdapter:
         payload = mock_client.post.call_args.kwargs["json"]
         assert "options" not in payload
         assert "keep_alive" not in payload
+
+    async def test_chat_maps_reasoning_effort_to_think_and_parses_thinking(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        mock_client = _ollama_chat_client({"message": {"role": "assistant", "content": "4", "thinking": "2+2 is 4."}, "eval_count": 3})
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMChatOptions(model="qwen3", reasoning_effort="high")
+            result = await adapter.chat([LLMMessage(role="user", content=[TextBlock(text="2+2?")])], options)
+
+        payload = mock_client.post.call_args.kwargs["json"]
+        assert payload["think"] == "high"
+        assert isinstance(result.content[0], ThinkingBlock)
+        assert result.content[0].thinking == "2+2 is 4."
+        assert isinstance(result.content[1], TextBlock)
+        assert result.content[1].text == "4"
+
+    async def test_think_resolution_order(self) -> None:
+        adapter = OllamaAdapter(think="max")
+        assert adapter._resolve_think(LLMChatOptions(model="m")) == "max"
+        assert adapter._resolve_think(LLMChatOptions(model="m", thinking_budget_tokens=1024)) is True
+        assert adapter._resolve_think(LLMChatOptions(model="m", reasoning_effort="minimal")) == "low"
+        assert OllamaAdapter()._resolve_think(LLMChatOptions(model="m")) is None
+
+    async def test_stream_yields_thinking_events(self) -> None:
+        adapter = OllamaAdapter(base_url="http://localhost:11434")
+        lines = [
+            json.dumps({"message": {"role": "assistant", "thinking": "Consider"}}),
+            json.dumps({"message": {"role": "assistant", "thinking": " carefully."}}),
+            json.dumps({"message": {"role": "assistant", "content": "Answer"}}),
+            json.dumps({"message": {"role": "assistant", "content": ""}, "done": True, "prompt_eval_count": 5, "eval_count": 9}),
+        ]
+        mock_client = _ollama_stream_client(lines)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            options = LLMStreamOptions(model="qwen3")
+            events = [e async for e in adapter.stream([LLMMessage(role="user", content=[TextBlock(text="Q")])], options)]
+
+        thinking_events = [e for e in events if e.type == "thinking"]
+        assert [e.data for e in thinking_events] == ["Consider", " carefully."]
+        done = events[-1]
+        assert done.type == "done"
+        blocks = done.data.content
+        assert isinstance(blocks[0], ThinkingBlock)
+        assert blocks[0].thinking == "Consider carefully."
+        assert isinstance(blocks[1], TextBlock)
+        assert blocks[1].text == "Answer"
+        assert done.data.usage.input_tokens == 5
+        assert done.data.usage.output_tokens == 9
 
     async def test_chat_returns_llmresponse(self) -> None:
         adapter = OllamaAdapter(base_url="http://localhost:11434")

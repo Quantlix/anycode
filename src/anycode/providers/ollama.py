@@ -18,6 +18,7 @@ from anycode.types import (
     LLMStreamOptions,
     StreamEvent,
     TextBlock,
+    ThinkingBlock,
     TokenUsage,
     ToolUseBlock,
 )
@@ -28,6 +29,9 @@ except ImportError:
     httpx: Any = None
 
 OLLAMA_REQUEST_TIMEOUT = OLLAMA_REQUEST_TIMEOUT_S
+
+# Ollama's `think` levels; `minimal` has no native equivalent and maps to "low".
+_EFFORT_TO_THINK = {"minimal": "low", "low": "low", "medium": "medium", "high": "high"}
 
 
 def _ensure_httpx() -> None:
@@ -72,12 +76,14 @@ class OllamaAdapter:
         model: str | None = None,
         *,
         keep_alive: str | float | None = None,
+        think: bool | str | None = None,
         default_options: dict[str, Any] | None = None,
     ) -> None:
         _ensure_httpx()
         self._base_url = (base_url or OLLAMA_DEFAULT_BASE_URL).rstrip("/")
         self._default_model = model
         self._keep_alive = keep_alive
+        self._think = think
         self._default_options = dict(default_options) if default_options else {}
 
     @property
@@ -101,7 +107,18 @@ class OllamaAdapter:
             payload["options"] = model_options
         if self._keep_alive is not None:
             payload["keep_alive"] = self._keep_alive
+        think = self._resolve_think(options)
+        if think is not None:
+            payload["think"] = think
         return payload
+
+    def _resolve_think(self, options: LLMChatOptions) -> bool | str | None:
+        if options.reasoning_effort is not None:
+            return _EFFORT_TO_THINK[options.reasoning_effort]
+        if options.thinking_budget_tokens is not None:
+            # Ollama has no budget concept; any budget request enables thinking.
+            return True
+        return self._think
 
     async def chat(
         self,
@@ -119,6 +136,8 @@ class OllamaAdapter:
         content: list[ContentBlock] = []
         msg_data = data.get("message", {})
 
+        if msg_data.get("thinking"):
+            content.append(ThinkingBlock(thinking=msg_data["thinking"]))
         if msg_data.get("content"):
             content.append(TextBlock(text=msg_data["content"]))
 
@@ -148,6 +167,7 @@ class OllamaAdapter:
         model = payload["model"]
 
         full_text = ""
+        full_thinking = ""
         tool_blocks: list[ToolUseBlock] = []
         input_tokens = 0
         output_tokens = 0
@@ -170,6 +190,10 @@ class OllamaAdapter:
                             output_tokens = chunk["eval_count"]
 
                         msg_data = chunk.get("message", {})
+                        if msg_data.get("thinking"):
+                            thinking_text = msg_data["thinking"]
+                            full_thinking += thinking_text
+                            yield StreamEvent(type="thinking", data=thinking_text)
                         if msg_data.get("content"):
                             text = msg_data["content"]
                             full_text += text
@@ -186,6 +210,8 @@ class OllamaAdapter:
                             yield StreamEvent(type="tool_use", data=block)
 
             done_content: list[ContentBlock] = []
+            if full_thinking:
+                done_content.append(ThinkingBlock(thinking=full_thinking))
             if full_text:
                 done_content.append(TextBlock(text=full_text))
             done_content.extend(tool_blocks)
