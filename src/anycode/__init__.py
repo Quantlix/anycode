@@ -110,6 +110,7 @@ from anycode.cost import (
     calculate_cost,
     find_pricing,
 )
+from anycode.crew import Crew, CrewError, CrewResult
 from anycode.eval import (
     compare_reports,
     detect_provider,
@@ -419,6 +420,9 @@ __all__ = [
     # Core
     "AnyCode",
     "Agent",
+    "Crew",
+    "CrewError",
+    "CrewResult",
     "AgentConfigError",
     "compose_instructions",
     "AgentRunner",
