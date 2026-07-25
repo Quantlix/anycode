@@ -363,6 +363,8 @@ _MODULE_EXPORTS: dict[str, tuple[str, ...]] = {
         "ToolRegistry",
         "define_tool",
     ),
+    "anycode.tools.planning": ("TodoItem", "TodoStore", "build_todo_tool"),
+    "anycode.tools.subagent": ("SubAgentSpec", "build_delegate_tool"),
     "anycode.types": (
         "AcceptanceThresholds",
         "AgentConfig",
@@ -780,7 +782,9 @@ if TYPE_CHECKING:  # keeps every symbol statically resolvable for type checkers 
         ToolIdempotencyStore,
         create_tool_idempotency_store,
     )
+    from anycode.tools.planning import TodoItem, TodoStore, build_todo_tool
     from anycode.tools.registry import ToolRegistry, define_tool
+    from anycode.tools.subagent import SubAgentSpec, build_delegate_tool
     from anycode.types import (
         AcceptanceThresholds,
         AgentConfig,
@@ -1189,6 +1193,11 @@ __all__ = [
     "ToolIdempotencyStore",
     "create_tool_idempotency_store",
     "define_tool",
+    "TodoItem",
+    "TodoStore",
+    "build_todo_tool",
+    "SubAgentSpec",
+    "build_delegate_tool",
     "BUILT_IN_TOOLS",
     "register_built_in_tools",
     "Semaphore",

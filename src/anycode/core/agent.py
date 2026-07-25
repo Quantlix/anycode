@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator, Iterator, Sequence
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -12,6 +13,7 @@ from anycode.core.defaults import default_model, detect_provider, missing_model_
 from anycode.core.runner import AgentRunner
 from anycode.helpers.sync_runner import iterate_async_blocking, run_coroutine_blocking
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
+from anycode.helpers.uuid7 import uuid7
 from anycode.identity import ExecutionContext
 from anycode.providers.adapter import create_adapter
 from anycode.security.redaction import safe_exception_message
@@ -20,7 +22,9 @@ from anycode.telemetry.tracer import Tracer
 from anycode.tools.built_in import register_built_in_tools
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.function_tool import ToolSpec, resolve_tool_specs
+from anycode.tools.planning import TodoItem, TodoStore, build_todo_tool
 from anycode.tools.registry import ToolRegistry
+from anycode.tools.subagent import SubAgentSpec, as_subagent_spec, build_delegate_tool
 from anycode.types import (
     AgentConfig,
     AgentInfo,
@@ -36,6 +40,7 @@ from anycode.types import (
     StreamEvent,
     StructuredAgentResult,
     TextBlock,
+    TokenUsage,
     ToolDefinition,
     ToolResult,
     ToolSecurityPolicy,
@@ -64,6 +69,27 @@ _CONFIG_KEYWORDS = (
     "tool_security",
     "provider_resilience",
     "execution_context",
+)
+
+
+BASH_TOOL_NAME = "bash"
+
+PLANNING_CLAUSE = (
+    "Before doing anything substantial, write a plan with the write_todos tool. Keep exactly one "
+    "step in_progress, mark steps completed as you finish them, and resend the whole plan on every "
+    "update. Re-read the returned checklist to stay oriented."
+)
+
+DELEGATION_CLAUSE = (
+    "Use the delegate tool for self-contained sub-tasks such as focused research, review, or "
+    "critique. A sub-agent starts from a blank conversation, so state the task in full and include "
+    "the background it needs. Do the integration and final answer yourself."
+)
+
+WORKSPACE_CLAUSE = (
+    "Your workspace is {workspace}. Write intermediate notes, drafts, and artifacts to files there "
+    "rather than carrying them in the conversation, and read them back when you need them. File "
+    "tools are confined to that directory."
 )
 
 
@@ -148,8 +174,13 @@ def _wire_tools(
     tools: Sequence[ToolSpec] | None,
     registry: ToolRegistry | None,
     executor: ToolExecutor | None,
+    capability_tools: Sequence[ToolDefinition] = (),
 ) -> tuple[AgentConfig, ToolRegistry, ToolExecutor]:
-    """Build the registry/executor pair an agent needs when the caller did not supply one."""
+    """Build the registry/executor pair an agent needs when the caller did not supply one.
+
+    ``capability_tools`` are always registered and always allowed — they come from
+    capabilities the caller switched on (planning, delegation), not from ``tools=``.
+    """
     if registry is None:
         registry = ToolRegistry()
         if tools is None:
@@ -170,7 +201,41 @@ def _wire_tools(
         allowed = [*(config.tools or []), *(definition.name for definition in resolved)]
         config = config.model_copy(update={"tools": list(dict.fromkeys(allowed))})
 
+    for definition in capability_tools:
+        if not registry.has(definition.name):
+            registry.register(definition)
+    if capability_tools and config.tools is not None:
+        allowed = [*config.tools, *(definition.name for definition in capability_tools)]
+        config = config.model_copy(update={"tools": list(dict.fromkeys(allowed))})
+
     return config, registry, executor or ToolExecutor(registry)
+
+
+def _resolve_workspace(workspace: str | Path) -> Path:
+    path = Path(workspace).expanduser().resolve()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _workspace_policy(path: Path, allow_shell: bool) -> ToolSecurityPolicy:
+    root = str(path)
+    return ToolSecurityPolicy(workspace_root=root, allowed_path_roots=(root,), allow_shell=allow_shell)
+
+
+def _shell_is_requested(tools: Sequence[ToolSpec] | None, config_tools: list[str] | None) -> bool:
+    if tools is None:
+        return config_tools is None or BASH_TOOL_NAME in config_tools
+    return any(spec == BASH_TOOL_NAME or getattr(spec, "name", None) == BASH_TOOL_NAME for spec in tools)
+
+
+def compose_capability_prompt(base: str | None, *, planning: bool, delegation: bool, workspace: Path | None) -> str | None:
+    """Append the clauses for whichever long-horizon capabilities are switched on."""
+    clauses = [clause for enabled, clause in ((planning, PLANNING_CLAUSE), (delegation, DELEGATION_CLAUSE)) if enabled]
+    if workspace is not None:
+        clauses.append(WORKSPACE_CLAUSE.format(workspace=workspace))
+    if not clauses:
+        return base
+    return "\n\n".join([*([base] if base else []), *clauses])
 
 
 class Agent:
@@ -200,6 +265,9 @@ class Agent:
         tool_security: ToolSecurityPolicy | None = None,
         provider_resilience: ProviderResilienceConfig | None = None,
         execution_context: ExecutionContext | None = None,
+        planning: bool = False,
+        subagents: Sequence[SubAgentSpec | dict[str, object]] = (),
+        workspace: str | Path | None = None,
         tracer: Tracer | None = None,
         guardrail_config: GuardrailConfig | None = None,
         hooks: list[TurnHook] | None = None,
@@ -259,10 +327,43 @@ class Agent:
                 execution_context=execution_context,
             )
 
-        typed_config, resolved_registry, resolved_executor = _wire_tools(typed_config, tools, tool_registry, tool_executor)
+        # Long-horizon capabilities. Each is inert unless switched on, so a plain agent's
+        # prompt and tool set are untouched.
+        self._todos = TodoStore()
+        self._delegated_usage = EMPTY_USAGE
+        subagent_specs = [as_subagent_spec(spec) for spec in subagents]
+        workspace_path = _resolve_workspace(workspace) if workspace is not None else None
+
+        if workspace_path is not None and typed_config.tool_security is None:
+            allow_shell = _shell_is_requested(tools, typed_config.tools)
+            typed_config = typed_config.model_copy(update={"tool_security": _workspace_policy(workspace_path, allow_shell)})
+
+        capability_prompt = compose_capability_prompt(
+            typed_config.system_prompt,
+            planning=planning,
+            delegation=bool(subagent_specs),
+            workspace=workspace_path,
+        )
+        if capability_prompt != typed_config.system_prompt:
+            typed_config = typed_config.model_copy(update={"system_prompt": capability_prompt})
+
+        capability_tools: list[ToolDefinition] = []
+        if planning:
+            capability_tools.append(build_todo_tool(self._todos))
+        if subagent_specs:
+            capability_tools.append(build_delegate_tool(subagent_specs, typed_config, record_usage=self._record_delegated_usage))
+
+        typed_config, resolved_registry, resolved_executor = _wire_tools(
+            typed_config,
+            tools,
+            tool_registry,
+            tool_executor,
+            capability_tools,
+        )
 
         self.name = typed_config.name
         self.config = typed_config
+        self.workspace = workspace_path
         self._registry = resolved_registry
         self._executor = resolved_executor
         self._runner: AgentRunner | None = None
@@ -273,6 +374,14 @@ class Agent:
         self._hooks = hooks
         self._output_validators = output_validators
         self._output_schema = output_schema
+
+    def _record_delegated_usage(self, usage: TokenUsage) -> None:
+        self._delegated_usage = merge_usage(self._delegated_usage, usage)
+
+    @property
+    def todos(self) -> tuple[TodoItem, ...]:
+        """The plan as the agent last wrote it. Empty unless ``planning=True``."""
+        return self._todos.items
 
     async def _get_runner(self) -> AgentRunner:
         if self._runner is not None:
@@ -367,15 +476,20 @@ class Agent:
             async_call="async for event in agent.stream(...)",
         )
 
-    async def call_tool(self, name: str, **arguments: object) -> ToolResult:
+    async def call_tool(self, name: str, /, **arguments: object) -> ToolResult:
         """Invoke one of this agent's tools directly, bypassing the LLM.
 
-        Useful for testing a tool under the same validation, security policy, and
-        idempotency rules the agent would apply.
+        Runs under the same validation, security policy, and idempotency rules the agent
+        would apply. A side-effecting tool gets a fresh idempotency key unless the
+        arguments already carry one, so a one-off call does not have to invent it.
         """
-        return await self._executor.execute(name, dict(arguments), self.build_tool_context())
+        definition = self._registry.get(name)
+        key: str | None = None
+        if definition is not None and definition.side_effecting and not arguments.get(definition.idempotency_key_field or ""):
+            key = str(uuid7())
+        return await self._executor.execute(name, dict(arguments), self.build_tool_context(), idempotency_key=key)
 
-    def call_tool_sync(self, name: str, **arguments: object) -> ToolResult:
+    def call_tool_sync(self, name: str, /, **arguments: object) -> ToolResult:
         """Blocking form of :meth:`call_tool`."""
         return run_coroutine_blocking(
             self.call_tool(name, **arguments),
@@ -422,22 +536,26 @@ class Agent:
 
     async def _execute_run(self, messages: list[LLMMessage]) -> AgentRunResult:
         self._state = self._state.model_copy(update={"status": "running"})
+        self._delegated_usage = EMPTY_USAGE
         collected_messages: list[LLMMessage] = []
         try:
             runner = await self._get_runner()
             result = await runner.run(messages, on_message=lambda msg: collected_messages.append(msg))
+            # Sub-agents bill through their own adapters, so their usage only reaches this
+            # result if it is folded in here.
+            total_usage = merge_usage(result.token_usage, self._delegated_usage)
             self._state = self._state.model_copy(
                 update={
                     "status": "completed",
                     "messages": [*self._state.messages, *collected_messages],
-                    "token_usage": merge_usage(self._state.token_usage, result.token_usage),
+                    "token_usage": merge_usage(self._state.token_usage, total_usage),
                 }
             )
             return AgentRunResult(
                 success=result.stop_reason is None or result.stop_reason.code == "success",
                 output=result.output,
                 messages=result.messages,
-                token_usage=result.token_usage,
+                token_usage=total_usage,
                 tool_calls=result.tool_calls,
                 handoff_request=result.handoff_request,
                 terminal_phase=result.terminal_phase,
