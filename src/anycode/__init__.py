@@ -403,6 +403,16 @@ from anycode.verification import (
 )
 from anycode.viz.dag import render_dag
 from anycode.viz.timeline import render_timeline
+from anycode.workflow import (
+    END,
+    START,
+    Command,
+    CompiledWorkflow,
+    Workflow,
+    WorkflowError,
+    WorkflowEvent,
+    WorkflowResult,
+)
 
 __all__ = [
     # Constants — event names
@@ -423,6 +433,14 @@ __all__ = [
     "Crew",
     "CrewError",
     "CrewResult",
+    "Workflow",
+    "CompiledWorkflow",
+    "WorkflowError",
+    "WorkflowEvent",
+    "WorkflowResult",
+    "Command",
+    "START",
+    "END",
     "AgentConfigError",
     "compose_instructions",
     "AgentRunner",

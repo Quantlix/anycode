@@ -108,6 +108,7 @@ ExecutionPhase = Literal[
 StopReasonCode = Literal[
     "success",
     "max_turns",
+    "max_steps",
     "budget_exceeded",
     "context_pressure",
     "tool_error",
