@@ -3,37 +3,14 @@
 # Requires: ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment or .env.
 
 import asyncio
-import os
 import sys
 from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 
-from anycode import (
-    Agent,
-    AgentInfo,
-    ToolExecutor,
-    ToolRegistry,
-    ToolUseContext,
-    as_tool_definition,
-    register_built_in_tools,
-    tool,
-)
+from anycode import Agent, ToolUseContext, as_tool_definition, tool
 
 load_dotenv()
-
-
-def _resolve_provider() -> tuple[str, str]:
-    """Return (provider, model) based on available API keys."""
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return "anthropic", "claude-haiku-4-5"
-    if os.environ.get("OPENAI_API_KEY"):
-        return "openai", "gpt-4o-mini"
-    print("ERROR: Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env")
-    sys.exit(1)
-
-
-PROVIDER, MODEL = _resolve_provider()
 
 # --- A plain synchronous function becomes a tool ---
 
@@ -83,33 +60,20 @@ async def main() -> None:
     # Decorated functions stay ordinary callables.
     print("\nDirect call:", convert_currency(100.0, 0.92))
 
-    registry = ToolRegistry()
-    register_built_in_tools(registry)
-    for fn in (convert_currency, days_since, whoami):
-        registry.register(as_tool_definition(fn))
-    executor = ToolExecutor(registry)
-
-    # Tools are runnable standalone through the executor.
-    context = ToolUseContext(agent=AgentInfo(name="demo", role="demo", model=MODEL))
-    direct = await executor.execute("business_days", {"iso_date": "2026-01-01"}, context)
-    print("Executor call:", direct.data)
-
     analyst = Agent(
-        config={
-            "name": "analyst",
-            "model": MODEL,
-            "provider": PROVIDER,
-            "system_prompt": (
-                "You are a precise financial assistant. Use the provided tools for every "
-                "calculation — never do the arithmetic yourself. Answer in one short sentence."
-            ),
-            "tools": ["convert_currency", "business_days", "whoami"],
-            "max_turns": 5,
-            "temperature": 0,
-        },
-        tool_registry=registry,
-        tool_executor=executor,
+        name="analyst",
+        instructions=(
+            "You are a precise financial assistant. Use the provided tools for every "
+            "calculation — never do the arithmetic yourself. Answer in one short sentence."
+        ),
+        tools=[convert_currency, days_since, whoami],
+        max_turns=5,
+        temperature=0,
     )
+
+    # Tools are runnable through the agent without involving the LLM at all.
+    direct = await analyst.call_tool("business_days", iso_date="2026-01-01")
+    print("Direct tool call:", direct.data)
 
     print("\nLive agent run\n" + "=" * 55)
     result = await analyst.run("Convert 250 units at a rate of 0.92 into EUR, then tell me who you are. Use the tools.")

@@ -11,7 +11,7 @@ import functools
 import inspect
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any, overload
 
 from pydantic import BaseModel, create_model
@@ -34,6 +34,10 @@ _SECTION_HEADER = re.compile(
 )
 _ARGUMENT_SECTIONS = frozenset({"args", "arguments", "parameters", "params"})
 _ARGUMENT_LINE = re.compile(r"^(?P<name>[A-Za-z_]\w*)\s*(?:\((?P<type>[^)]*)\))?\s*:\s*(?P<description>.*)$")
+
+
+ToolSpec = ToolDefinition | Callable[..., Any] | str
+"""Every form accepted wherever AnyCode takes a tool."""
 
 
 class ToolDefinitionError(ValueError):
@@ -316,6 +320,19 @@ def _named_tools() -> dict[str, ToolDefinition]:
 def builtin_tool_names() -> tuple[str, ...]:
     """Names accepted by :func:`as_tool_definition` when given a string."""
     return tuple(sorted(_named_tools()))
+
+
+def resolve_tool_specs(specs: Iterable[object]) -> list[ToolDefinition]:
+    """Normalize a sequence of tool specifications, rejecting duplicate names."""
+    resolved: list[ToolDefinition] = []
+    seen: set[str] = set()
+    for spec in specs:
+        definition = as_tool_definition(spec)
+        if definition.name in seen:
+            raise ToolDefinitionError(f'Duplicate tool name "{definition.name}" in the tool list. Every tool needs a unique name.')
+        seen.add(definition.name)
+        resolved.append(definition)
+    return resolved
 
 
 def as_tool_definition(spec: object) -> ToolDefinition:

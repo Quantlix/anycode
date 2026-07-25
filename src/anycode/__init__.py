@@ -85,7 +85,7 @@ from anycode.contracts import (
     VerificationResult as SemanticVerificationResult,
 )
 from anycode.core import stop_reason as stop_reasons
-from anycode.core.agent import Agent
+from anycode.core.agent import Agent, AgentConfigError, compose_instructions
 from anycode.core.context_artifacts import offload_text, restore_text
 from anycode.core.context_manager import ContextManager, estimate_messages_tokens, rebuild_from_handoff
 from anycode.core.lifecycle import (
@@ -224,10 +224,12 @@ from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
 from anycode.tools.executor import ToolExecutor
 from anycode.tools.function_tool import (
     ToolDefinitionError,
+    ToolSpec,
     as_tool_definition,
     build_tool_definition,
     builtin_tool_names,
     function_tool,
+    resolve_tool_specs,
     tool,
 )
 from anycode.tools.idempotency import (
@@ -417,6 +419,8 @@ __all__ = [
     # Core
     "AnyCode",
     "Agent",
+    "AgentConfigError",
+    "compose_instructions",
     "AgentRunner",
     "AgentPool",
     "Scheduler",
@@ -650,7 +654,9 @@ __all__ = [
     "as_tool_definition",
     "build_tool_definition",
     "builtin_tool_names",
+    "resolve_tool_specs",
     "ToolDefinitionError",
+    "ToolSpec",
     "IdempotencyClaim",
     "InMemoryToolIdempotencyStore",
     "SQLiteToolIdempotencyStore",

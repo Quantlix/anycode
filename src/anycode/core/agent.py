@@ -3,36 +3,174 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterator, Sequence
 
 from pydantic import BaseModel
 
 from anycode.constants import AGENT_ROLE_MAX_LENGTH, TOOL_CONTEXT_ROLE_MAX_LENGTH
+from anycode.core.defaults import default_model, detect_provider, missing_model_message, missing_provider_message
 from anycode.core.runner import AgentRunner
+from anycode.helpers.sync_runner import iterate_async_blocking, run_coroutine_blocking
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
+from anycode.identity import ExecutionContext
 from anycode.providers.adapter import create_adapter
 from anycode.security.redaction import safe_exception_message
 from anycode.structured.output import parse_structured_output
 from anycode.telemetry.tracer import Tracer
+from anycode.tools.built_in import register_built_in_tools
 from anycode.tools.executor import ToolExecutor
+from anycode.tools.function_tool import ToolSpec, resolve_tool_specs
 from anycode.tools.registry import ToolRegistry
 from anycode.types import (
     AgentConfig,
     AgentInfo,
     AgentRunResult,
     AgentState,
+    ContextPolicy,
     GuardrailConfig,
     LLMMessage,
     OutputValidator,
+    ProviderResilienceConfig,
     RunnerOptions,
     RunResult,
     StreamEvent,
     StructuredAgentResult,
     TextBlock,
     ToolDefinition,
+    ToolResult,
+    ToolSecurityPolicy,
     ToolUseContext,
     TurnHook,
+    VerificationSensorConfig,
 )
+
+# Keyword arguments that describe the agent itself; supplying any of them alongside an
+# explicit config object would silently create two sources of truth.
+_CONFIG_KEYWORDS = (
+    "name",
+    "model",
+    "provider",
+    "instructions",
+    "system_prompt",
+    "role",
+    "goal",
+    "backstory",
+    "max_turns",
+    "max_tokens",
+    "temperature",
+    "mcp_servers",
+    "context_policy",
+    "verification",
+    "tool_security",
+    "provider_resilience",
+    "execution_context",
+)
+
+
+class AgentConfigError(ValueError):
+    """Raised when agent construction arguments are contradictory or incomplete."""
+
+
+def compose_instructions(role: str | None = None, goal: str | None = None, backstory: str | None = None) -> str:
+    """Build a system prompt from role/goal/backstory framing. Empty parts are omitted."""
+    parts: list[str] = []
+    if role:
+        parts.append(f"You are {role.strip().rstrip('.')}.")
+    if goal:
+        parts.append(f"Your goal: {goal.strip()}")
+    if backstory:
+        parts.append(f"Background: {backstory.strip()}")
+    return "\n\n".join(parts)
+
+
+def _resolve_system_prompt(
+    *,
+    instructions: str | None,
+    system_prompt: str | None,
+    role: str | None,
+    goal: str | None,
+    backstory: str | None,
+) -> str | None:
+    if instructions and system_prompt and instructions != system_prompt:
+        raise AgentConfigError("Agent received different values for instructions= and system_prompt=. They are aliases — pass only one.")
+    direct = instructions or system_prompt
+    framing = compose_instructions(role, goal, backstory)
+    if direct and framing:
+        raise AgentConfigError(
+            "Agent received both instructions= and role/goal/backstory framing. "
+            "Pick one: instructions= for a literal prompt, or role/goal/backstory to have one composed."
+        )
+    return direct or framing or None
+
+
+def _build_agent_config(
+    *,
+    name: str,
+    model: str | None,
+    provider: str | None,
+    system_prompt: str | None,
+    max_turns: int | None,
+    max_tokens: int | None,
+    temperature: float | None,
+    mcp_servers: list[str] | None,
+    context_policy: ContextPolicy | None,
+    verification: tuple[VerificationSensorConfig, ...],
+    tool_security: ToolSecurityPolicy | None,
+    provider_resilience: ProviderResilienceConfig | None,
+    execution_context: ExecutionContext | None,
+) -> AgentConfig:
+    resolved_provider = provider or detect_provider()
+    if resolved_provider is None:
+        raise AgentConfigError(f'Agent "{name}": {missing_provider_message()}')
+    resolved_model = model or default_model(resolved_provider)
+    if resolved_model is None:
+        raise AgentConfigError(f'Agent "{name}": {missing_model_message(resolved_provider)}')
+
+    return AgentConfig(
+        name=name,
+        model=resolved_model,
+        provider=resolved_provider,
+        system_prompt=system_prompt,
+        max_turns=max_turns,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        mcp_servers=mcp_servers,
+        context_policy=context_policy,
+        verification=verification,
+        tool_security=tool_security,
+        provider_resilience=provider_resilience,
+        execution_context=execution_context,
+    )
+
+
+def _wire_tools(
+    config: AgentConfig,
+    tools: Sequence[ToolSpec] | None,
+    registry: ToolRegistry | None,
+    executor: ToolExecutor | None,
+) -> tuple[AgentConfig, ToolRegistry, ToolExecutor]:
+    """Build the registry/executor pair an agent needs when the caller did not supply one."""
+    if registry is None:
+        registry = ToolRegistry()
+        if tools is None:
+            register_built_in_tools(registry)
+        else:
+            resolved = resolve_tool_specs(tools)
+            added = {definition.name for definition in resolved}
+            # Names already allowed by the config stay allowed; the explicit list extends them.
+            carried = resolve_tool_specs(name for name in (config.tools or []) if name not in added)
+            for definition in (*carried, *resolved):
+                registry.register(definition)
+            config = config.model_copy(update={"tools": [definition.name for definition in (*carried, *resolved)]})
+    elif tools is not None:
+        resolved = resolve_tool_specs(tools)
+        for definition in resolved:
+            if not registry.has(definition.name):
+                registry.register(definition)
+        allowed = [*(config.tools or []), *(definition.name for definition in resolved)]
+        config = config.model_copy(update={"tools": list(dict.fromkeys(allowed))})
+
+    return config, registry, executor or ToolExecutor(registry)
 
 
 class Agent:
@@ -40,21 +178,93 @@ class Agent:
 
     def __init__(
         self,
-        config: AgentConfig | dict[str, object],
-        tool_registry: ToolRegistry,
-        tool_executor: ToolExecutor,
+        config: AgentConfig | dict[str, object] | None = None,
+        tool_registry: ToolRegistry | None = None,
+        tool_executor: ToolExecutor | None = None,
         *,
+        name: str | None = None,
+        model: str | None = None,
+        provider: str | None = None,
+        instructions: str | None = None,
+        system_prompt: str | None = None,
+        role: str | None = None,
+        goal: str | None = None,
+        backstory: str | None = None,
+        tools: Sequence[ToolSpec] | None = None,
+        max_turns: int | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        mcp_servers: list[str] | None = None,
+        context_policy: ContextPolicy | None = None,
+        verification: tuple[VerificationSensorConfig, ...] = (),
+        tool_security: ToolSecurityPolicy | None = None,
+        provider_resilience: ProviderResilienceConfig | None = None,
+        execution_context: ExecutionContext | None = None,
         tracer: Tracer | None = None,
         guardrail_config: GuardrailConfig | None = None,
         hooks: list[TurnHook] | None = None,
         output_validators: list[OutputValidator] | None = None,
         output_schema: type[BaseModel] | None = None,
     ) -> None:
-        typed_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
+        supplied = {
+            "name": name,
+            "model": model,
+            "provider": provider,
+            "instructions": instructions,
+            "system_prompt": system_prompt,
+            "role": role,
+            "goal": goal,
+            "backstory": backstory,
+            "max_turns": max_turns,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "mcp_servers": mcp_servers,
+            "context_policy": context_policy,
+            "verification": verification or None,
+            "tool_security": tool_security,
+            "provider_resilience": provider_resilience,
+            "execution_context": execution_context,
+        }
+
+        if config is not None:
+            conflicting = [keyword for keyword in _CONFIG_KEYWORDS if supplied.get(keyword) is not None]
+            if conflicting:
+                raise AgentConfigError(
+                    f"Agent received both a config object and {', '.join(conflicting)}=. "
+                    "Put every field in the config, or drop the config and pass keywords only."
+                )
+            typed_config = AgentConfig.model_validate(config) if isinstance(config, dict) else config
+        else:
+            if not name:
+                raise AgentConfigError('Agent needs a name. Pass Agent(name="researcher", ...) or an AgentConfig as the first argument.')
+            typed_config = _build_agent_config(
+                name=name,
+                model=model,
+                provider=provider,
+                system_prompt=_resolve_system_prompt(
+                    instructions=instructions,
+                    system_prompt=system_prompt,
+                    role=role,
+                    goal=goal,
+                    backstory=backstory,
+                ),
+                max_turns=max_turns,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                mcp_servers=mcp_servers,
+                context_policy=context_policy,
+                verification=verification,
+                tool_security=tool_security,
+                provider_resilience=provider_resilience,
+                execution_context=execution_context,
+            )
+
+        typed_config, resolved_registry, resolved_executor = _wire_tools(typed_config, tools, tool_registry, tool_executor)
+
         self.name = typed_config.name
         self.config = typed_config
-        self._registry = tool_registry
-        self._executor = tool_executor
+        self._registry = resolved_registry
+        self._executor = resolved_executor
         self._runner: AgentRunner | None = None
         self._state = AgentState()
         self._history: list[LLMMessage] = []
@@ -140,6 +350,46 @@ class Agent:
         messages = [LLMMessage(role="user", content=[TextBlock(text=prompt)])]
         async for event in self._execute_stream(messages):
             yield event
+
+    def run_sync(self, prompt: str) -> AgentRunResult:
+        """Blocking form of :meth:`run` for scripts and notebooks."""
+        return run_coroutine_blocking(self.run(prompt), sync_call="Agent.run_sync()", async_call="await agent.run(...)")
+
+    def prompt_sync(self, message: str) -> AgentRunResult:
+        """Blocking form of :meth:`prompt`."""
+        return run_coroutine_blocking(self.prompt(message), sync_call="Agent.prompt_sync()", async_call="await agent.prompt(...)")
+
+    def stream_sync(self, prompt: str) -> Iterator[StreamEvent]:
+        """Blocking form of :meth:`stream`, yielding events as they arrive."""
+        return iterate_async_blocking(
+            lambda: self.stream(prompt),
+            sync_call="Agent.stream_sync()",
+            async_call="async for event in agent.stream(...)",
+        )
+
+    async def call_tool(self, name: str, **arguments: object) -> ToolResult:
+        """Invoke one of this agent's tools directly, bypassing the LLM.
+
+        Useful for testing a tool under the same validation, security policy, and
+        idempotency rules the agent would apply.
+        """
+        return await self._executor.execute(name, dict(arguments), self.build_tool_context())
+
+    def call_tool_sync(self, name: str, **arguments: object) -> ToolResult:
+        """Blocking form of :meth:`call_tool`."""
+        return run_coroutine_blocking(
+            self.call_tool(name, **arguments),
+            sync_call="Agent.call_tool_sync()",
+            async_call="await agent.call_tool(...)",
+        )
+
+    @property
+    def tools(self) -> list[ToolDefinition]:
+        """Tool definitions currently registered for this agent."""
+        return self._registry.list()
+
+    def __repr__(self) -> str:
+        return f"Agent(name={self.name!r}, model={self.config.model!r}, provider={self.config.provider!r}, tools={len(self._registry.list())})"
 
     def get_state(self) -> AgentState:
         return self._state.model_copy(deep=True)
