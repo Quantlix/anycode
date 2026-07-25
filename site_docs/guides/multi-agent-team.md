@@ -6,6 +6,12 @@ keywords: multi-agent team, AnyCode, agent orchestration, task dependencies, DAG
 
 # Run a Multi-Agent Team
 
+!!! tip "For most teams, start with a Crew"
+    [`Crew`](crews.md) wraps everything on this page in one object: `Crew(agents=[...],
+    tasks=[...])` builds the engine and the team for you and runs the same scheduler. This
+    page covers the engine-level API, which you need for durable runs, MCP servers,
+    plugins, and custom pool management — and which `Crew` exposes as `crew.engine`.
+
 Run a multi-agent team in AnyCode by creating an engine, defining role-scoped agents, wiring tasks with explicit dependencies, and awaiting `run_tasks`. This guide builds a three-agent crew, planner then builder then reviewer, that passes work down a dependency chain and returns one structured result you can inspect.
 
 A single agent is enough for a one-shot task. Reach for a team when the work has distinct roles, when one step must finish before the next begins, or when you want each stage to be auditable on its own. AnyCode schedules the tasks as a directed graph, runs independent work concurrently up to a concurrency limit, and collects every agent's output into a single `TeamRunResult`.

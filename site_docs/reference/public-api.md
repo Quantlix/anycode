@@ -13,6 +13,36 @@ Everything documented here is exported from the package root, so `from anycode i
 !!! tip "New here? Read the concepts first"
     This reference lists signatures, not tutorials. For how the pieces fit together, start with the [Concepts overview](../concepts/overview.md), then the [How-to guides](../guides/index.md).
 
+## The core surface
+
+Fifteen symbols cover the overwhelming majority of real use. Everything else on this page
+stays public and supported; this is the front door, not a fence.
+
+| Symbol | Use it to |
+| --- | --- |
+| `Agent` | Build one agent from keyword arguments, run it, stream it, converse with it |
+| `tool` | Turn a Python function into an agent tool |
+| `Crew` | Run several agents over a list of tasks with dependencies |
+| `TaskSpec` | Declare one unit of a crew's work |
+| `Workflow` | Compose agents into a state graph with branching and loops |
+| `START` / `END` | The virtual entry and exit nodes of a workflow |
+| `AnyCode` | The engine underneath, for durability, MCP, plugins, routing, and gates |
+| `AgentConfig` | The frozen agent configuration `Agent` builds internally |
+| `TeamConfig` | The frozen team configuration `Crew` builds internally |
+| `ToolResult` | What a tool returns |
+| `ToolRegistry` / `ToolExecutor` | Manual tool wiring, when you need it |
+| `SubAgentSpec` | Declare a sub-agent for `Agent(subagents=[...])` |
+| `create_adapter` | Construct a provider adapter directly |
+
+Print the same list, with live signatures, at any time:
+
+```bash
+anycode api --core
+```
+
+See [Recipes](recipes.md) for runnable snippets and
+[Using AnyCode from an AI coding agent](llm-guide.md) for a token-efficient orientation.
+
 ## How this page is organized
 
 The API is grouped the way you actually use it — from a first agent run out to production controls and the extension surface.

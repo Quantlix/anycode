@@ -19,6 +19,24 @@ AnyCode is a multi-agent AI orchestration framework for Python. It composes auto
 
 ---
 
+## Using the Library
+
+When writing code that *uses* AnyCode (examples, tests, docs snippets), do not read the
+source tree to learn the API:
+
+```bash
+anycode api --core     # the 15 symbols covering most use, with live signatures
+anycode api Agent      # one symbol in full
+anycode api --json     # the whole surface, machine-readable
+```
+
+`site_docs/reference/recipes.md` holds complete runnable snippets, and
+`site_docs/reference/llm-guide.md` is a short orientation written for AI coding agents.
+Prefer `Agent(name=..., tools=[...])` and the `@tool` decorator over hand-built
+`ToolRegistry`/`ToolExecutor` wiring, which remains public for advanced use.
+
+---
+
 ## Project Structure & Module Organization
 
 Source code lives under `src/anycode/` and follows a layered architecture:

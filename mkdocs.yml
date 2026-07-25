@@ -83,6 +83,10 @@ nav:
   - How-to Guides:
       - guides/index.md
       - Build and Run:
+          - Function Tools: guides/function-tools.md
+          - Run a Crew: guides/crews.md
+          - Build a Workflow: guides/workflows.md
+          - Long-Horizon Agents: guides/long-horizon-agents.md
           - Run a Multi-Agent Team: guides/multi-agent-team.md
           - Work With Tools: guides/tools.md
           - Structured Output: guides/structured-output.md
@@ -124,6 +128,8 @@ nav:
       - Agents and Teams: concepts/agents-and-teams.md
   - Reference:
       - reference/index.md
+      - Recipes: reference/recipes.md
+      - Using AnyCode From an AI Agent: reference/llm-guide.md
       - Public API: reference/public-api.md
       - Complete API Inventory: reference/api-inventory.md
       - Runtime Contracts and Baseline: reference/runtime-contracts.md
@@ -137,6 +143,7 @@ nav:
       - Development Workflow: contributing/development.md
       - Maintainer Governance: contributing/maintainers.md
       - Release Process: contributing/releasing.md
+      - Migrating to 0.10: contributing/migration-0.10.md
       - Testing and CI: contributing/testing.md
       - Architecture Decisions: contributing/architecture-decisions.md
       - ADR Template: contributing/adr-template.md
