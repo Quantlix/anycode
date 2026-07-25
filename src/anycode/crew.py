@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from anycode.collaboration.team import Team
 from anycode.core.agent import Agent
 from anycode.core.orchestrator import AnyCode, TaskSpec
 from anycode.helpers.sync_runner import run_coroutine_blocking
@@ -97,7 +98,7 @@ class Crew:
         return self._engine
 
     @property
-    def team(self):  # noqa: ANN201 - Team is re-exported; annotation would force an eager import
+    def team(self) -> Team:
         """The underlying team."""
         return self._team
 
