@@ -75,9 +75,13 @@ async def main() -> None:
     print(f"\n{SEPARATOR}")
     print("Section C: resolve_auth_headers (token absent)\n")
 
-    resolved = resolve_auth_headers(config)
-    print(f"  resolved headers: {_mask(resolved)}")
-    print("  no Authorization header added when the env var is unset")
+    # Resolution is fail-closed: a config that declares auth_token_env refuses to build
+    # headers when that variable is missing, rather than connecting unauthenticated.
+    try:
+        resolve_auth_headers(config)
+        print("  unexpected: resolution succeeded without a token")
+    except ValueError as error:
+        print(f"  refused, as intended: {error}")
 
     header_only = MCPServerConfig(name="plain", transport="sse", url="https://mcp.example.com/sse")
     print(f"  config with no headers/token resolves to: {resolve_auth_headers(header_only)}")

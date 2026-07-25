@@ -1,400 +1,961 @@
-"""AnyCode — scalable multi-agent AI orchestration framework for Python."""
+"""AnyCode — scalable multi-agent AI orchestration framework for Python.
 
-from anycode.backends import (
-    BACKEND_CONTRACT_VERSION,
-    Admission,
-    BackendCapabilities,
-    BackendSnapshot,
-    DaprDurabilityBackend,
-    DaprHTTPTransport,
-    DurabilityBackend,
-    InMemoryDurabilityBackend,
-    SQLiteDurabilityBackend,
-    WorkItem,
-    export_filesystem_run,
-    import_backend_snapshot,
-)
-from anycode.checkpoint.manager import CheckpointManager
-from anycode.checkpoint.serializer import UnsupportedCheckpointVersionError
-from anycode.checkpoint.store import FilesystemCheckpointStore
-from anycode.collaboration.kv_store import InMemoryStore
-from anycode.collaboration.message_bus import MessageBus
-from anycode.collaboration.shared_mem import SharedMemory
-from anycode.collaboration.team import Team
-from anycode.config.loader import UnknownConfigFieldError, UnsupportedConfigVersionError
-from anycode.constants import (
-    ORCH_EVENT_AGENT_COMPLETE,
-    ORCH_EVENT_AGENT_START,
-    ORCH_EVENT_BROADCAST,
-    ORCH_EVENT_ERROR,
-    ORCH_EVENT_MESSAGE,
-    ORCH_EVENT_TASK_COMPLETE,
-    ORCH_EVENT_TASK_START,
-    QUEUE_EVENT_ALL_COMPLETE,
-    QUEUE_EVENT_TASK_COMPLETE,
-    QUEUE_EVENT_TASK_FAILED,
-    QUEUE_EVENT_TASK_READY,
-)
-from anycode.contracts import (
-    CONTRACT_SCHEMA_VERSION,
-    RUN_TRANSITIONS,
-    TERMINAL_STATES,
-    Artifact,
-    ArtifactAccessContext,
-    ArtifactReadResult,
-    ArtifactStore,
-    ArtifactWriteRequest,
-    ArtifactWriteResult,
-    CapabilityDescriptor,
-    Checkpoint,
-    ContractError,
-    Event,
-    IncrementalRunProjector,
-    InMemoryOperationStore,
-    LocalArtifactStore,
-    OperationClaim,
-    OperationClaimResult,
-    PolicyDecision,
-    Result,
-    RetryDecision,
-    Run,
-    RunProjection,
-    acknowledge_cancellation,
-    canonical_input_digest,
-    contract_schema_bundle,
-    decide_retry,
-    evaluate_dependencies,
-    is_valid_run_transition,
-    project_run,
-    request_cancellation,
-    start_new_generation,
-    transition_run,
-    transition_task,
-    validate_event_stream,
-)
-from anycode.contracts import (
-    Message as SemanticMessage,
-)
-from anycode.contracts import (
-    RetryPolicy as SemanticRetryPolicy,
-)
-from anycode.contracts import (
-    Task as SemanticTask,
-)
-from anycode.contracts import (
-    VerificationResult as SemanticVerificationResult,
-)
-from anycode.core import stop_reason as stop_reasons
-from anycode.core.agent import Agent
-from anycode.core.context_artifacts import offload_text, restore_text
-from anycode.core.context_manager import ContextManager, estimate_messages_tokens, rebuild_from_handoff
-from anycode.core.lifecycle import (
-    ALL_PHASES,
-    TERMINAL_PHASES,
-    InvalidPhaseTransitionError,
-    LifecycleEmitter,
-    LifecycleListener,
-    LoopDetector,
-    fingerprint_call,
-    is_valid_transition,
-)
-from anycode.core.orchestrator import AnyCode, TaskSpec
-from anycode.core.pool import AgentPool
-from anycode.core.runner import AgentRunner
-from anycode.core.scheduler import Scheduler
-from anycode.core.session_chain import SessionChain, contract_status_summary, load_contract, save_contract
-from anycode.cost import (
-    DEFAULT_PRICING,
-    CostTracker,
-    build_cost_report,
-    calculate_cost,
-    find_pricing,
-)
-from anycode.eval import (
-    compare_reports,
-    detect_provider,
-    load_scenario,
-    load_scenarios,
-    read_report,
-    render_markdown,
-    run_scenario,
-    run_suite,
-    write_report,
-)
-from anycode.guardrails.budget import BudgetTracker, estimate_cost
-from anycode.guardrails.hooks import HookRunner, LoggingHook
-from anycode.guardrails.validators import (
-    BlocklistValidator,
-    ContainsValidator,
-    MaxLengthValidator,
-    run_validators,
-)
-from anycode.handoff.executor import HandoffExecutor
-from anycode.handoff.protocol import build_handoff_system_prompt, build_handoff_user_message, trim_context
-from anycode.handoff.tool import HANDOFF_TOOL_DEF
-from anycode.harness import (
-    EvidenceCollector,
-    EvidenceStore,
-    HarnessRegistry,
-    build_default_registry,
-    build_manifest,
-    categorize_event,
-    categorize_run,
-    diff_manifests,
-    distill_evidence,
-    load_manifest,
-    save_manifest,
-    write_evidence_bundle,
-)
-from anycode.helpers.concurrency_gate import Semaphore
-from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
-from anycode.helpers.uuid7 import uuid7
-from anycode.hitl.approval import ApprovalManager
-from anycode.hitl.channels import CallbackApprovalGate, StdinApprovalGate, WebhookApprovalGate
-from anycode.hosting import A2A_AGENT_CARD_PATH, A2AAgentCard, HostLifecycle, build_deployment_agent_card
-from anycode.identity import DelegationGrant, ExecutionContext, PolicyEnforcer, PolicyRequest
-from anycode.mcp.bridge import discover_and_register as mcp_discover_and_register
-from anycode.mcp.bridge import mcp_tool_to_definition, schema_to_pydantic_model
-from anycode.mcp.client import MCPClient
-from anycode.mcp.config import validate_server_config as mcp_validate_server_config
-from anycode.memory.composite import CompositeMemory
-from anycode.memory.factory import create_memory_store, create_vector_store
-from anycode.memory.indexer import RAGIndexer
-from anycode.memory.knowledge import KnowledgeEntry, KnowledgeStore, apply_retention, build_knowledge_tools
-from anycode.memory.rag import RAGRetriever
-from anycode.memory.vector_store import InMemoryVectorStore
-from anycode.plugins import (
-    PluginBase,
-    PluginRegistry,
-    discover_entry_point_plugins,
-    get_provider_factory,
-    list_registered_providers,
-    register_provider_factory,
-)
-from anycode.providers.adapter import create_adapter
-from anycode.providers.fake import FakeAdapter, FakeResponse
-from anycode.providers.resilience import (
-    ProviderCapacityConfigurationError,
-    ProviderCapacityError,
-    ProviderCapacityLimiter,
-    ProviderUnavailableError,
-    ResilientAdapter,
-)
-from anycode.reflection.critic import DEFAULT_CRITIC_PROMPT, LLMCritic
-from anycode.reflection.evaluator import parse_critic_json
-from anycode.reflection.loop import ReflectionLoop
-from anycode.routing.classifier import classify_task
-from anycode.routing.policy import ModelRoutingRequest, PolicyRouter, ProviderCapabilityDescriptor
-from anycode.routing.router import DefaultRouter
-from anycode.routing.rules import evaluate_rules, match_rule
-from anycode.runstore.protocol import RunPayloadProtector, RunStore
-from anycode.runstore.store import FilesystemRunStore, ProtectedPayloadError, UnsupportedRunStoreVersionError
-from anycode.sandbox import (
-    CompanionSandboxAdapter,
-    DaytonaSandboxProvider,
-    E2BSandboxProvider,
-    LangSmithSandboxProvider,
-    ModalSandboxProvider,
-    PolicySandboxProvider,
-    RunloopSandboxProvider,
-    SandboxCapabilities,
-    SandboxCommand,
-    SandboxProvider,
-    SandboxSpec,
-    VercelSandboxProvider,
-    create_sandbox_provider,
-)
-from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
-from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
-from anycode.security import REDACTED_SECRET, redact_sensitive, redact_text, safe_exception_message
-from anycode.structured.output import (
-    STRUCTURED_OUTPUT_TOOL_NAME,
-    build_retry_prompt,
-    parse_structured_output,
-    schema_to_openai_response_format,
-    schema_to_tool_def,
-)
-from anycode.tasks.queue import TaskQueue
-from anycode.tasks.task import create_task, get_task_dependency_order, is_task_ready, validate_task_dependencies
-from anycode.telemetry.events import EventEmitter, TelemetryEvent
-from anycode.telemetry.genai import BoundedTelemetryBuffer, GenAITelemetryConfig, GenAITelemetryMapper, GenAITelemetryRecord
-from anycode.telemetry.metrics import MetricsCollector, Timer
-from anycode.telemetry.tracer import ConsoleExporter, JSONLExporter, OTLPExporter, Span, Tracer
-from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
-from anycode.tools.executor import ToolExecutor
-from anycode.tools.idempotency import (
-    IdempotencyClaim,
-    InMemoryToolIdempotencyStore,
-    SQLiteToolIdempotencyStore,
-    ToolIdempotencyStore,
-    create_tool_idempotency_store,
-)
-from anycode.tools.registry import ToolRegistry, define_tool
-from anycode.types import (
-    AcceptanceThresholds,
-    AgentConfig,
-    AgentInfo,
-    AgentRunResult,
-    AgentState,
-    ApprovalConfig,
-    ApprovalGate,
-    ApprovalRequest,
-    ApprovalResponse,
-    BudgetSnapshot,
-    BudgetStatus,
-    CheckpointConfig,
-    CheckpointData,
-    CheckpointStore,
-    ComplexityLevel,
-    ContentBlock,
-    ContextArtifact,
-    ContextManifest,
-    ContextMode,
-    ContextPolicy,
-    ContextPressure,
-    ContextSectionBudget,
-    ContextSectionInput,
-    ContextSectionKind,
-    ContextSectionUsage,
-    ContextSource,
-    ContextUsageReport,
-    CostBreakdown,
-    CostConfig,
-    CostReport,
-    CountingConfidence,
-    Critic,
-    CriticResult,
-    DurabilityConfig,
-    EvalReport,
-    EvalScenario,
-    EvalScenarioResult,
-    EvidencePacket,
-    EvidenceSeverity,
-    EvolutionBlueprint,
-    ExecutionPhase,
-    FailureCategory,
-    FailureMapEntry,
-    GateOutcome,
-    GoalContract,
-    GoalCriterion,
-    GuardrailConfig,
-    Handoff,
-    HandoffPolicy,
-    HandoffRequest,
-    HarnessChangeEdit,
-    HarnessChangeManifest,
-    HarnessChangeOutcome,
-    HarnessChangePrediction,
-    HarnessChangeStatus,
-    HarnessComponent,
-    HarnessComponentKind,
-    HarnessComponentOwner,
-    HarnessManifest,
-    ImageBlock,
-    LifecycleEvent,
-    LLMAdapter,
-    LLMChatOptions,
-    LLMMessage,
-    LLMResponse,
-    LLMStreamOptions,
-    LLMToolDef,
-    MCPServerConfig,
-    MCPToolInfo,
-    MCPTrustPolicy,
-    MemoryConfig,
-    MemoryEntry,
-    MemoryStore,
-    MetaHarnessReport,
-    ModelContextProfile,
-    ModelPricing,
-    OrchestratorConfig,
-    OrchestratorEvent,
-    OutputValidator,
-    Plugin,
-    PluginInstallation,
-    PluginManifest,
-    PluginSource,
-    PluginTrustPolicy,
-    PoolStatus,
-    ProviderFactory,
-    ProviderResilienceConfig,
-    QualityGateDecision,
-    RAGConfig,
-    RAGContext,
-    RAGEntry,
-    RedactedThinkingBlock,
-    ReflectionConfig,
-    RetryPolicy,
-    RouteDecision,
-    Router,
-    RoutingConfig,
-    RoutingRule,
-    RunnerOptions,
-    RunnerStreamingConfig,
-    RunRecord,
-    RunResult,
-    RunRetentionPolicy,
-    RunStatus,
-    RunSummary,
-    SchedulingStrategy,
-    SectionOverflow,
-    SectionPriority,
-    SensorPhase,
-    SpanAttributes,
-    StopReason,
-    StopReasonCode,
-    StreamEvent,
-    StructuredAgentResult,
-    StructuredOutputConfig,
-    StructuredRunResult,
-    Task,
-    TaskStatus,
-    TeamConfig,
-    TeamRunResult,
-    TerminalRunStatus,
-    TextBlock,
-    ThinkingBlock,
-    TokenizerStrategy,
-    TokenUsage,
-    ToolCallRecord,
-    ToolDefinition,
-    ToolIdempotencyConfig,
-    ToolResult,
-    ToolResultBlock,
-    ToolSecurityPolicy,
-    ToolUseBlock,
-    ToolUseContext,
-    TraceConfig,
-    TrajectoryEvent,
-    TrajectoryEvidence,
-    TranscriptEvent,
-    TurnCheckpoint,
-    TurnHook,
-    ValidationResult,
-    VectorSearchResult,
-    VectorStore,
-    VerificationKind,
-    VerificationResult,
-    VerificationSensorConfig,
-    VerificationSeverity,
-    WakeCondition,
-)
-from anycode.verification import (
-    QualityGate,
-    Sensor,
-    SensorContext,
-    SensorFn,
-    decide_gate,
-    pyright_sensor,
-    pytest_sensor,
-    ruff_sensor,
-    schema_sensor,
-)
-from anycode.viz.dag import render_dag
-from anycode.viz.timeline import render_timeline
+Every public symbol is importable straight from this package. Resolution is lazy:
+the owning module is imported on first attribute access, so a program that builds
+one agent never pays for vector stores, provider SDKs, or telemetry exporters.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from anycode._lazy import build_export_map, lazy_getattr
+
+_MODULE_EXPORTS: dict[str, tuple[str, ...]] = {
+    "anycode.backends": (
+        "BACKEND_CONTRACT_VERSION",
+        "Admission",
+        "BackendCapabilities",
+        "BackendSnapshot",
+        "DaprDurabilityBackend",
+        "DaprHTTPTransport",
+        "DurabilityBackend",
+        "InMemoryDurabilityBackend",
+        "SQLiteDurabilityBackend",
+        "WorkItem",
+        "export_filesystem_run",
+        "import_backend_snapshot",
+    ),
+    "anycode.checkpoint.manager": ("CheckpointManager",),
+    "anycode.checkpoint.serializer": ("UnsupportedCheckpointVersionError",),
+    "anycode.checkpoint.store": ("FilesystemCheckpointStore",),
+    "anycode.collaboration.kv_store": ("InMemoryStore",),
+    "anycode.collaboration.message_bus": ("MessageBus",),
+    "anycode.collaboration.shared_mem": ("SharedMemory",),
+    "anycode.collaboration.team": ("Team",),
+    "anycode.config.loader": (
+        "UnknownConfigFieldError",
+        "UnsupportedConfigVersionError",
+    ),
+    "anycode.constants": (
+        "ORCH_EVENT_AGENT_COMPLETE",
+        "ORCH_EVENT_AGENT_START",
+        "ORCH_EVENT_BROADCAST",
+        "ORCH_EVENT_ERROR",
+        "ORCH_EVENT_MESSAGE",
+        "ORCH_EVENT_TASK_COMPLETE",
+        "ORCH_EVENT_TASK_START",
+        "QUEUE_EVENT_ALL_COMPLETE",
+        "QUEUE_EVENT_TASK_COMPLETE",
+        "QUEUE_EVENT_TASK_FAILED",
+        "QUEUE_EVENT_TASK_READY",
+    ),
+    "anycode.contracts": (
+        "CONTRACT_SCHEMA_VERSION",
+        "RUN_TRANSITIONS",
+        "TERMINAL_STATES",
+        "Artifact",
+        "ArtifactAccessContext",
+        "ArtifactReadResult",
+        "ArtifactStore",
+        "ArtifactWriteRequest",
+        "ArtifactWriteResult",
+        "CapabilityDescriptor",
+        "Checkpoint",
+        "ContractError",
+        "Event",
+        "IncrementalRunProjector",
+        "InMemoryOperationStore",
+        "LocalArtifactStore",
+        "OperationClaim",
+        "OperationClaimResult",
+        "PolicyDecision",
+        "Result",
+        "RetryDecision",
+        "Run",
+        "RunProjection",
+        "acknowledge_cancellation",
+        "canonical_input_digest",
+        "contract_schema_bundle",
+        "decide_retry",
+        "evaluate_dependencies",
+        "is_valid_run_transition",
+        "project_run",
+        "request_cancellation",
+        "start_new_generation",
+        "transition_run",
+        "transition_task",
+        "validate_event_stream",
+    ),
+    "anycode.core.agent": (
+        "Agent",
+        "AgentConfigError",
+        "compose_instructions",
+    ),
+    "anycode.core.context_artifacts": (
+        "offload_text",
+        "restore_text",
+    ),
+    "anycode.core.context_manager": (
+        "ContextManager",
+        "estimate_messages_tokens",
+        "rebuild_from_handoff",
+    ),
+    "anycode.core.lifecycle": (
+        "ALL_PHASES",
+        "TERMINAL_PHASES",
+        "InvalidPhaseTransitionError",
+        "LifecycleEmitter",
+        "LifecycleListener",
+        "LoopDetector",
+        "fingerprint_call",
+        "is_valid_transition",
+    ),
+    "anycode.core.orchestrator": (
+        "AnyCode",
+        "TaskSpec",
+    ),
+    "anycode.core.pool": ("AgentPool",),
+    "anycode.core.runner": ("AgentRunner",),
+    "anycode.core.scheduler": ("Scheduler",),
+    "anycode.core.session_chain": (
+        "SessionChain",
+        "contract_status_summary",
+        "load_contract",
+        "save_contract",
+    ),
+    "anycode.cost": (
+        "DEFAULT_PRICING",
+        "CostTracker",
+        "build_cost_report",
+        "calculate_cost",
+        "find_pricing",
+    ),
+    "anycode.crew": (
+        "Crew",
+        "CrewError",
+        "CrewResult",
+    ),
+    "anycode.eval": (
+        "compare_reports",
+        "detect_provider",
+        "load_scenario",
+        "load_scenarios",
+        "read_report",
+        "render_markdown",
+        "run_scenario",
+        "run_suite",
+        "write_report",
+    ),
+    "anycode.guardrails.budget": (
+        "BudgetTracker",
+        "estimate_cost",
+    ),
+    "anycode.guardrails.hooks": (
+        "HookRunner",
+        "LoggingHook",
+    ),
+    "anycode.guardrails.validators": (
+        "BlocklistValidator",
+        "ContainsValidator",
+        "MaxLengthValidator",
+        "run_validators",
+    ),
+    "anycode.handoff.executor": ("HandoffExecutor",),
+    "anycode.handoff.protocol": (
+        "build_handoff_system_prompt",
+        "build_handoff_user_message",
+        "trim_context",
+    ),
+    "anycode.handoff.tool": ("HANDOFF_TOOL_DEF",),
+    "anycode.harness": (
+        "EvidenceCollector",
+        "EvidenceStore",
+        "HarnessRegistry",
+        "build_default_registry",
+        "build_manifest",
+        "categorize_event",
+        "categorize_run",
+        "diff_manifests",
+        "distill_evidence",
+        "load_manifest",
+        "save_manifest",
+        "write_evidence_bundle",
+    ),
+    "anycode.helpers.concurrency_gate": ("Semaphore",),
+    "anycode.helpers.usage_tracker": (
+        "EMPTY_USAGE",
+        "merge_usage",
+    ),
+    "anycode.helpers.uuid7": ("uuid7",),
+    "anycode.hitl.approval": ("ApprovalManager",),
+    "anycode.hitl.channels": (
+        "CallbackApprovalGate",
+        "StdinApprovalGate",
+        "WebhookApprovalGate",
+    ),
+    "anycode.hosting": (
+        "A2A_AGENT_CARD_PATH",
+        "A2AAgentCard",
+        "HostLifecycle",
+        "build_deployment_agent_card",
+    ),
+    "anycode.introspect": ("ApiEntry", "ApiMap", "CORE_SURFACE", "describe"),
+    "anycode.identity": (
+        "DelegationGrant",
+        "ExecutionContext",
+        "PolicyEnforcer",
+        "PolicyRequest",
+    ),
+    "anycode.mcp.bridge": (
+        "mcp_tool_to_definition",
+        "schema_to_pydantic_model",
+    ),
+    "anycode.mcp.client": ("MCPClient",),
+    "anycode.memory.composite": ("CompositeMemory",),
+    "anycode.memory.factory": (
+        "create_memory_store",
+        "create_vector_store",
+    ),
+    "anycode.memory.indexer": ("RAGIndexer",),
+    "anycode.memory.knowledge": (
+        "KnowledgeEntry",
+        "KnowledgeStore",
+        "apply_retention",
+        "build_knowledge_tools",
+    ),
+    "anycode.memory.rag": ("RAGRetriever",),
+    "anycode.memory.vector_store": ("InMemoryVectorStore",),
+    "anycode.plugins": (
+        "PluginBase",
+        "PluginRegistry",
+        "discover_entry_point_plugins",
+        "get_provider_factory",
+        "list_registered_providers",
+        "register_provider_factory",
+    ),
+    "anycode.providers.adapter": ("create_adapter",),
+    "anycode.providers.fake": (
+        "FakeAdapter",
+        "FakeResponse",
+    ),
+    "anycode.providers.resilience": (
+        "ProviderCapacityConfigurationError",
+        "ProviderCapacityError",
+        "ProviderCapacityLimiter",
+        "ProviderUnavailableError",
+        "ResilientAdapter",
+    ),
+    "anycode.reflection.critic": (
+        "DEFAULT_CRITIC_PROMPT",
+        "LLMCritic",
+    ),
+    "anycode.reflection.evaluator": ("parse_critic_json",),
+    "anycode.reflection.loop": ("ReflectionLoop",),
+    "anycode.routing.classifier": ("classify_task",),
+    "anycode.routing.policy": (
+        "ModelRoutingRequest",
+        "PolicyRouter",
+        "ProviderCapabilityDescriptor",
+    ),
+    "anycode.routing.router": ("DefaultRouter",),
+    "anycode.routing.rules": (
+        "evaluate_rules",
+        "match_rule",
+    ),
+    "anycode.runstore.protocol": (
+        "RunPayloadProtector",
+        "RunStore",
+    ),
+    "anycode.runstore.store": (
+        "FilesystemRunStore",
+        "ProtectedPayloadError",
+        "UnsupportedRunStoreVersionError",
+    ),
+    "anycode.sandbox": (
+        "CompanionSandboxAdapter",
+        "DaytonaSandboxProvider",
+        "E2BSandboxProvider",
+        "LangSmithSandboxProvider",
+        "ModalSandboxProvider",
+        "PolicySandboxProvider",
+        "RunloopSandboxProvider",
+        "SandboxCapabilities",
+        "SandboxCommand",
+        "SandboxProvider",
+        "SandboxSpec",
+        "VercelSandboxProvider",
+        "create_sandbox_provider",
+    ),
+    "anycode.schedule.scheduler": (
+        "RunScheduler",
+        "SweepReport",
+        "sweep_once",
+    ),
+    "anycode.schedule.tasks": (
+        "ScheduledTask",
+        "ScheduledTaskResult",
+        "run_scheduled_task",
+    ),
+    "anycode.security": (
+        "REDACTED_SECRET",
+        "redact_sensitive",
+        "redact_text",
+        "safe_exception_message",
+    ),
+    "anycode.structured.output": (
+        "STRUCTURED_OUTPUT_TOOL_NAME",
+        "build_retry_prompt",
+        "parse_structured_output",
+        "schema_to_openai_response_format",
+        "schema_to_tool_def",
+    ),
+    "anycode.tasks.queue": ("TaskQueue",),
+    "anycode.tasks.task": (
+        "create_task",
+        "get_task_dependency_order",
+        "is_task_ready",
+        "validate_task_dependencies",
+    ),
+    "anycode.telemetry.events": (
+        "EventEmitter",
+        "TelemetryEvent",
+    ),
+    "anycode.telemetry.genai": (
+        "BoundedTelemetryBuffer",
+        "GenAITelemetryConfig",
+        "GenAITelemetryMapper",
+        "GenAITelemetryRecord",
+    ),
+    "anycode.telemetry.metrics": (
+        "MetricsCollector",
+        "Timer",
+    ),
+    "anycode.telemetry.tracer": (
+        "ConsoleExporter",
+        "JSONLExporter",
+        "OTLPExporter",
+        "Span",
+        "Tracer",
+    ),
+    "anycode.tools.built_in": (
+        "BUILT_IN_TOOLS",
+        "register_built_in_tools",
+    ),
+    "anycode.tools.executor": ("ToolExecutor",),
+    "anycode.tools.function_tool": (
+        "ToolDefinitionError",
+        "ToolSpec",
+        "as_tool_definition",
+        "build_tool_definition",
+        "builtin_tool_names",
+        "function_tool",
+        "resolve_tool_specs",
+        "tool",
+    ),
+    "anycode.tools.idempotency": (
+        "IdempotencyClaim",
+        "InMemoryToolIdempotencyStore",
+        "SQLiteToolIdempotencyStore",
+        "ToolIdempotencyStore",
+        "create_tool_idempotency_store",
+    ),
+    "anycode.tools.registry": (
+        "ToolRegistry",
+        "define_tool",
+    ),
+    "anycode.tools.planning": ("TodoItem", "TodoStore", "build_todo_tool"),
+    "anycode.tools.subagent": ("SubAgentSpec", "build_delegate_tool"),
+    "anycode.types": (
+        "AcceptanceThresholds",
+        "AgentConfig",
+        "AgentInfo",
+        "AgentRunResult",
+        "AgentState",
+        "ApprovalConfig",
+        "ApprovalGate",
+        "ApprovalRequest",
+        "ApprovalResponse",
+        "BudgetSnapshot",
+        "BudgetStatus",
+        "CheckpointConfig",
+        "CheckpointData",
+        "CheckpointStore",
+        "ComplexityLevel",
+        "ContentBlock",
+        "ContextArtifact",
+        "ContextManifest",
+        "ContextMode",
+        "ContextPolicy",
+        "ContextPressure",
+        "ContextSectionBudget",
+        "ContextSectionInput",
+        "ContextSectionKind",
+        "ContextSectionUsage",
+        "ContextSource",
+        "ContextUsageReport",
+        "CostBreakdown",
+        "CostConfig",
+        "CostReport",
+        "CountingConfidence",
+        "Critic",
+        "CriticResult",
+        "DurabilityConfig",
+        "EvalReport",
+        "EvalScenario",
+        "EvalScenarioResult",
+        "EvidencePacket",
+        "EvidenceSeverity",
+        "EvolutionBlueprint",
+        "ExecutionPhase",
+        "FailureCategory",
+        "FailureMapEntry",
+        "GateOutcome",
+        "GoalContract",
+        "GoalCriterion",
+        "GuardrailConfig",
+        "Handoff",
+        "HandoffPolicy",
+        "HandoffRequest",
+        "HarnessChangeEdit",
+        "HarnessChangeManifest",
+        "HarnessChangeOutcome",
+        "HarnessChangePrediction",
+        "HarnessChangeStatus",
+        "HarnessComponent",
+        "HarnessComponentKind",
+        "HarnessComponentOwner",
+        "HarnessManifest",
+        "ImageBlock",
+        "LifecycleEvent",
+        "LLMAdapter",
+        "LLMChatOptions",
+        "LLMMessage",
+        "LLMResponse",
+        "LLMStreamOptions",
+        "LLMToolDef",
+        "MCPServerConfig",
+        "MCPToolInfo",
+        "MCPTrustPolicy",
+        "MemoryConfig",
+        "MemoryEntry",
+        "MemoryStore",
+        "MetaHarnessReport",
+        "ModelContextProfile",
+        "ModelPricing",
+        "OrchestratorConfig",
+        "OrchestratorEvent",
+        "OutputValidator",
+        "Plugin",
+        "PluginInstallation",
+        "PluginManifest",
+        "PluginSource",
+        "PluginTrustPolicy",
+        "PoolStatus",
+        "ProviderFactory",
+        "ProviderResilienceConfig",
+        "QualityGateDecision",
+        "RAGConfig",
+        "RAGContext",
+        "RAGEntry",
+        "RedactedThinkingBlock",
+        "ReflectionConfig",
+        "RetryPolicy",
+        "RouteDecision",
+        "Router",
+        "RoutingConfig",
+        "RoutingRule",
+        "RunnerOptions",
+        "RunnerStreamingConfig",
+        "RunRecord",
+        "RunResult",
+        "RunRetentionPolicy",
+        "RunStatus",
+        "RunSummary",
+        "SchedulingStrategy",
+        "SectionOverflow",
+        "SectionPriority",
+        "SensorPhase",
+        "SpanAttributes",
+        "StopReason",
+        "StopReasonCode",
+        "StreamEvent",
+        "StructuredAgentResult",
+        "StructuredOutputConfig",
+        "StructuredRunResult",
+        "Task",
+        "TaskStatus",
+        "TeamConfig",
+        "TeamRunResult",
+        "TerminalRunStatus",
+        "TextBlock",
+        "ThinkingBlock",
+        "TokenizerStrategy",
+        "TokenUsage",
+        "ToolCallRecord",
+        "ToolDefinition",
+        "ToolIdempotencyConfig",
+        "ToolResult",
+        "ToolResultBlock",
+        "ToolSecurityPolicy",
+        "ToolUseBlock",
+        "ToolUseContext",
+        "TraceConfig",
+        "TrajectoryEvent",
+        "TrajectoryEvidence",
+        "TranscriptEvent",
+        "TurnCheckpoint",
+        "TurnHook",
+        "ValidationResult",
+        "VectorSearchResult",
+        "VectorStore",
+        "VerificationKind",
+        "VerificationResult",
+        "VerificationSensorConfig",
+        "VerificationSeverity",
+        "WakeCondition",
+    ),
+    "anycode.verification": (
+        "QualityGate",
+        "Sensor",
+        "SensorContext",
+        "SensorFn",
+        "decide_gate",
+        "pyright_sensor",
+        "pytest_sensor",
+        "ruff_sensor",
+        "schema_sensor",
+    ),
+    "anycode.viz.dag": ("render_dag",),
+    "anycode.viz.timeline": ("render_timeline",),
+    "anycode.workflow": (
+        "END",
+        "START",
+        "Command",
+        "CompiledWorkflow",
+        "Workflow",
+        "WorkflowError",
+        "WorkflowEvent",
+        "WorkflowResult",
+    ),
+}
+
+_ALIASES: dict[str, tuple[str, str]] = {
+    "SemanticMessage": ("anycode.contracts", "Message"),
+    "SemanticRetryPolicy": ("anycode.contracts", "RetryPolicy"),
+    "SemanticTask": ("anycode.contracts", "Task"),
+    "SemanticVerificationResult": ("anycode.contracts", "VerificationResult"),
+    "stop_reasons": ("anycode.core", "stop_reason"),
+    "mcp_discover_and_register": ("anycode.mcp.bridge", "discover_and_register"),
+    "mcp_validate_server_config": ("anycode.mcp.config", "validate_server_config"),
+}
+
+_EXPORTS: dict[str, tuple[str, str]] = build_export_map(_MODULE_EXPORTS, _ALIASES)
+
+
+def __getattr__(name: str) -> Any:
+    return lazy_getattr(__name__, name, _EXPORTS, globals())
+
+
+def __dir__() -> list[str]:
+    return sorted(__all__)
+
+
+if TYPE_CHECKING:  # keeps every symbol statically resolvable for type checkers and IDEs
+    from anycode.backends import (
+        BACKEND_CONTRACT_VERSION,
+        Admission,
+        BackendCapabilities,
+        BackendSnapshot,
+        DaprDurabilityBackend,
+        DaprHTTPTransport,
+        DurabilityBackend,
+        InMemoryDurabilityBackend,
+        SQLiteDurabilityBackend,
+        WorkItem,
+        export_filesystem_run,
+        import_backend_snapshot,
+    )
+    from anycode.checkpoint.manager import CheckpointManager
+    from anycode.checkpoint.serializer import UnsupportedCheckpointVersionError
+    from anycode.checkpoint.store import FilesystemCheckpointStore
+    from anycode.collaboration.kv_store import InMemoryStore
+    from anycode.collaboration.message_bus import MessageBus
+    from anycode.collaboration.shared_mem import SharedMemory
+    from anycode.collaboration.team import Team
+    from anycode.config.loader import UnknownConfigFieldError, UnsupportedConfigVersionError
+    from anycode.constants import (
+        ORCH_EVENT_AGENT_COMPLETE,
+        ORCH_EVENT_AGENT_START,
+        ORCH_EVENT_BROADCAST,
+        ORCH_EVENT_ERROR,
+        ORCH_EVENT_MESSAGE,
+        ORCH_EVENT_TASK_COMPLETE,
+        ORCH_EVENT_TASK_START,
+        QUEUE_EVENT_ALL_COMPLETE,
+        QUEUE_EVENT_TASK_COMPLETE,
+        QUEUE_EVENT_TASK_FAILED,
+        QUEUE_EVENT_TASK_READY,
+    )
+    from anycode.contracts import (
+        CONTRACT_SCHEMA_VERSION,
+        RUN_TRANSITIONS,
+        TERMINAL_STATES,
+        Artifact,
+        ArtifactAccessContext,
+        ArtifactReadResult,
+        ArtifactStore,
+        ArtifactWriteRequest,
+        ArtifactWriteResult,
+        CapabilityDescriptor,
+        Checkpoint,
+        ContractError,
+        Event,
+        IncrementalRunProjector,
+        InMemoryOperationStore,
+        LocalArtifactStore,
+        OperationClaim,
+        OperationClaimResult,
+        PolicyDecision,
+        Result,
+        RetryDecision,
+        Run,
+        RunProjection,
+        acknowledge_cancellation,
+        canonical_input_digest,
+        contract_schema_bundle,
+        decide_retry,
+        evaluate_dependencies,
+        is_valid_run_transition,
+        project_run,
+        request_cancellation,
+        start_new_generation,
+        transition_run,
+        transition_task,
+        validate_event_stream,
+    )
+    from anycode.contracts import Message as SemanticMessage
+    from anycode.contracts import RetryPolicy as SemanticRetryPolicy
+    from anycode.contracts import Task as SemanticTask
+    from anycode.contracts import VerificationResult as SemanticVerificationResult
+    from anycode.core import stop_reason as stop_reasons
+    from anycode.core.agent import Agent, AgentConfigError, compose_instructions
+    from anycode.core.context_artifacts import offload_text, restore_text
+    from anycode.core.context_manager import ContextManager, estimate_messages_tokens, rebuild_from_handoff
+    from anycode.core.lifecycle import (
+        ALL_PHASES,
+        TERMINAL_PHASES,
+        InvalidPhaseTransitionError,
+        LifecycleEmitter,
+        LifecycleListener,
+        LoopDetector,
+        fingerprint_call,
+        is_valid_transition,
+    )
+    from anycode.core.orchestrator import AnyCode, TaskSpec
+    from anycode.core.pool import AgentPool
+    from anycode.core.runner import AgentRunner
+    from anycode.core.scheduler import Scheduler
+    from anycode.core.session_chain import SessionChain, contract_status_summary, load_contract, save_contract
+    from anycode.cost import DEFAULT_PRICING, CostTracker, build_cost_report, calculate_cost, find_pricing
+    from anycode.crew import Crew, CrewError, CrewResult
+    from anycode.eval import (
+        compare_reports,
+        detect_provider,
+        load_scenario,
+        load_scenarios,
+        read_report,
+        render_markdown,
+        run_scenario,
+        run_suite,
+        write_report,
+    )
+    from anycode.guardrails.budget import BudgetTracker, estimate_cost
+    from anycode.guardrails.hooks import HookRunner, LoggingHook
+    from anycode.guardrails.validators import BlocklistValidator, ContainsValidator, MaxLengthValidator, run_validators
+    from anycode.handoff.executor import HandoffExecutor
+    from anycode.handoff.protocol import build_handoff_system_prompt, build_handoff_user_message, trim_context
+    from anycode.handoff.tool import HANDOFF_TOOL_DEF
+    from anycode.harness import (
+        EvidenceCollector,
+        EvidenceStore,
+        HarnessRegistry,
+        build_default_registry,
+        build_manifest,
+        categorize_event,
+        categorize_run,
+        diff_manifests,
+        distill_evidence,
+        load_manifest,
+        save_manifest,
+        write_evidence_bundle,
+    )
+    from anycode.helpers.concurrency_gate import Semaphore
+    from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
+    from anycode.helpers.uuid7 import uuid7
+    from anycode.hitl.approval import ApprovalManager
+    from anycode.hitl.channels import CallbackApprovalGate, StdinApprovalGate, WebhookApprovalGate
+    from anycode.hosting import A2A_AGENT_CARD_PATH, A2AAgentCard, HostLifecycle, build_deployment_agent_card
+    from anycode.identity import DelegationGrant, ExecutionContext, PolicyEnforcer, PolicyRequest
+    from anycode.introspect import CORE_SURFACE, ApiEntry, ApiMap, describe
+    from anycode.mcp.bridge import discover_and_register as mcp_discover_and_register
+    from anycode.mcp.bridge import mcp_tool_to_definition, schema_to_pydantic_model
+    from anycode.mcp.client import MCPClient
+    from anycode.mcp.config import validate_server_config as mcp_validate_server_config
+    from anycode.memory.composite import CompositeMemory
+    from anycode.memory.factory import create_memory_store, create_vector_store
+    from anycode.memory.indexer import RAGIndexer
+    from anycode.memory.knowledge import KnowledgeEntry, KnowledgeStore, apply_retention, build_knowledge_tools
+    from anycode.memory.rag import RAGRetriever
+    from anycode.memory.vector_store import InMemoryVectorStore
+    from anycode.plugins import (
+        PluginBase,
+        PluginRegistry,
+        discover_entry_point_plugins,
+        get_provider_factory,
+        list_registered_providers,
+        register_provider_factory,
+    )
+    from anycode.providers.adapter import create_adapter
+    from anycode.providers.fake import FakeAdapter, FakeResponse
+    from anycode.providers.resilience import (
+        ProviderCapacityConfigurationError,
+        ProviderCapacityError,
+        ProviderCapacityLimiter,
+        ProviderUnavailableError,
+        ResilientAdapter,
+    )
+    from anycode.reflection.critic import DEFAULT_CRITIC_PROMPT, LLMCritic
+    from anycode.reflection.evaluator import parse_critic_json
+    from anycode.reflection.loop import ReflectionLoop
+    from anycode.routing.classifier import classify_task
+    from anycode.routing.policy import ModelRoutingRequest, PolicyRouter, ProviderCapabilityDescriptor
+    from anycode.routing.router import DefaultRouter
+    from anycode.routing.rules import evaluate_rules, match_rule
+    from anycode.runstore.protocol import RunPayloadProtector, RunStore
+    from anycode.runstore.store import FilesystemRunStore, ProtectedPayloadError, UnsupportedRunStoreVersionError
+    from anycode.sandbox import (
+        CompanionSandboxAdapter,
+        DaytonaSandboxProvider,
+        E2BSandboxProvider,
+        LangSmithSandboxProvider,
+        ModalSandboxProvider,
+        PolicySandboxProvider,
+        RunloopSandboxProvider,
+        SandboxCapabilities,
+        SandboxCommand,
+        SandboxProvider,
+        SandboxSpec,
+        VercelSandboxProvider,
+        create_sandbox_provider,
+    )
+    from anycode.schedule.scheduler import RunScheduler, SweepReport, sweep_once
+    from anycode.schedule.tasks import ScheduledTask, ScheduledTaskResult, run_scheduled_task
+    from anycode.security import REDACTED_SECRET, redact_sensitive, redact_text, safe_exception_message
+    from anycode.structured.output import (
+        STRUCTURED_OUTPUT_TOOL_NAME,
+        build_retry_prompt,
+        parse_structured_output,
+        schema_to_openai_response_format,
+        schema_to_tool_def,
+    )
+    from anycode.tasks.queue import TaskQueue
+    from anycode.tasks.task import create_task, get_task_dependency_order, is_task_ready, validate_task_dependencies
+    from anycode.telemetry.events import EventEmitter, TelemetryEvent
+    from anycode.telemetry.genai import BoundedTelemetryBuffer, GenAITelemetryConfig, GenAITelemetryMapper, GenAITelemetryRecord
+    from anycode.telemetry.metrics import MetricsCollector, Timer
+    from anycode.telemetry.tracer import ConsoleExporter, JSONLExporter, OTLPExporter, Span, Tracer
+    from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
+    from anycode.tools.executor import ToolExecutor
+    from anycode.tools.function_tool import (
+        ToolDefinitionError,
+        ToolSpec,
+        as_tool_definition,
+        build_tool_definition,
+        builtin_tool_names,
+        function_tool,
+        resolve_tool_specs,
+        tool,
+    )
+    from anycode.tools.idempotency import (
+        IdempotencyClaim,
+        InMemoryToolIdempotencyStore,
+        SQLiteToolIdempotencyStore,
+        ToolIdempotencyStore,
+        create_tool_idempotency_store,
+    )
+    from anycode.tools.planning import TodoItem, TodoStore, build_todo_tool
+    from anycode.tools.registry import ToolRegistry, define_tool
+    from anycode.tools.subagent import SubAgentSpec, build_delegate_tool
+    from anycode.types import (
+        AcceptanceThresholds,
+        AgentConfig,
+        AgentInfo,
+        AgentRunResult,
+        AgentState,
+        ApprovalConfig,
+        ApprovalGate,
+        ApprovalRequest,
+        ApprovalResponse,
+        BudgetSnapshot,
+        BudgetStatus,
+        CheckpointConfig,
+        CheckpointData,
+        CheckpointStore,
+        ComplexityLevel,
+        ContentBlock,
+        ContextArtifact,
+        ContextManifest,
+        ContextMode,
+        ContextPolicy,
+        ContextPressure,
+        ContextSectionBudget,
+        ContextSectionInput,
+        ContextSectionKind,
+        ContextSectionUsage,
+        ContextSource,
+        ContextUsageReport,
+        CostBreakdown,
+        CostConfig,
+        CostReport,
+        CountingConfidence,
+        Critic,
+        CriticResult,
+        DurabilityConfig,
+        EvalReport,
+        EvalScenario,
+        EvalScenarioResult,
+        EvidencePacket,
+        EvidenceSeverity,
+        EvolutionBlueprint,
+        ExecutionPhase,
+        FailureCategory,
+        FailureMapEntry,
+        GateOutcome,
+        GoalContract,
+        GoalCriterion,
+        GuardrailConfig,
+        Handoff,
+        HandoffPolicy,
+        HandoffRequest,
+        HarnessChangeEdit,
+        HarnessChangeManifest,
+        HarnessChangeOutcome,
+        HarnessChangePrediction,
+        HarnessChangeStatus,
+        HarnessComponent,
+        HarnessComponentKind,
+        HarnessComponentOwner,
+        HarnessManifest,
+        ImageBlock,
+        LifecycleEvent,
+        LLMAdapter,
+        LLMChatOptions,
+        LLMMessage,
+        LLMResponse,
+        LLMStreamOptions,
+        LLMToolDef,
+        MCPServerConfig,
+        MCPToolInfo,
+        MCPTrustPolicy,
+        MemoryConfig,
+        MemoryEntry,
+        MemoryStore,
+        MetaHarnessReport,
+        ModelContextProfile,
+        ModelPricing,
+        OrchestratorConfig,
+        OrchestratorEvent,
+        OutputValidator,
+        Plugin,
+        PluginInstallation,
+        PluginManifest,
+        PluginSource,
+        PluginTrustPolicy,
+        PoolStatus,
+        ProviderFactory,
+        ProviderResilienceConfig,
+        QualityGateDecision,
+        RAGConfig,
+        RAGContext,
+        RAGEntry,
+        RedactedThinkingBlock,
+        ReflectionConfig,
+        RetryPolicy,
+        RouteDecision,
+        Router,
+        RoutingConfig,
+        RoutingRule,
+        RunnerOptions,
+        RunnerStreamingConfig,
+        RunRecord,
+        RunResult,
+        RunRetentionPolicy,
+        RunStatus,
+        RunSummary,
+        SchedulingStrategy,
+        SectionOverflow,
+        SectionPriority,
+        SensorPhase,
+        SpanAttributes,
+        StopReason,
+        StopReasonCode,
+        StreamEvent,
+        StructuredAgentResult,
+        StructuredOutputConfig,
+        StructuredRunResult,
+        Task,
+        TaskStatus,
+        TeamConfig,
+        TeamRunResult,
+        TerminalRunStatus,
+        TextBlock,
+        ThinkingBlock,
+        TokenizerStrategy,
+        TokenUsage,
+        ToolCallRecord,
+        ToolDefinition,
+        ToolIdempotencyConfig,
+        ToolResult,
+        ToolResultBlock,
+        ToolSecurityPolicy,
+        ToolUseBlock,
+        ToolUseContext,
+        TraceConfig,
+        TrajectoryEvent,
+        TrajectoryEvidence,
+        TranscriptEvent,
+        TurnCheckpoint,
+        TurnHook,
+        ValidationResult,
+        VectorSearchResult,
+        VectorStore,
+        VerificationKind,
+        VerificationResult,
+        VerificationSensorConfig,
+        VerificationSeverity,
+        WakeCondition,
+    )
+    from anycode.verification import (
+        QualityGate,
+        Sensor,
+        SensorContext,
+        SensorFn,
+        decide_gate,
+        pyright_sensor,
+        pytest_sensor,
+        ruff_sensor,
+        schema_sensor,
+    )
+    from anycode.viz.dag import render_dag
+    from anycode.viz.timeline import render_timeline
+    from anycode.workflow import END, START, Command, CompiledWorkflow, Workflow, WorkflowError, WorkflowEvent, WorkflowResult
 
 __all__ = [
-    # Constants — event names
+    "describe",
+    "ApiEntry",
+    "ApiMap",
+    "CORE_SURFACE",
     "QUEUE_EVENT_TASK_READY",
     "QUEUE_EVENT_TASK_COMPLETE",
     "QUEUE_EVENT_TASK_FAILED",
@@ -406,14 +967,25 @@ __all__ = [
     "ORCH_EVENT_MESSAGE",
     "ORCH_EVENT_ERROR",
     "ORCH_EVENT_BROADCAST",
-    # Core
     "AnyCode",
     "Agent",
+    "Crew",
+    "CrewError",
+    "CrewResult",
+    "Workflow",
+    "CompiledWorkflow",
+    "WorkflowError",
+    "WorkflowEvent",
+    "WorkflowResult",
+    "Command",
+    "START",
+    "END",
+    "AgentConfigError",
+    "compose_instructions",
     "AgentRunner",
     "AgentPool",
     "Scheduler",
     "TaskSpec",
-    # Pluggable durability
     "BACKEND_CONTRACT_VERSION",
     "Admission",
     "BackendCapabilities",
@@ -426,7 +998,6 @@ __all__ = [
     "WorkItem",
     "export_filesystem_run",
     "import_backend_snapshot",
-    # Preview semantic contracts
     "CONTRACT_SCHEMA_VERSION",
     "RUN_TRANSITIONS",
     "TERMINAL_STATES",
@@ -466,7 +1037,6 @@ __all__ = [
     "transition_run",
     "transition_task",
     "validate_event_stream",
-    # Lifecycle
     "LifecycleEmitter",
     "LifecycleListener",
     "LoopDetector",
@@ -476,18 +1046,15 @@ __all__ = [
     "fingerprint_call",
     "is_valid_transition",
     "stop_reasons",
-    # Adaptive context lifecycle
     "ContextManager",
     "estimate_messages_tokens",
     "rebuild_from_handoff",
     "offload_text",
     "restore_text",
-    # Data protection
     "REDACTED_SECRET",
     "redact_sensitive",
     "redact_text",
     "safe_exception_message",
-    # Verification & quality gates
     "QualityGate",
     "Sensor",
     "SensorContext",
@@ -504,7 +1071,6 @@ __all__ = [
     "GateOutcome",
     "QualityGateDecision",
     "SensorPhase",
-    # Eval suite
     "EvalScenario",
     "EvalScenarioResult",
     "EvalReport",
@@ -517,11 +1083,9 @@ __all__ = [
     "write_report",
     "render_markdown",
     "compare_reports",
-    # Providers
     "create_adapter",
     "FakeAdapter",
     "FakeResponse",
-    # Provider resilience
     "ResilientAdapter",
     "ProviderCapacityConfigurationError",
     "ProviderCapacityError",
@@ -529,7 +1093,6 @@ __all__ = [
     "ProviderUnavailableError",
     "ProviderResilienceConfig",
     "RetryPolicy",
-    # Durable run store
     "FilesystemRunStore",
     "ProtectedPayloadError",
     "RunPayloadProtector",
@@ -546,14 +1109,12 @@ __all__ = [
     "UnsupportedConfigVersionError",
     "UnsupportedRunStoreVersionError",
     "UnknownConfigFieldError",
-    # Session chaining
     "SessionChain",
     "GoalContract",
     "GoalCriterion",
     "load_contract",
     "save_contract",
     "contract_status_summary",
-    # Scheduling / watchdogs
     "RunScheduler",
     "SweepReport",
     "sweep_once",
@@ -561,26 +1122,22 @@ __all__ = [
     "ScheduledTaskResult",
     "run_scheduled_task",
     "WakeCondition",
-    # Tiered memory
     "KnowledgeStore",
     "KnowledgeEntry",
     "build_knowledge_tools",
     "apply_retention",
     "create_memory_store",
     "create_vector_store",
-    # MCP
     "MCPClient",
     "mcp_discover_and_register",
     "mcp_tool_to_definition",
     "schema_to_pydantic_model",
     "mcp_validate_server_config",
-    # Handoff
     "HandoffExecutor",
     "HANDOFF_TOOL_DEF",
     "build_handoff_system_prompt",
     "build_handoff_user_message",
     "trim_context",
-    # Routing
     "DefaultRouter",
     "ModelRoutingRequest",
     "PolicyRouter",
@@ -588,28 +1145,22 @@ __all__ = [
     "classify_task",
     "evaluate_rules",
     "match_rule",
-    # Collaboration
     "Team",
     "MessageBus",
     "SharedMemory",
     "InMemoryStore",
-    # Memory
     "CompositeMemory",
     "InMemoryVectorStore",
-    # Checkpoint
     "CheckpointManager",
     "FilesystemCheckpointStore",
-    # HITL
     "ApprovalManager",
     "CallbackApprovalGate",
     "StdinApprovalGate",
     "WebhookApprovalGate",
-    # Execution identity and policy
     "DelegationGrant",
     "ExecutionContext",
     "PolicyEnforcer",
     "PolicyRequest",
-    # Sandboxes
     "CompanionSandboxAdapter",
     "DaytonaSandboxProvider",
     "E2BSandboxProvider",
@@ -623,34 +1174,42 @@ __all__ = [
     "SandboxSpec",
     "VercelSandboxProvider",
     "create_sandbox_provider",
-    # Managed hosting
     "A2A_AGENT_CARD_PATH",
     "A2AAgentCard",
     "HostLifecycle",
     "build_deployment_agent_card",
-    # Tasks
     "TaskQueue",
     "create_task",
     "is_task_ready",
     "get_task_dependency_order",
     "validate_task_dependencies",
-    # Tools
     "ToolRegistry",
     "ToolExecutor",
+    "tool",
+    "function_tool",
+    "as_tool_definition",
+    "build_tool_definition",
+    "builtin_tool_names",
+    "resolve_tool_specs",
+    "ToolDefinitionError",
+    "ToolSpec",
     "IdempotencyClaim",
     "InMemoryToolIdempotencyStore",
     "SQLiteToolIdempotencyStore",
     "ToolIdempotencyStore",
     "create_tool_idempotency_store",
     "define_tool",
+    "TodoItem",
+    "TodoStore",
+    "build_todo_tool",
+    "SubAgentSpec",
+    "build_delegate_tool",
     "BUILT_IN_TOOLS",
     "register_built_in_tools",
-    # Helpers
     "Semaphore",
     "EMPTY_USAGE",
     "merge_usage",
     "uuid7",
-    # Telemetry
     "Tracer",
     "Span",
     "ConsoleExporter",
@@ -664,7 +1223,6 @@ __all__ = [
     "GenAITelemetryConfig",
     "GenAITelemetryMapper",
     "GenAITelemetryRecord",
-    # Guardrails
     "BudgetTracker",
     "estimate_cost",
     "HookRunner",
@@ -673,13 +1231,11 @@ __all__ = [
     "MaxLengthValidator",
     "ContainsValidator",
     "BlocklistValidator",
-    # Structured output
     "STRUCTURED_OUTPUT_TOOL_NAME",
     "schema_to_tool_def",
     "schema_to_openai_response_format",
     "parse_structured_output",
     "build_retry_prompt",
-    # Types
     "ContentBlock",
     "TextBlock",
     "ToolUseBlock",
@@ -729,7 +1285,6 @@ __all__ = [
     "HandoffRequest",
     "Handoff",
     "HandoffPolicy",
-    # Plugin ecosystem
     "Plugin",
     "PluginBase",
     "PluginInstallation",
@@ -782,7 +1337,6 @@ __all__ = [
     "StructuredOutputConfig",
     "StructuredRunResult",
     "StructuredAgentResult",
-    # Cost
     "CostTracker",
     "build_cost_report",
     "DEFAULT_PRICING",
@@ -792,7 +1346,6 @@ __all__ = [
     "CostReport",
     "CostBreakdown",
     "ModelPricing",
-    # Reflection
     "LLMCritic",
     "ReflectionLoop",
     "parse_critic_json",
@@ -800,16 +1353,13 @@ __all__ = [
     "ReflectionConfig",
     "Critic",
     "CriticResult",
-    # RAG
     "RAGRetriever",
     "RAGIndexer",
     "RAGConfig",
     "RAGContext",
     "RAGEntry",
-    # Visualization
     "render_dag",
     "render_timeline",
-    # Harness
     "AcceptanceThresholds",
     "EvidencePacket",
     "EvidenceSeverity",

@@ -4,6 +4,16 @@ from anycode.tools.executor import ToolExecutor
 from anycode.tools.file_edit import file_edit_tool
 from anycode.tools.file_read import file_read_tool
 from anycode.tools.file_write import file_write_tool
+from anycode.tools.function_tool import (
+    ToolDefinitionError,
+    ToolSpec,
+    as_tool_definition,
+    build_tool_definition,
+    builtin_tool_names,
+    function_tool,
+    resolve_tool_specs,
+    tool,
+)
 from anycode.tools.grep import grep_tool
 from anycode.tools.idempotency import (
     IdempotencyClaim,
@@ -17,6 +27,14 @@ from anycode.tools.registry import ToolRegistry, define_tool
 __all__ = [
     "ToolRegistry",
     "ToolExecutor",
+    "tool",
+    "function_tool",
+    "as_tool_definition",
+    "build_tool_definition",
+    "builtin_tool_names",
+    "resolve_tool_specs",
+    "ToolDefinitionError",
+    "ToolSpec",
     "define_tool",
     "register_built_in_tools",
     "BUILT_IN_TOOLS",

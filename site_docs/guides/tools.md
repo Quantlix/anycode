@@ -8,6 +8,13 @@ keywords: AnyCode tools, custom tools, define_tool, ToolRegistry, ToolExecutor, 
 
 Give an AnyCode agent tools by listing built-in tool names in its `AgentConfig`, or build a custom tool with `define_tool()` and a Pydantic input model and register it in a `ToolRegistry`. Every AnyCode tool is a typed async function with four parts: a name, a description, a Pydantic input model, and an execute function that returns a `ToolResult`.
 
+!!! tip "Most tools do not need any of this"
+    The [`@tool` decorator](function-tools.md) derives the input model from a function
+    signature and the description from its docstring, so a tool is one decorated function.
+    This page covers the typed `define_tool` path — reach for it when you need a schema a
+    signature cannot express, such as a deeply nested model, a discriminated union, or a
+    model shared with the rest of your application.
+
 The Pydantic model does double duty. It validates arguments before your code runs, and it becomes the JSON schema the provider sees when it decides how to call the tool. Clear field descriptions therefore improve both safety and the quality of the model's tool calls.
 
 ## Built-in AnyCode tools

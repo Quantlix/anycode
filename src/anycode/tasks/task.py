@@ -8,7 +8,14 @@ from anycode.helpers.uuid7 import uuid7
 from anycode.types import Task
 
 
-def create_task(*, title: str, description: str, assignee: str | None = None, depends_on: list[str] | None = None) -> Task:
+def create_task(
+    *,
+    title: str,
+    description: str,
+    assignee: str | None = None,
+    depends_on: list[str] | None = None,
+    expected_output: str | None = None,
+) -> Task:
     now = datetime.now(UTC)
     return Task(
         id=str(uuid7()),
@@ -17,6 +24,7 @@ def create_task(*, title: str, description: str, assignee: str | None = None, de
         status="pending",
         assignee=assignee,
         depends_on=list(depends_on) if depends_on else None,
+        expected_output=expected_output,
         created_at=now,
         updated_at=now,
     )

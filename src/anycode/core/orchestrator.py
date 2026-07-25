@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import inspect
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from pydantic import BaseModel
@@ -31,8 +32,6 @@ from anycode.handoff.executor import HandoffExecutor
 from anycode.handoff.tool import HANDOFF_TOOL_DEF
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.hitl.approval import ApprovalManager
-from anycode.mcp.bridge import discover_and_register
-from anycode.mcp.client import MCPClient
 from anycode.memory.factory import create_vector_store
 from anycode.memory.indexer import RAGIndexer
 from anycode.memory.rag import RAGRetriever
@@ -82,11 +81,33 @@ logger = logging.getLogger(__name__)
 
 
 class TaskSpec:
-    def __init__(self, title: str, description: str, assignee: str | None = None, depends_on: list[str] | None = None) -> None:
+    """A unit of work for a team: what to do, who does it, and what it depends on."""
+
+    def __init__(
+        self,
+        title: str,
+        description: str | None = None,
+        assignee: str | None = None,
+        depends_on: list[str] | None = None,
+        *,
+        agent: Agent | AgentConfig | str | None = None,
+        expected_output: str | None = None,
+        context: Sequence[str] | None = None,
+    ) -> None:
         self.title = title
-        self.description = description
-        self.assignee = assignee
-        self.depends_on = depends_on or []
+        self.description = description if description is not None else title
+        self.assignee = assignee or _agent_name(agent)
+        self.depends_on = list(depends_on if depends_on is not None else (context or []))
+        self.expected_output = expected_output
+
+    def __repr__(self) -> str:
+        return f"TaskSpec(title={self.title!r}, assignee={self.assignee!r}, depends_on={self.depends_on!r})"
+
+
+def _agent_name(agent: Agent | AgentConfig | str | None) -> str | None:
+    if agent is None or isinstance(agent, str):
+        return agent
+    return agent.name
 
 
 class AnyCode:
@@ -186,6 +207,10 @@ class AnyCode:
         """Connect to all configured MCP servers and register their tools."""
         if not self._config.mcp_servers:
             return
+
+        # Imported here so building an orchestrator never loads the optional MCP SDK.
+        from anycode.mcp.bridge import discover_and_register
+        from anycode.mcp.client import MCPClient
 
         for server_config in self._config.mcp_servers:
             if server_config.name in self._mcp_clients:
@@ -348,6 +373,18 @@ class AnyCode:
             output_validators=self._output_validators,
             output_schema=output_schema,
         )
+
+    def register_agent(self, agent: Agent) -> Agent:
+        """Adopt a pre-built agent so teams and tasks reuse it instead of rebuilding it from config.
+
+        Returns the agent now registered under that name — the existing one if the pool
+        already holds it, so repeated registration is safe.
+        """
+        existing = self._pool.get(agent.name)
+        if existing is not None:
+            return existing
+        self._pool.add(agent)
+        return agent
 
     def register_plugin(self, plugin: Plugin) -> PluginInstallation:
         """Install a plugin and return the resulting installation record."""
@@ -844,7 +881,12 @@ class AnyCode:
         pending: list[tuple[Task, list[str]]] = []
 
         for spec in specs:
-            task = create_task(title=spec.title, description=spec.description, assignee=spec.assignee)
+            task = create_task(
+                title=spec.title,
+                description=spec.description,
+                assignee=spec.assignee,
+                expected_output=getattr(spec, "expected_output", None),
+            )
             title_map[spec.title] = task.id
             pending.append((task, spec.depends_on))
 
@@ -899,7 +941,8 @@ class AnyCode:
                 dep_context_parts.append(f"[{dep_task.title}]: {dep_task.result[:DEPENDENCY_CONTEXT_MAX_LENGTH]}")
 
         context = "\n\nRelevant output from prerequisite tasks:\n" + "\n\n".join(dep_context_parts) if dep_context_parts else ""
-        return f"Task: {task.title}\n\n{task.description}{context}"
+        expected = f"\n\nExpected output: {task.expected_output}" if task.expected_output else ""
+        return f"Task: {task.title}\n\n{task.description}{expected}{context}"
 
     def _parse_task_specs(self, output: str, agents: list[AgentConfig]) -> list[TaskSpec]:
         lines = [ln for ln in output.split("\n") if ln.strip().upper().startswith("ASSIGN:")]

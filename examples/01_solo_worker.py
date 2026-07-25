@@ -3,78 +3,48 @@
 # Requires: ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment or .env.
 
 import asyncio
-import os
 import sys
+import tempfile
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-from anycode import (
-    Agent,
-    AnyCode,
-    ToolExecutor,
-    ToolRegistry,
-    register_built_in_tools,
-)
+from anycode import Agent, AnyCode
 
 load_dotenv()
 
+SCRIPT_PATH = Path(tempfile.gettempdir(), "fibonacci.py").as_posix()
 
-def _resolve_provider() -> tuple[str, str]:
-    """Return (provider, model) based on available API keys."""
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return "anthropic", "claude-haiku-4-5"
-    if os.environ.get("OPENAI_API_KEY"):
-        return "openai", "gpt-4o-mini"
-    print("ERROR: Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env")
-    sys.exit(1)
+# --- Section A: one agent, blocking call, no event loop to manage ---
+# Provider and model are detected from whichever API key is present.
 
 
-PROVIDER, MODEL = _resolve_provider()
-
-# --- Section A: Quick one-shot execution via the orchestrator facade ---
-
-
-async def main() -> None:
-    engine = AnyCode(
-        config={
-            "default_model": MODEL,
-            "on_progress": lambda ev: print(
-                f'>> worker "{ev.agent}" activated'
-                if ev.type == "agent_start"
-                else (f'<< worker "{ev.agent}" finished' if ev.type == "agent_complete" else ""),
-            ),
-        }
-    )
-
-    print("Section A: one-shot task via engine.run_agent()\n")
-
-    outcome = await engine.run_agent(
-        config={
-            "name": "scripter",
-            "model": MODEL,
-            "provider": PROVIDER,
-            "system_prompt": (
-                "You are an efficient Python script writer. "
-                "Produce concise, working code without unnecessary explanation. "
-                "Leverage the provided tools to create and execute files."
-            ),
-            "tools": ["bash", "file_read", "file_write"],
-            "max_turns": 6,
-        },
-        prompt=(
-            "Write a tiny Python script at /tmp/fibonacci.py that:\n"
-            "1. Defines a function fibonacci(n: int) -> int that returns the nth Fibonacci number\n"
-            "2. Includes a docstring describing the algorithm\n"
-            "3. At the bottom, call fibonacci(10) and print the result\n"
-            "Then run the script with: python /tmp/fibonacci.py"
+def run_scripter() -> None:
+    scripter = Agent(
+        name="scripter",
+        instructions=(
+            "You are an efficient Python script writer. "
+            "Produce concise, working code without unnecessary explanation. "
+            "Use the provided tools to create and execute files."
         ),
+        tools=["bash", "file_read", "file_write"],
+        max_turns=6,
+    )
+    print(f"Section A: blocking run via Agent.run_sync() — {scripter!r}\n")
+
+    outcome = scripter.run_sync(
+        f"Write a tiny Python script at {SCRIPT_PATH} that:\n"
+        "1. Defines a function fibonacci(n: int) -> int that returns the nth Fibonacci number\n"
+        "2. Includes a docstring describing the algorithm\n"
+        "3. At the bottom, calls fibonacci(10) and prints the result\n"
+        f"Then run the script with: python {SCRIPT_PATH}"
     )
 
     if not outcome.success:
         print("Worker encountered an issue:", outcome.output)
         sys.exit(1)
 
-    print("\nWorker response:")
+    print("Worker response:")
     print("=" * 50)
     print(outcome.output)
     print("=" * 50)
@@ -84,28 +54,20 @@ async def main() -> None:
         f"tool invocations: {len(outcome.tool_calls)}"
     )
 
-    # --- Section B: Incremental streaming through the Agent class directly ---
+
+async def main() -> None:
+    # --- Section B: incremental streaming ---
 
     print("\n\nSection B: streaming via Agent.stream()\n")
 
-    registry = ToolRegistry()
-    register_built_in_tools(registry)
-    executor = ToolExecutor(registry)
-
     narrator = Agent(
-        config={
-            "name": "narrator",
-            "model": MODEL,
-            "provider": PROVIDER,
-            "system_prompt": "You are a concise technical explainer. Respond in two sentences max.",
-            "max_turns": 2,
-        },
-        tool_registry=registry,
-        tool_executor=executor,
+        name="narrator",
+        instructions="You are a concise technical explainer. Respond in two sentences max.",
+        tools=[],
+        max_turns=2,
     )
 
     sys.stdout.write("Stream output: ")
-
     async for chunk in narrator.stream("Explain what a closure is in Python in one sentence."):
         if chunk.type == "text" and isinstance(chunk.data, str):
             sys.stdout.write(chunk.data)
@@ -114,20 +76,16 @@ async def main() -> None:
         elif chunk.type == "error":
             print(f"\nStream failure: {chunk.data}")
 
-    # --- Section C: Multi-turn dialogue through Agent.prompt() ---
+    # --- Section C: multi-turn dialogue ---
 
     print("\nSection C: conversational turns via Agent.prompt()\n")
 
     mentor = Agent(
-        config={
-            "name": "mentor",
-            "model": MODEL,
-            "provider": PROVIDER,
-            "system_prompt": "You are a Python tutor. Give brief, practical answers.",
-            "max_turns": 2,
-        },
-        tool_registry=ToolRegistry(),
-        tool_executor=ToolExecutor(ToolRegistry()),
+        name="mentor",
+        role="a Python tutor",
+        goal="give brief, practical answers",
+        tools=[],
+        max_turns=2,
     )
 
     first_reply = await mentor.prompt("What are list comprehensions in Python?")
@@ -137,8 +95,38 @@ async def main() -> None:
     print("\nReply 2:", follow_up.output[:280])
 
     print(f"\nDialogue history length: {len(mentor.get_history())} messages")
+
+    # --- Section D: the engine path, for orchestration-level concerns ---
+
+    print("\nSection D: orchestrator events via AnyCode.run_agent()\n")
+
+    engine = AnyCode(
+        config={
+            "on_progress": lambda ev: print(
+                f'>> worker "{ev.agent}" activated'
+                if ev.type == "agent_start"
+                else (f'<< worker "{ev.agent}" finished' if ev.type == "agent_complete" else ""),
+            ),
+        }
+    )
+
+    summary = await engine.run_agent(
+        config={
+            "name": "summarizer",
+            "model": mentor.config.model,
+            "provider": mentor.config.provider,
+            "system_prompt": "Summarize in one sentence.",
+            "tools": [],
+            "max_turns": 2,
+        },
+        prompt="Summarize what a Python decorator does.",
+    )
+    print("Summary:", summary.output.strip())
+    await engine.close()
+
     print("\nDone.")
 
 
 if __name__ == "__main__":
+    run_scripter()
     asyncio.run(main())

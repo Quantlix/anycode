@@ -1,188 +1,215 @@
 ---
-title: "AnyCode Quickstart — Run Your First Agent and Team"
-description: Run your first AnyCode agent, then a dependency-aware team of planner, writer, and reviewer agents, using provider auto-detection for Anthropic or OpenAI.
-keywords: anycode quickstart, run ai agent python, multi-agent team, task dependencies, anthropic openai agent, run_agent, run_tasks, create_team
+title: "AnyCode Quickstart — Your First Agent, Crew, and Workflow"
+description: Build an AnyCode agent with a custom tool in ten lines, then a crew with dependent tasks, then a workflow graph with a review loop, using automatic provider detection.
+keywords: anycode quickstart, python ai agent, tool decorator, crew tasks, workflow graph, run_sync, provider auto detection, first agent, multi agent python
 ---
 
-# AnyCode Quickstart
+# Quickstart
 
-Run your first AnyCode agent in a few lines of Python, then coordinate a three-agent team with task dependencies. This quickstart uses provider auto-detection, so it works whether you have an Anthropic or an OpenAI key.
-
-You will build two scripts: a single agent that answers one prompt, and a planner → writer → reviewer team where each task feeds the next. Both use the same core API — `AnyCode`, `run_agent`, `run_tasks`, and `create_team` — so the jump from one agent to a coordinated team is small.
+Three levels, each building on the last. Every snippet is complete — copy it into a file
+and run it.
 
 !!! note "Before you start"
-    You need AnyCode installed on Python 3.12+ and at least one provider key (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) in your environment. See [Installation](installation.md) if you have not done that yet.
+    Python 3.12+, AnyCode installed, and one provider key in your environment or `.env`
+    (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, or `OLLAMA_BASE_URL`).
+    See [Installation](installation.md).
 
-## Run your first agent
+---
 
-Create `quickstart_agent.py`. The script picks a provider and model from whichever key it finds, spins up an `AnyCode` engine, and runs one agent to completion:
+## Level 1 — one agent, one tool
 
-```python title="quickstart_agent.py"
-import asyncio
-import os
-
+```python
+# quickstart_agent.py
 from dotenv import load_dotenv
 
-from anycode import AnyCode
+from anycode import Agent, tool
 
 load_dotenv()
 
 
-def resolve_model() -> tuple[str, str]:
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return "anthropic", "claude-haiku-4-5"
-    if os.environ.get("OPENAI_API_KEY"):
-        return "openai", "gpt-4o-mini"
-    raise RuntimeError("Set ANTHROPIC_API_KEY or OPENAI_API_KEY first.")
+@tool
+def word_count(text: str) -> int:
+    """Count the words in a block of text."""
+    return len(text.split())
 
 
-async def main() -> None:
-    provider, model = resolve_model()
-    engine = AnyCode(config={"default_provider": provider, "default_model": model})
+editor = Agent(
+    name="editor",
+    instructions="You are a concise copy editor. Use your tools rather than guessing.",
+    tools=[word_count],
+)
 
-    result = await engine.run_agent(
-        config={
-            "name": "explainer",
-            "provider": provider,
-            "model": model,
-            "system_prompt": "You explain Python clearly and briefly.",
-            "tools": [],
-            "max_turns": 2,
-        },
-        prompt="Explain what an async generator is in two sentences.",
-    )
-
-    print(result.output)
-    print(f"tokens: in={result.token_usage.input_tokens} out={result.token_usage.output_tokens}")
-
-
-asyncio.run(main())
+result = editor.run_sync("How many words are in: 'the quick brown fox jumps over it'?")
+print(result.output)
+print(f"{result.token_usage.input_tokens} in / {result.token_usage.output_tokens} out")
 ```
-
-Run it:
 
 ```bash
 uv run python quickstart_agent.py
 ```
 
-The `run_agent` call returns a result object with two things worth noting:
+Three things happened without you asking:
 
-- `result.output` — the agent's final text response.
-- `result.token_usage` — input and output token counts for the run.
+- **The provider was detected** from whichever API key is set, along with a sensible default
+  model. Pass `provider=` and `model=` to override.
+- **The tool schema was derived** from the signature, and its description from the
+  docstring. No input model, no registry, no executor.
+- **`run_sync` handled the event loop.** Use `await agent.run(...)` inside async code.
 
-!!! tip "Give the agent tools"
-    This agent runs with `tools: []`, so it only reasons and replies. To let an agent read files, run commands, or call your own functions, pass built-in or custom tools — see [Work with tools](../guides/tools.md).
+Streaming and conversation are one method away:
 
-## Run a team with dependencies
+```python
+for event in editor.stream_sync("Explain closures in one sentence."):
+    if event.type == "text":
+        print(event.data, end="", flush=True)
 
-A single agent answers one prompt. A team coordinates several agents through a task graph. Create `quickstart_team.py` — it defines a `planner`, a `writer`, and a `reviewer`, then wires three tasks so each one depends on the previous:
+editor.prompt_sync("What is a generator?")
+editor.prompt_sync("Show one example.")  # remembers the first turn
+```
 
-```python title="quickstart_team.py"
-import asyncio
-import os
+---
 
+## Level 2 — a crew with dependent tasks
+
+When one agent is not enough, give each a role and let the work flow between them.
+
+```python
+# quickstart_crew.py
 from dotenv import load_dotenv
 
-from anycode import AgentConfig, AnyCode, TaskSpec, TeamConfig
+from anycode import Agent, Crew, TaskSpec
 
 load_dotenv()
 
-PROVIDER = "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
-MODEL = "claude-haiku-4-5" if PROVIDER == "anthropic" else "gpt-4o-mini"
+researcher = Agent(
+    name="researcher",
+    role="a research analyst",
+    goal="gather concrete, verifiable facts",
+    tools=[],
+)
+writer = Agent(
+    name="writer",
+    role="a technical writer",
+    goal="turn findings into prose a busy reader finishes",
+    backstory="You write for engineers who want the point in the first sentence.",
+    tools=[],
+)
+
+crew = Crew(
+    agents=[researcher, writer],
+    tasks=[
+        TaskSpec("Research", "List three concrete tradeoffs of vector databases.", agent=researcher),
+        TaskSpec(
+            "Write",
+            "Turn those tradeoffs into a short briefing.",
+            agent=writer,
+            depends_on=["Research"],
+            expected_output="Under 120 words, no bullet points.",
+        ),
+    ],
+    verbose=True,
+)
+
+result = crew.run_sync()
+print(result)  # the final task's output
+print(result.usage.output_tokens)
+```
+
+`depends_on` names the earlier task by title; its output is fed into the later prompt.
+Independent tasks run concurrently. Set `process="sequential"` to chain everything in
+declaration order, or drop `tasks` entirely and call `crew.run("some goal")` to have the
+first agent plan the work itself.
+
+---
+
+## Level 3 — a workflow with a loop
+
+A crew fans out over dependencies. When you need branching, looping, or retry, use a
+workflow graph.
+
+```python
+# quickstart_workflow.py
+import asyncio
+
+from dotenv import load_dotenv
+from pydantic import BaseModel, ConfigDict
+
+from anycode import END, START, Agent, Workflow
+
+load_dotenv()
+
+
+class ReviewState(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    topic: str = ""
+    draft: str = ""
+    critique: str = ""
+    rounds: int = 0
+
+
+writer = Agent(name="writer", instructions="Write a two-sentence technical blurb.", tools=[])
+critic = Agent(
+    name="critic",
+    instructions="Reply with exactly APPROVED, or one sentence naming the biggest problem.",
+    tools=[],
+)
+
+workflow = Workflow(ReviewState)
+
+
+@workflow.node
+async def write(state: ReviewState) -> dict:
+    prior = f"\n\nFix this: {state.critique}" if state.critique else ""
+    result = await writer.run(f"Write about {state.topic}.{prior}")
+    return {"draft": result.output, "rounds": state.rounds + 1}
+
+
+@workflow.node
+async def review(state: ReviewState) -> dict:
+    result = await critic.run(state.draft)
+    return {"critique": result.output}
+
+
+def gate(state: ReviewState) -> str:
+    approved = "APPROVED" in state.critique.upper()
+    return END if approved or state.rounds >= 3 else "write"
+
+
+workflow.add_edge(START, "write")
+workflow.add_edge("write", "review")
+workflow.add_conditional_edge("review", gate)
 
 
 async def main() -> None:
-    engine = AnyCode(config={"max_concurrency": 3})
-
-    team = engine.create_team(
-        "guide-crew",
-        TeamConfig(
-            name="guide-crew",
-            shared_memory=True,
-            agents=[
-                AgentConfig(
-                    name="planner",
-                    provider=PROVIDER,
-                    model=MODEL,
-                    system_prompt="Create concise technical plans.",
-                    tools=[],
-                ),
-                AgentConfig(
-                    name="writer",
-                    provider=PROVIDER,
-                    model=MODEL,
-                    system_prompt="Turn plans into clear developer documentation.",
-                    tools=[],
-                ),
-                AgentConfig(
-                    name="reviewer",
-                    provider=PROVIDER,
-                    model=MODEL,
-                    system_prompt="Review documentation for clarity and missing steps.",
-                    tools=[],
-                ),
-            ],
-        ),
-    )
-
-    result = await engine.run_tasks(
-        team,
-        [
-            TaskSpec(
-                title="Plan guide",
-                description="Outline a getting started guide for a Python agent framework.",
-                assignee="planner",
-            ),
-            TaskSpec(
-                title="Draft guide",
-                description="Write the guide using the planner output.",
-                assignee="writer",
-                depends_on=["Plan guide"],
-            ),
-            TaskSpec(
-                title="Review guide",
-                description="Review the draft and list concrete improvements.",
-                assignee="reviewer",
-                depends_on=["Draft guide"],
-            ),
-        ],
-    )
-
-    print(f"success={result.success}")
-    for agent_name, agent_result in result.agent_results.items():
-        print(f"\n[{agent_name}]\n{agent_result.output[:600]}")
+    app = workflow.compile()
+    print(app.to_mermaid())
+    result = await app.run(ReviewState(topic="hybrid search"), max_steps=8)
+    print(result.state.draft)
+    print("path:", " -> ".join(result.path))
 
 
 asyncio.run(main())
 ```
 
-Run it:
+Nodes return a **patch** — the fields they changed — and never mutate state. `compile()`
+validates the graph before anything runs and reports every structural problem at once.
+`max_steps` turns a runaway loop into an inspectable result instead of a hang.
 
-```bash
-uv run python quickstart_team.py
-```
+---
 
-The key pieces of the team API are:
+## Where to go next
 
-- `TeamConfig` and `AgentConfig` — declare the team and the role, provider, model, and tools of each agent.
-- `shared_memory=True` — lets agents share context across the run.
-- `TaskSpec(..., depends_on=[...])` — declares which tasks must finish before a task can start.
-- `create_team` and `run_tasks` — register the team and execute the task graph.
+| You want | Read |
+|---|---|
+| More on tools | [Function tools](../guides/function-tools.md) |
+| More on teams | [Crews](../guides/crews.md) |
+| More on graphs | [Workflows](../guides/workflows.md) |
+| Long-running research agents | [Long-horizon agents](../guides/long-horizon-agents.md) |
+| Copy-paste snippets | [Recipes](../reference/recipes.md) |
+| Durability, gates, sandboxes | [How-to guides](../guides/index.md) |
 
-## What happened
-
-The team example creates three agents and three tasks. When you call `run_tasks`, AnyCode:
-
-1. Resolves the `depends_on` relationships into a dependency graph.
-2. Runs each ready task in a concurrent wave, bounded by `max_concurrency`.
-3. Passes each dependency's result into the prompts of the tasks that follow it.
-4. Returns a `TeamRunResult` with per-agent outputs, token usage, lifecycle data, and optional verification data.
-
-Because `Draft guide` depends on `Plan guide` and `Review guide` depends on `Draft guide`, the three tasks run in order — the writer sees the planner's output, and the reviewer sees the writer's draft.
-
-## Next steps
-
-- [Agents and teams](../concepts/agents-and-teams.md) — the mental model behind agents, tasks, and team runs.
-- [Run a multi-agent team](../guides/multi-agent-team.md) — a fuller walkthrough of team coordination.
-- [Work with tools](../guides/tools.md) — let agents read files, call APIs, or run local functions.
-- [Use YAML config](../guides/yaml-config.md) — define and run the same workflows outside Python code.
+Everything above is a facade over the `AnyCode` engine, which stays public and unchanged.
+When you need durable runs, MCP servers, plugins, routing, or verification gates, either
+pass those options through `Crew(...)` or use
+[`AnyCode`](../guides/multi-agent-team.md) directly.

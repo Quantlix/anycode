@@ -7,6 +7,7 @@ try:
 except ImportError as e:  # pragma: no cover - import-time guard
     raise RuntimeError("AnyCode CLI requires the 'cli' extras. Install with: pip install 'anycode-py[cli]'") from e
 
+from anycode.cli.commands import api as api_cmd
 from anycode.cli.commands import init as init_cmd
 from anycode.cli.commands import inspect as inspect_cmd
 from anycode.cli.commands import run as run_cmd
@@ -23,6 +24,7 @@ app = typer.Typer(
 )
 
 app.command("init", help="Scaffold a new AnyCode project.")(init_cmd.command)
+app.command("api", help="Print the public API surface as a table or JSON.")(api_cmd.command)
 app.command("run", help="Run an AnyCode team or agent from a config file or flags.")(run_cmd.command)
 app.command("inspect", help="Inspect built-in tools, providers, or a team config.")(inspect_cmd.command)
 app.command("version", help="Print the AnyCode version and runtime info.")(version_cmd.command)

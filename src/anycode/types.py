@@ -108,6 +108,7 @@ ExecutionPhase = Literal[
 StopReasonCode = Literal[
     "success",
     "max_turns",
+    "max_steps",
     "budget_exceeded",
     "context_pressure",
     "tool_error",
@@ -603,6 +604,7 @@ class Task(BaseModel):
     status: TaskStatus = "pending"
     assignee: str | None = None
     depends_on: list[str] | None = None
+    expected_output: str | None = None
     result: str | None = None
     created_at: datetime
     updated_at: datetime

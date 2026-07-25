@@ -38,7 +38,7 @@ AnyCode is built for experimentation, evaluation, local development, research pr
 | --- | --- |
 | Distribution | `anycode-py` |
 | Import package | `anycode` |
-| Current version | `0.9.0` |
+| Current version | `0.10.0` |
 | Python | `>=3.12` |
 | Project status | Alpha |
 | License | MIT |
@@ -64,6 +64,10 @@ Key use cases include:
 
 | Area | What is available today |
 | --- | --- |
+| Getting started | `Agent(name=..., tools=[...])`, the `@tool` decorator, `run_sync`, and provider auto-detection |
+| Multi-agent | `Crew` over the wavefront scheduler, with `TaskSpec` dependencies and `expected_output` |
+| Control flow | `Workflow` state graphs with conditional edges, loops, fan-out, reducers, and a step cap |
+| Long-horizon | `planning=`, `subagents=`, and `workspace=` on the same `Agent` — no separate deep-agent class |
 | Core orchestration | `AnyCode`, `Agent`, `AgentRunner`, `AgentPool`, `Team`, `TaskQueue`, and `Scheduler` |
 | Team coordination | `MessageBus`, `SharedMemory`, task queues, event callbacks, and team-level results |
 | Task scheduling | Explicit `TaskSpec` dependencies, topological sort, wavefront execution, and cascading failure handling |
@@ -78,6 +82,7 @@ Key use cases include:
 | Verification | Built-in `ruff`, `pyright`, `pytest`, `schema`, and `regex` sensors with quality gate decisions |
 | Evaluation | Scenario loading, deterministic fake responses, benchmark reports, markdown rendering, and report comparison |
 | Developer experience | CLI commands, YAML/TOML config, examples cookbook, CLI inspection, and deterministic eval reports |
+| AI agent affordances | `anycode api` and `anycode.describe()` for a machine-readable API map, plus a recipes page |
 | Extension ecosystem | Typed `Plugin` bundles (tools, provider factories, sensors, hooks) registered via `engine.register_plugin()` or auto-discovered through the `anycode.plugins` entry-point group |
 | Service client | Dependency-free TypeScript preview for lifecycle, artifact, cancellation, and resumable-stream operations in Node.js 20+ and modern browsers |
 
@@ -144,127 +149,88 @@ Only one supported provider is required to run the basic examples. Never commit 
 ### 4. Run One Agent
 
 ```python
-import asyncio
-import os
-
 from dotenv import load_dotenv
 
-from anycode import AnyCode
+from anycode import Agent, tool
 
 load_dotenv()
 
 
-def resolve_model() -> tuple[str, str]:
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return "anthropic", "claude-haiku-4-5"
-    if os.environ.get("OPENAI_API_KEY"):
-        return "openai", "gpt-4o-mini"
-    raise RuntimeError("Set ANTHROPIC_API_KEY or OPENAI_API_KEY first.")
+@tool
+def word_count(text: str) -> int:
+    """Count the words in a block of text."""
+    return len(text.split())
 
 
-async def main() -> None:
-    provider, model = resolve_model()
-    engine = AnyCode(config={"default_provider": provider, "default_model": model})
+editor = Agent(
+    name="editor",
+    instructions="You are a concise copy editor. Use your tools rather than guessing.",
+    tools=[word_count],
+)
 
-    result = await engine.run_agent(
-        config={
-            "name": "explainer",
-            "provider": provider,
-            "model": model,
-            "system_prompt": "You explain Python clearly and briefly.",
-            "tools": [],
-            "max_turns": 2,
-        },
-        prompt="Explain what an async generator is in two sentences.",
-    )
-
-    print(result.output)
-    print(f"tokens: in={result.token_usage.input_tokens} out={result.token_usage.output_tokens}")
-
-
-asyncio.run(main())
+result = editor.run_sync("How many words are in: 'the quick brown fox jumps over it'?")
+print(result.output)
+print(f"tokens: in={result.token_usage.input_tokens} out={result.token_usage.output_tokens}")
 ```
 
-### 5. Run A Team With Dependencies
+The provider and model are detected from whichever API key is present, the tool schema
+comes from the function signature, and its description comes from the docstring. Pass
+`provider=` and `model=` to be explicit, and use `await agent.run(...)` inside async code.
+
+### 5. Run A Crew With Dependencies
 
 ```python
-import asyncio
-import os
-
 from dotenv import load_dotenv
 
-from anycode import AgentConfig, AnyCode, TaskSpec, TeamConfig
+from anycode import Agent, Crew, TaskSpec
 
 load_dotenv()
 
-PROVIDER = "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
-MODEL = "claude-haiku-4-5" if PROVIDER == "anthropic" else "gpt-4o-mini"
+researcher = Agent(name="researcher", role="a research analyst", goal="gather the facts", tools=[])
+writer = Agent(name="writer", role="a technical writer", goal="turn facts into prose", tools=[])
 
-
-async def main() -> None:
-    engine = AnyCode(config={"max_concurrency": 3})
-
-    team = engine.create_team(
-        "guide-crew",
-        TeamConfig(
-            name="guide-crew",
-            shared_memory=True,
-            agents=[
-                AgentConfig(
-                    name="planner",
-                    provider=PROVIDER,
-                    model=MODEL,
-                    system_prompt="Create concise technical plans.",
-                    tools=[],
-                ),
-                AgentConfig(
-                    name="writer",
-                    provider=PROVIDER,
-                    model=MODEL,
-                    system_prompt="Turn plans into clear developer documentation.",
-                    tools=[],
-                ),
-                AgentConfig(
-                    name="reviewer",
-                    provider=PROVIDER,
-                    model=MODEL,
-                    system_prompt="Review documentation for clarity and missing steps.",
-                    tools=[],
-                ),
-            ],
+crew = Crew(
+    agents=[researcher, writer],
+    tasks=[
+        TaskSpec("Research", "List three tradeoffs of vector databases.", agent=researcher),
+        TaskSpec(
+            "Write",
+            "Turn those tradeoffs into a short briefing.",
+            agent=writer,
+            depends_on=["Research"],
+            expected_output="Under 120 words, no bullet points.",
         ),
-    )
+    ],
+    verbose=True,
+)
 
-    result = await engine.run_tasks(
-        team,
-        [
-            TaskSpec(
-                title="Plan guide",
-                description="Outline a getting started guide for a Python agent framework.",
-                assignee="planner",
-            ),
-            TaskSpec(
-                title="Draft guide",
-                description="Write the guide using the plan from the planner.",
-                assignee="writer",
-                depends_on=["Plan guide"],
-            ),
-            TaskSpec(
-                title="Review guide",
-                description="Review the draft and list concrete improvements.",
-                assignee="reviewer",
-                depends_on=["Draft guide"],
-            ),
-        ],
-    )
-
-    print(f"success={result.success}")
-    for agent_name, agent_result in result.agent_results.items():
-        print(f"\n[{agent_name}]\n{agent_result.output[:600]}")
-
-
-asyncio.run(main())
+result = crew.run_sync()
+print(result)
 ```
+
+Independent tasks run concurrently; `depends_on` feeds one task's output into the next.
+Drop `tasks` and call `crew.run("some goal")` to have the first agent plan the work itself.
+`Crew` is a facade over the `AnyCode` engine, which stays public — see
+[Run a multi-agent team](https://quantlix.github.io/anycode/latest/guides/multi-agent-team/)
+for the engine-level API.
+
+### 5b. Compose A Workflow With Branching
+
+```python
+from anycode import END, START, Agent, Workflow
+
+workflow = Workflow()
+workflow.add_node("draft", Agent(name="writer", tools=[]), input_key="topic", output_key="draft")
+workflow.add_edge(START, "draft")
+workflow.add_conditional_edge("draft", lambda state: END if state["draft"] else "draft")
+
+result = workflow.compile().run_sync({"topic": "hybrid search"})
+print(result.state["draft"], result.path)
+```
+
+Use a crew when the work is a dependency graph, and a workflow when you need branching,
+looping, or retry. See [Workflows](https://quantlix.github.io/anycode/latest/guides/workflows/).
+
 
 ### 6. Use YAML Or TOML Config
 

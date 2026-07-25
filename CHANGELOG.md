@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-25
+
+Developer-experience release. **No 0.9.0 API was removed, renamed, or changed** — every
+existing program runs unchanged. See [Migrating to 0.10](https://quantlix.github.io/anycode/latest/contributing/migration-0.10/).
+
+### Added
+
+- **`@tool` decorator** - any Python function becomes an agent tool. The signature becomes the Pydantic input model, the Google-style docstring becomes the description and per-parameter descriptions, and the return value is coerced into a `ToolResult`. Sync functions run off the event loop; a `ToolUseContext` parameter is injected rather than exposed in the schema; `Annotated` constraints survive into the JSON Schema. The decorated function stays directly callable. `as_tool_definition()` normalizes a `ToolDefinition`, a decorated function, a plain function, or a built-in tool name.
+- **Keyword agent construction** - `Agent(name=..., instructions=..., tools=[...])` wires its own registry and executor, so one working agent is one object instead of three. Provider and model are auto-detected from whichever credentials are present (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `AZURE_OPENAI_API_KEY`, `AWS_DEFAULT_REGION`, `OLLAMA_BASE_URL`), overridable with `ANYCODE_DEFAULT_PROVIDER` / `ANYCODE_DEFAULT_MODEL`. CrewAI-style `role`/`goal`/`backstory` compose into a system prompt. `tools=` accepts functions, `ToolDefinition`s, and built-in names.
+- **Blocking entry points** - `Agent.run_sync`, `prompt_sync`, `stream_sync` (incremental, via a worker loop), `call_tool` / `call_tool_sync`, plus `Crew.run_sync` and `CompiledWorkflow.run_sync` / `stream_sync`.
+- **`Crew`** - a one-import multi-agent entry point over the existing wavefront scheduler. Tasks accept a `TaskSpec`, a dict, or a bare string title; `process="sequential"` chains tasks that declare no dependency of their own; with no tasks, `run(goal)` falls through to coordinator decomposition. `CrewResult` exposes `success`, `output`, `outputs`, `usage`, and `cost` while keeping the full `TeamRunResult` attached.
+- **`Workflow`** - a state-graph runtime for branching, looping, retry, and fan-out. Frozen Pydantic state (or a dict), nodes returning patches, `Command` for dynamic routing, reducers (`add`, `merge`, `keep_first`, `keep_last`), conditional edges with or without a path map, compile-time validation that aggregates every structural problem, a `max_steps` cap surfaced as the new `max_steps` stop reason, event streaming, and `to_mermaid()` / `to_dict()`. Nodes may be async or sync functions, an `Agent`, a `Crew`, or another compiled workflow.
+- **Long-horizon capabilities on `Agent`** - `planning=True` registers `write_todos` and exposes `agent.todos`; `subagents=[SubAgentSpec(...)]` registers a `delegate` tool whose sub-agents run on a fresh conversation with depth capped at one and usage merged into the parent result; `workspace=` creates a directory and confines the file tools to it. Each is inert unless switched on. There is no separate deep-agent class.
+- **`TaskSpec` ergonomics** - `agent=`, `expected_output=`, and `context=`, with `description` defaulting to the title. `expected_output` reaches the agent prompt as an explicit line, and `Task` carries it through the queue and checkpoints.
+- **Machine-readable API map** - `anycode.describe()` and the `anycode api` command (`--core`, `--compact`, `--json`, or a single symbol) render the public surface as data so an AI coding agent can learn the API without reading the source.
+- **`AnyCode.register_agent(agent)`** - adopt a pre-built agent into an engine so it keeps the tool registry it was constructed with.
+- **Documentation** - new guides for function tools, crews, workflows, and long-horizon agents; a recipes page of runnable snippets; an orientation page for AI coding agents; a core-surface table in the public API reference; and a migration page.
+- **Examples** - `45_function_tools.py`, `46_crew_quickstart.py`, `47_workflow_graph.py`, and `48_long_horizon_agent.py`, all verified against a live provider.
+
+### Changed
+
+- **Lazy public API** - `import anycode` dropped from ~1913 ms and 1312 modules to ~33 ms and 73 modules. Symbols resolve on first attribute access and cache into the module namespace; a `TYPE_CHECKING` block keeps every name statically resolvable. Optional dependencies (chromadb, redis, OpenTelemetry, the MCP SDK, provider clients) are imported only when their code path runs. Unknown attributes raise `AttributeError` with a did-you-mean suggestion. First use of `Agent` fell from 1758 ms to ~414 ms, and of `Crew` from 1855 ms to ~476 ms.
+- **`Agent(tools=[])` means no tools.** An empty list was previously indistinguishable from `None`; `tools=None` remains the default and still means every built-in tool.
+- **Missing optional memory backends** report the extra to install instead of silently vanishing from `anycode.memory.__all__`.
+
+### Fixed
+
+- **Latent circular import** - `anycode.types` → `identity` → `contracts` → `helpers` → `anycode.types` meant `import anycode.types` failed on its own; the eager package `__init__` had been masking it. Each of `anycode.types`, `.helpers`, `.contracts`, `.identity`, `.core`, and `.memory` is now importable standalone.
+- **`Agent.call_tool` could not invoke a side-effecting tool** - it now supplies a fresh idempotency key when the arguments do not carry one.
+- **Clock-resolution flake in `FilesystemRunStore.mark_interrupted_runs`** - the staleness cutoff is inclusive, so `stale_after_seconds=0` means "every running run is stale" even when the platform clock has not ticked since the heartbeat was written.
+
 ## [0.9.0] - 2026-07-24
 
 ### Added
