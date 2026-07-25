@@ -222,6 +222,14 @@ from anycode.telemetry.metrics import MetricsCollector, Timer
 from anycode.telemetry.tracer import ConsoleExporter, JSONLExporter, OTLPExporter, Span, Tracer
 from anycode.tools.built_in import BUILT_IN_TOOLS, register_built_in_tools
 from anycode.tools.executor import ToolExecutor
+from anycode.tools.function_tool import (
+    ToolDefinitionError,
+    as_tool_definition,
+    build_tool_definition,
+    builtin_tool_names,
+    function_tool,
+    tool,
+)
 from anycode.tools.idempotency import (
     IdempotencyClaim,
     InMemoryToolIdempotencyStore,
@@ -637,6 +645,12 @@ __all__ = [
     # Tools
     "ToolRegistry",
     "ToolExecutor",
+    "tool",
+    "function_tool",
+    "as_tool_definition",
+    "build_tool_definition",
+    "builtin_tool_names",
+    "ToolDefinitionError",
     "IdempotencyClaim",
     "InMemoryToolIdempotencyStore",
     "SQLiteToolIdempotencyStore",

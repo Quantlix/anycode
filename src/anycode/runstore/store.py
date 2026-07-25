@@ -272,11 +272,15 @@ class FilesystemRunStore:
 
         Call on startup so a crashed process never leaves phantom `running`
         states behind. Returns the run ids that were transitioned.
+
+        The cutoff is inclusive: a heartbeat at least ``stale_after_seconds`` old is
+        stale. That makes ``stale_after_seconds=0`` mean "every running run is stale"
+        even on platforms whose clock has not ticked since the heartbeat was written.
         """
         cutoff = _now() - timedelta(seconds=stale_after_seconds)
         interrupted: list[str] = []
         for record in self.list_runs():
-            if record.status == "running" and record.last_heartbeat < cutoff:
+            if record.status == "running" and record.last_heartbeat <= cutoff:
                 self.update_status(record.run_id, "interrupted")
                 interrupted.append(record.run_id)
         return interrupted
