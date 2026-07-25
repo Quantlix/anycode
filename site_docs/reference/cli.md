@@ -14,6 +14,7 @@ The `anycode` command-line interface scaffolds projects, runs team configs, insp
 | [`anycode init`](#anycode-init) | Scaffold a starter project with config, code, and tooling. |
 | [`anycode run`](#anycode-run) | Run a YAML or TOML team config. |
 | [`anycode inspect`](#anycode-inspect) | Inspect tools, providers, plugins, config, and team. |
+| [`anycode api`](#anycode-api) | Print the public API surface as a table or as JSON. |
 | [`anycode eval`](#anycode-eval) | Run (`run`) or compare (`compare`) evaluation suites. |
 | [`anycode runs`](#anycode-runs) | Inspect durable run stores (list, show, tail, audit, sweep). |
 | [`anycode harness`](#anycode-harness) | Emit a harness manifest (`manifest`) or run an experimental evolution sweep (`evolve`). |
@@ -60,6 +61,34 @@ uv run anycode run team.yaml
 ```
 
 The config can include agents, tasks, cost controls, routing, RAG, reflection, verification, and context engineering blocks. See the [YAML config guide](../guides/yaml-config.md) for the full schema.
+
+## `anycode api`
+
+Print the public API surface. Written for humans skimming and for AI coding agents that
+should not have to read the source tree to learn the API.
+
+```bash
+uv run anycode api --core        # the 15 symbols covering most use, with live signatures
+uv run anycode api Agent         # one symbol, full signature, kind, module, and summary
+uv run anycode api --compact     # every symbol, names and summaries only
+uv run anycode api --json        # machine-readable, stable key order
+uv run anycode api --kind model  # filter by class, model, protocol, function, type, constant, module
+```
+
+| Option | Effect |
+| --- | --- |
+| *(no argument)* | Every public symbol, grouped by module |
+| `<Symbol>` | One symbol in full |
+| `--core` | Only `anycode.CORE_SURFACE` |
+| `--compact` | Drop signatures |
+| `--json` | Emit JSON instead of a table |
+| `--kind <kind>` | Filter by symbol kind |
+
+Approximate output sizes: `--core` 4.6 KB, `--compact` 29 KB, full JSON 139 KB. Start with
+`--core`; it is the artifact meant to go into a prompt.
+
+The same data is available in Python through `anycode.describe()`, which returns an
+`ApiMap`, or `anycode.describe("Agent")`, which returns a single `ApiEntry`.
 
 ## `anycode inspect`
 

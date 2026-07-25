@@ -10,6 +10,11 @@ Documentation is versioned; the links below point to the `latest` release alias.
 
 ## Start Here
 
+If you are an AI coding agent, read the LLM guide and the recipes page first; together they
+cover most tasks without reading source.
+
+- [Using AnyCode from an AI coding agent](https://quantlix.github.io/anycode/latest/reference/llm-guide/): The core surface, which abstraction to pick, and the mistakes to avoid.
+- [Recipes](https://quantlix.github.io/anycode/latest/reference/recipes/): Complete, runnable snippets for the common tasks.
 - [Documentation home](https://quantlix.github.io/anycode/latest/): Overview, feature map, and recommended reading path.
 - [Installation](https://quantlix.github.io/anycode/latest/getting-started/installation/): Install commands, extras, provider keys, and verification steps.
 - [Quickstart](https://quantlix.github.io/anycode/latest/getting-started/quickstart/): Single-agent and multi-agent examples.
@@ -25,8 +30,12 @@ Documentation is versioned; the links below point to the `latest` release alias.
 
 ## How-to Guides
 
-- [Run a multi-agent team](https://quantlix.github.io/anycode/latest/guides/multi-agent-team/): Build a planner, builder, and reviewer workflow.
-- [Work with tools](https://quantlix.github.io/anycode/latest/guides/tools/): Built-in tools and custom Pydantic tools.
+- [Function tools](https://quantlix.github.io/anycode/latest/guides/function-tools/): Turn any Python function into a tool with the @tool decorator.
+- [Run a crew](https://quantlix.github.io/anycode/latest/guides/crews/): Several agents over a task list with dependencies and expected output.
+- [Build a workflow](https://quantlix.github.io/anycode/latest/guides/workflows/): State graphs with conditional edges, loops, fan-out, and reducers.
+- [Long-horizon agents](https://quantlix.github.io/anycode/latest/guides/long-horizon-agents/): Planning, sub-agent delegation, and a confined workspace on the same Agent.
+- [Run a multi-agent team](https://quantlix.github.io/anycode/latest/guides/multi-agent-team/): The engine-level API beneath Crew.
+- [Work with tools](https://quantlix.github.io/anycode/latest/guides/tools/): The typed define_tool path, for schemas a signature cannot express.
 - [Structured output](https://quantlix.github.io/anycode/latest/guides/structured-output/): Force a validated Pydantic object with run_structured and output_schema.
 - [Configure providers](https://quantlix.github.io/anycode/latest/guides/providers/): Anthropic, OpenAI, Google, Ollama, Bedrock, Azure, and retry resilience.
 - [Stream agent output](https://quantlix.github.io/anycode/latest/guides/streaming/): StreamEvent types, chat fallback, and parallel tool execution.
@@ -58,7 +67,9 @@ Documentation is versioned; the links below point to the `latest` release alias.
 
 ## Reference
 
-- [Public API](https://quantlix.github.io/anycode/latest/reference/public-api/): Core classes, config models, result models, tools, and provider factory.
+- [Recipes](https://quantlix.github.io/anycode/latest/reference/recipes/): Copy-paste snippets for tools, agents, crews, workflows, memory, MCP, cost, and gates.
+- [Using AnyCode from an AI coding agent](https://quantlix.github.io/anycode/latest/reference/llm-guide/): Token-efficient orientation, plus the `anycode api` command.
+- [Public API](https://quantlix.github.io/anycode/latest/reference/public-api/): The core surface table, then core classes, config models, result models, tools, and provider factory.
 - [Complete API inventory](https://quantlix.github.io/anycode/latest/reference/api-inventory/): Every supported package-root export, generated from source docstrings.
 - [Runtime contracts and baseline](https://quantlix.github.io/anycode/latest/reference/runtime-contracts/): Lifecycle transitions, verification boundaries, persisted formats, supported local resume, and reproducible baseline evidence.
 - [Semantic contracts](https://quantlix.github.io/anycode/latest/reference/semantic-contracts/): Versioned JSON models, state and cancellation rules, event projections, fenced operations, and artifacts.
@@ -66,13 +77,13 @@ Documentation is versioned; the links below point to the `latest` release alias.
 - [Security and threat model](https://quantlix.github.io/anycode/latest/reference/security/): Trust boundaries, enforced invariants, residual risk, and operator-owned controls.
 - [Built-in tools](https://quantlix.github.io/anycode/latest/reference/built-in-tools/): bash, file_read, file_write, file_edit, grep, list_files — parameters, defaults, limits.
 - [Configuration](https://quantlix.github.io/anycode/latest/reference/configuration/): OrchestratorConfig, AgentConfig, TeamConfig, RunnerOptions, and defaults.
-- [CLI reference](https://quantlix.github.io/anycode/latest/reference/cli/): `anycode init`, `run`, `inspect`, `eval`, and `runs` commands.
+- [CLI reference](https://quantlix.github.io/anycode/latest/reference/cli/): `anycode init`, `run`, `inspect`, `api`, `eval`, and `runs` commands.
 
 ## Source And Examples
 
 - [Repository](https://github.com/Quantlix/anycode): Source code.
 - [Documentation source](https://github.com/Quantlix/anycode/tree/main/site_docs): Markdown source for this site.
-- [Examples](https://github.com/Quantlix/anycode/tree/main/examples): 44 runnable example scripts, beginner to advanced.
+- [Examples](https://github.com/Quantlix/anycode/tree/main/examples): 48 runnable example scripts, beginner to advanced.
 - [README](https://github.com/Quantlix/anycode/blob/main/README.md): Project overview and package summary.
 
 ## Optional
@@ -82,6 +93,7 @@ Documentation is versioned; the links below point to the `latest` release alias.
 - [Contract test conventions](https://quantlix.github.io/anycode/latest/contributing/contract-tests/): Golden fixtures, state-machine properties, fault injection, and reusable conformance suites.
 - [Maintainer governance](https://quantlix.github.io/anycode/latest/contributing/maintainers/): Roles, approvals, compatibility, deprecations, support, and backports.
 - [Release process](https://quantlix.github.io/anycode/latest/contributing/releasing/): Version selection, TestPyPI, Trusted Publishing, verification, and recovery.
+- [Migrating to 0.10](https://quantlix.github.io/anycode/latest/contributing/migration-0.10/): Nothing is required; what is new and the one behavioral note.
 - [TypeScript service client](https://quantlix.github.io/anycode/latest/typescript/): Preview lifecycle, artifact, cancellation, and resumable-streaming client for Node.js and browsers.
 - [Documentation strategy](https://quantlix.github.io/anycode/latest/contributing/documentation-strategy/): Tooling rationale, SEO plan, and docs case studies.
 - [Changelog](https://github.com/Quantlix/anycode/blob/main/CHANGELOG.md): Release history.
