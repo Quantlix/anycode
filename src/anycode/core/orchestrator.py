@@ -32,8 +32,6 @@ from anycode.handoff.executor import HandoffExecutor
 from anycode.handoff.tool import HANDOFF_TOOL_DEF
 from anycode.helpers.usage_tracker import EMPTY_USAGE, merge_usage
 from anycode.hitl.approval import ApprovalManager
-from anycode.mcp.bridge import discover_and_register
-from anycode.mcp.client import MCPClient
 from anycode.memory.factory import create_vector_store
 from anycode.memory.indexer import RAGIndexer
 from anycode.memory.rag import RAGRetriever
@@ -209,6 +207,10 @@ class AnyCode:
         """Connect to all configured MCP servers and register their tools."""
         if not self._config.mcp_servers:
             return
+
+        # Imported here so building an orchestrator never loads the optional MCP SDK.
+        from anycode.mcp.bridge import discover_and_register
+        from anycode.mcp.client import MCPClient
 
         for server_config in self._config.mcp_servers:
             if server_config.name in self._mcp_clients:

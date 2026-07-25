@@ -10,7 +10,7 @@ import pytest
 from pydantic import BaseModel
 
 from anycode import AgentConfig, AnyCode
-from anycode.core import orchestrator as orchestrator_module
+from anycode.mcp import bridge as mcp_bridge_module
 from anycode.mcp import client as mcp_client_module
 from anycode.mcp.bridge import _build_tool_name, discover_and_register, mcp_tool_to_definition, schema_to_pydantic_model
 from anycode.mcp.client import MCPClient
@@ -308,8 +308,8 @@ class TestEngineMCPVisibility:
             registry.register(tool)
             return [tool.name]
 
-        monkeypatch.setattr(orchestrator_module, "MCPClient", MagicMock(return_value=client))
-        monkeypatch.setattr(orchestrator_module, "discover_and_register", register_tool)
+        monkeypatch.setattr(mcp_client_module, "MCPClient", MagicMock(return_value=client))
+        monkeypatch.setattr(mcp_bridge_module, "discover_and_register", register_tool)
 
         config = AgentConfig(name="configured", model="fake", provider="openai", tools=[], mcp_servers=["alpha"])
         engine = AnyCode(
@@ -339,9 +339,9 @@ class TestEngineMCPVisibility:
         client.connect = AsyncMock()
         client.disconnect = AsyncMock()
 
-        monkeypatch.setattr(orchestrator_module, "MCPClient", MagicMock(return_value=client))
+        monkeypatch.setattr(mcp_client_module, "MCPClient", MagicMock(return_value=client))
         monkeypatch.setattr(
-            orchestrator_module,
+            mcp_bridge_module,
             "discover_and_register",
             AsyncMock(side_effect=RuntimeError("discovery failed")),
         )
@@ -377,8 +377,8 @@ class TestEngineMCPVisibility:
             return [tool.name]
 
         attach = MagicMock(side_effect=[RuntimeError("attachment failed"), None])
-        monkeypatch.setattr(orchestrator_module, "MCPClient", MagicMock(return_value=client))
-        monkeypatch.setattr(orchestrator_module, "discover_and_register", register_tool)
+        monkeypatch.setattr(mcp_client_module, "MCPClient", MagicMock(return_value=client))
+        monkeypatch.setattr(mcp_bridge_module, "discover_and_register", register_tool)
 
         engine = AnyCode(
             {
@@ -407,9 +407,9 @@ class TestEngineMCPVisibility:
         client = MagicMock()
         client.connect = AsyncMock()
         client.disconnect = AsyncMock(side_effect=RuntimeError("cleanup failed"))
-        monkeypatch.setattr(orchestrator_module, "MCPClient", MagicMock(return_value=client))
+        monkeypatch.setattr(mcp_client_module, "MCPClient", MagicMock(return_value=client))
         monkeypatch.setattr(
-            orchestrator_module,
+            mcp_bridge_module,
             "discover_and_register",
             AsyncMock(side_effect=asyncio.CancelledError),
         )
