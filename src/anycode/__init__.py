@@ -200,6 +200,7 @@ _MODULE_EXPORTS: dict[str, tuple[str, ...]] = {
         "HostLifecycle",
         "build_deployment_agent_card",
     ),
+    "anycode.introspect": ("ApiEntry", "ApiMap", "CORE_SURFACE", "describe"),
     "anycode.identity": (
         "DelegationGrant",
         "ExecutionContext",
@@ -696,6 +697,7 @@ if TYPE_CHECKING:  # keeps every symbol statically resolvable for type checkers 
     from anycode.hitl.channels import CallbackApprovalGate, StdinApprovalGate, WebhookApprovalGate
     from anycode.hosting import A2A_AGENT_CARD_PATH, A2AAgentCard, HostLifecycle, build_deployment_agent_card
     from anycode.identity import DelegationGrant, ExecutionContext, PolicyEnforcer, PolicyRequest
+    from anycode.introspect import CORE_SURFACE, ApiEntry, ApiMap, describe
     from anycode.mcp.bridge import discover_and_register as mcp_discover_and_register
     from anycode.mcp.bridge import mcp_tool_to_definition, schema_to_pydantic_model
     from anycode.mcp.client import MCPClient
@@ -950,6 +952,10 @@ if TYPE_CHECKING:  # keeps every symbol statically resolvable for type checkers 
     from anycode.workflow import END, START, Command, CompiledWorkflow, Workflow, WorkflowError, WorkflowEvent, WorkflowResult
 
 __all__ = [
+    "describe",
+    "ApiEntry",
+    "ApiMap",
+    "CORE_SURFACE",
     "QUEUE_EVENT_TASK_READY",
     "QUEUE_EVENT_TASK_COMPLETE",
     "QUEUE_EVENT_TASK_FAILED",
